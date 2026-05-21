@@ -145,11 +145,15 @@ class CompetitionDetailPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildQuickInfoCard(
-                    context,
-                    icon: Icons.location_on_outlined,
-                    title: 'Location',
-                    subtitle: competition.location,
+                  Row(
+                    children: [
+                      _buildQuickInfoCard(
+                        context,
+                        icon: Icons.location_on_outlined,
+                        title: 'Location',
+                        subtitle: competition.location,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
 
