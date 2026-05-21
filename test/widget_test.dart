@@ -95,7 +95,7 @@ void main() {
     // Verify title and header logo elements exist
     expect(find.textContaining('Competitions'), findsAtLeast(1));
     expect(
-      find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == 'Search meets globally...'),
+      find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == 'Search competitions globally...'),
       findsOneWidget,
     );
 
@@ -106,6 +106,12 @@ void main() {
     // Verify modern/classic badge details
     expect(find.text('MODERN'), findsOneWidget);
     expect(find.text('CLASSIC'), findsOneWidget);
+
+    // Expand the Format section
+    final formatHeader = find.text('FORMAT');
+    expect(formatHeader, findsOneWidget);
+    await tester.tap(formatHeader);
+    await tester.pumpAndSettle();
 
     // Filter by Modern subtype
     // Tap on the 'Modern' checkbox filter in the sidebar

@@ -29,7 +29,6 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
   final TextEditingController _endDateController = TextEditingController();
   final FocusNode _startFocusNode = FocusNode();
   final FocusNode _endFocusNode = FocusNode();
-  String _drawerType = 'navigation'; // 'navigation' or 'filters'
 
   @override
   void initState() {
@@ -138,7 +137,8 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: theme.colorScheme.surface,
-      drawer: _buildDrawer(context, provider, theme),
+      drawer: _buildNavigationDrawer(context, provider, theme),
+      endDrawer: _buildFiltersDrawer(context, provider, theme),
       bottomNavigationBar: !isDesktop
           ? BottomNavigationBar(
               currentIndex: provider.activeTab,
@@ -148,7 +148,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.explore),
-                  label: 'Feed',
+                  label: 'Competitions',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.map),
@@ -203,9 +203,6 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             IconButton(
               icon: const Icon(Icons.menu),
               onPressed: () {
-                setState(() {
-                  _drawerType = 'navigation';
-                });
                 _scaffoldKey.currentState?.openDrawer();
               },
             ),
@@ -273,9 +270,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildSubNavButton(
-            label: 'Competitions Feed',
+            label: 'Competitions',
             isActive: provider.activeTab == 0,
             onPressed: () => provider.setActiveTab(0),
             theme: theme,
@@ -301,163 +299,151 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     return TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? const Color(0xFFE94E1B) : theme.colorScheme.onSurfaceVariant,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              fontSize: 15,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            height: 2,
-            width: 40,
-            color: isActive ? const Color(0xFFE94E1B) : Colors.transparent,
-          ),
-        ],
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isActive ? const Color(0xFFE94E1B) : theme.colorScheme.onSurfaceVariant,
+          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+          fontSize: 15,
+        ),
       ),
     );
   }
 
-  Widget _buildDrawer(BuildContext context, CompetitionProvider provider, ThemeData theme) {
-    if (_drawerType == 'filters') {
-      return Drawer(
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Filters',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
+  Widget _buildNavigationDrawer(BuildContext context, CompetitionProvider provider, ThemeData theme) {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: SvgPicture.asset(
+                'assets/finalrep_icon.svg',
+                height: 32,
+                colorFilter: const ColorFilter.mode(
+                  Color(0xFFE94E1B),
+                  BlendMode.srcIn,
                 ),
               ),
-              const Divider(height: 1),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: _buildFilterContent(context, provider, theme, isDesktop: false),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(Icons.explore, color: provider.activeTab == 0 ? const Color(0xFFE94E1B) : null),
+              title: Text(
+                'Competitions',
+                style: TextStyle(
+                  fontWeight: provider.activeTab == 0 ? FontWeight.bold : FontWeight.normal,
+                  color: provider.activeTab == 0 ? const Color(0xFFE94E1B) : null,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          provider.clearFilters();
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Reset All'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: theme.colorScheme.onPrimary,
-                        ),
-                        child: const Text('Apply'),
-                      ),
-                    ),
-                  ],
+              onTap: () {
+                provider.setActiveTab(0);
+                Navigator.of(context).pop();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.map, color: provider.activeTab == 1 ? const Color(0xFFE94E1B) : null),
+              title: Text(
+                'World Map',
+                style: TextStyle(
+                  fontWeight: provider.activeTab == 1 ? FontWeight.bold : FontWeight.normal,
+                  color: provider.activeTab == 1 ? const Color(0xFFE94E1B) : null,
                 ),
               ),
-            ],
-          ),
+              onTap: () {
+                provider.setActiveTab(1);
+                Navigator.of(context).pop();
+              },
+            ),
+            const Spacer(),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Theme Mode'),
+                  IconButton(
+                    icon: Icon(
+                      theme.brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode,
+                    ),
+                    onPressed: () {
+                      widget.onToggleTheme();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      );
-    } else {
-      // Navigation drawer
-      return Drawer(
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: SvgPicture.asset(
-                  'assets/finalrep_icon.svg',
-                  height: 32,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFFE94E1B),
-                    BlendMode.srcIn,
+      ),
+    );
+  }
+
+  Widget _buildFiltersDrawer(BuildContext context, CompetitionProvider provider, ThemeData theme) {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Filters',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: Icon(Icons.explore, color: provider.activeTab == 0 ? const Color(0xFFE94E1B) : null),
-                title: Text(
-                  'Feed',
-                  style: TextStyle(
-                    fontWeight: provider.activeTab == 0 ? FontWeight.bold : FontWeight.normal,
-                    color: provider.activeTab == 0 ? const Color(0xFFE94E1B) : null,
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                ),
-                onTap: () {
-                  provider.setActiveTab(0);
-                  Navigator.of(context).pop();
-                },
+                ],
               ),
-              ListTile(
-                leading: Icon(Icons.map, color: provider.activeTab == 1 ? const Color(0xFFE94E1B) : null),
-                title: Text(
-                  'World Map',
-                  style: TextStyle(
-                    fontWeight: provider.activeTab == 1 ? FontWeight.bold : FontWeight.normal,
-                    color: provider.activeTab == 1 ? const Color(0xFFE94E1B) : null,
-                  ),
-                ),
-                onTap: () {
-                  provider.setActiveTab(1);
-                  Navigator.of(context).pop();
-                },
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                child: _buildFilterContent(context, provider, theme, isDesktop: false),
               ),
-              const Spacer(),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Theme Mode'),
-                    IconButton(
-                      icon: Icon(
-                        theme.brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode,
-                      ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
                       onPressed: () {
-                        widget.onToggleTheme();
+                        provider.clearFilters();
+                        Navigator.of(context).pop();
                       },
+                      child: const Text('Reset All'),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                      ),
+                      child: const Text('Apply'),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    }
+      ),
+    );
   }
 
   Widget _buildFilterContent(BuildContext context, CompetitionProvider provider, ThemeData theme, {bool isDesktop = false}) {
@@ -738,7 +724,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
   ) {
     if (isDesktop) {
       return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Left Sidebar (always visible on desktop)
           Container(
@@ -752,8 +738,26 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                 ),
               ),
             ),
-            child: SingleChildScrollView(
-              child: _buildFilterContent(context, provider, theme, isDesktop: true),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                  child: Text(
+                    'Filters',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: _buildFilterContent(context, provider, theme, isDesktop: true),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -801,7 +805,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             child: Text(
               isDesktop
                   ? '${provider.competitions.length} Upcoming Competitions'
-                  : '${provider.competitions.length} events',
+                  : '${provider.competitions.length} competitions',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,
@@ -816,68 +820,62 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               if (!isDesktop) ...[
                 // Filter Drawer toggle on mobile
                 IconButton(
-                  icon: const Icon(Icons.filter_list),
+                  icon: Icon(
+                    Icons.filter_list,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   tooltip: 'Filters',
                   onPressed: () {
-                    setState(() {
-                      _drawerType = 'filters';
-                    });
-                    _scaffoldKey.currentState?.openDrawer();
+                    _scaffoldKey.currentState?.openEndDrawer();
                   },
                 ),
                 const SizedBox(width: 8),
               ],
 
-              // Sorting Dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.brightness == Brightness.dark
-                      ? const Color(0xFF1E1715)
-                      : const Color(0xFFF3EDEB),
-                  borderRadius: BorderRadius.circular(20),
+              // Sorting Button (Popup Menu)
+              PopupMenuButton<String>(
+                iconColor: theme.colorScheme.onSurfaceVariant,
+                icon: Icon(
+                  Icons.sort,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: provider.sortOrder,
-                    icon: const Icon(Icons.arrow_drop_down, size: 16),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'date_asc',
-                        child: Text('Date: Asc'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'date_desc',
-                        child: Text('Date: Desc'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'name_asc',
-                        child: Text('Name: A-Z'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'name_desc',
-                        child: Text('Name: Z-A'),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        provider.setSortOrder(val);
-                      }
-                    },
+                tooltip: 'Sort options',
+                onSelected: (val) {
+                  provider.setSortOrder(val);
+                },
+                itemBuilder: (BuildContext context) => [
+                  CheckedPopupMenuItem<String>(
+                    value: 'date_asc',
+                    checked: provider.sortOrder == 'date_asc',
+                    child: const Text('Date: Asc'),
                   ),
-                ),
+                  CheckedPopupMenuItem<String>(
+                    value: 'date_desc',
+                    checked: provider.sortOrder == 'date_desc',
+                    child: const Text('Date: Desc'),
+                  ),
+                  CheckedPopupMenuItem<String>(
+                    value: 'name_asc',
+                    checked: provider.sortOrder == 'name_asc',
+                    child: const Text('Name: A-Z'),
+                  ),
+                  CheckedPopupMenuItem<String>(
+                    value: 'name_desc',
+                    checked: provider.sortOrder == 'name_desc',
+                    child: const Text('Name: Z-A'),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
 
               // Layout Toggle (Card vs Compact)
               IconButton(
                 icon: Icon(
                   provider.isCompactLayout ? Icons.grid_view : Icons.view_list,
                   size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
                 tooltip: provider.isCompactLayout ? 'Card Layout' : 'Compact Layout',
                 onPressed: () => provider.setIsCompactLayout(!provider.isCompactLayout),
@@ -1179,7 +1177,7 @@ class CollapsibleFilterSection extends StatefulWidget {
     super.key,
     required this.title,
     required this.child,
-    this.isInitiallyExpanded = true,
+    this.isInitiallyExpanded = false,
   });
 
   @override
@@ -1389,7 +1387,7 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
         decoration: InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          hintText: 'Search meets globally...',
+          hintText: 'Search competitions globally...',
           prefixIcon: Icon(Icons.search, size: 20, color: theme.colorScheme.primary),
           suffixIcon: _controller.text.isNotEmpty
               ? GestureDetector(

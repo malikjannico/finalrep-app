@@ -23,6 +23,7 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -121,80 +122,128 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                         ),
                       ],
                     ),
+                    if (isMobile) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          // Format Badge (Classic / Modern)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: widget.competition.isModern
+                                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
+                                  : theme.colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              widget.competition.sportSubtype.toUpperCase(),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: widget.competition.isModern
+                                    ? theme.colorScheme.onPrimaryContainer
+                                    : theme.colorScheme.onTertiaryContainer,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          // Disciplines indicators (abbreviated)
+                          Wrap(
+                            spacing: 4,
+                            children: widget.competition.disciplines.map((d) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  _abbreviateDiscipline(d),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(width: 16),
 
-              // Group Badge (Desktop/Tablet)
-              if (MediaQuery.of(context).size.width >= 600) ...[
+              // Badges on Desktop/Tablet
+              if (!isMobile) ...[
+                // Group Badge (Desktop/Tablet)
+                if (widget.competition.isPartOfGroup) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      widget.competition.compGroupName!.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSecondaryContainer,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+
+                // Format Badge (Classic / Modern)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: widget.competition.isPartOfGroup
-                        ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.6)
-                        : theme.colorScheme.surfaceContainerHighest,
+                    color: widget.competition.isModern
+                      ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
+                      : theme.colorScheme.tertiaryContainer.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    widget.competition.isPartOfGroup
-                        ? widget.competition.compGroupName!.toUpperCase()
-                        : 'INDIVIDUAL',
+                    widget.competition.sportSubtype.toUpperCase(),
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: widget.competition.isPartOfGroup
-                          ? theme.colorScheme.onSecondaryContainer
-                          : theme.colorScheme.onSurfaceVariant,
+                      color: widget.competition.isModern
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onTertiaryContainer,
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-              ],
+                const SizedBox(width: 16),
 
-              // Format Badge (Classic / Modern)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: widget.competition.isModern
-                      ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
-                      : theme.colorScheme.tertiaryContainer.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  widget.competition.sportSubtype.toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: widget.competition.isModern
-                        ? theme.colorScheme.onPrimaryContainer
-                        : theme.colorScheme.onTertiaryContainer,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // Disciplines indicators (abbreviated)
-              Wrap(
-                spacing: 4,
-                children: widget.competition.disciplines.map((d) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      _abbreviateDiscipline(d),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
+                // Disciplines indicators (abbreviated)
+                Wrap(
+                  spacing: 4,
+                  children: widget.competition.disciplines.map((d) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
+                      child: Text(
+                        _abbreviateDiscipline(d),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
 
               const SizedBox(width: 8),
               Icon(

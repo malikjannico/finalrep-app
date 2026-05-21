@@ -1,7 +1,9 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'dart:math' as math;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/competition.dart';
 import '../providers/competition_provider.dart';
 import 'competition_detail_page.dart';
@@ -16,7 +18,6 @@ class WorldMapView extends StatefulWidget {
 class _WorldMapViewState extends State<WorldMapView> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   Competition? _selectedCompetition;
-  Offset? _selectedOffset;
 
   @override
   void initState() {
@@ -33,40 +34,6 @@ class _WorldMapViewState extends State<WorldMapView> with SingleTickerProviderSt
     super.dispose();
   }
 
-  Offset _getOffset(double lat, double lon, Size size) {
-    // Equirectangular projection mapping to canvas
-    // Longitude: -180 to 180
-    final double x = (lon + 180) * (size.width) / 360;
-
-    // Latitude: zoom on populated regions (-50 to 72 latitude)
-    const double minLat = -50.0;
-    const double maxLat = 72.0;
-    final double y = (maxLat - lat) * (size.height) / (maxLat - minLat);
-    return Offset(x, y);
-  }
-
-  void _onTapUp(TapUpDetails details, Size size, List<Competition> competitions) {
-    const double tapRadius = 24.0;
-    Competition? closestComp;
-    double closestDist = double.infinity;
-    Offset? closestOffset;
-
-    for (final comp in competitions) {
-      final offset = _getOffset(comp.latitude, comp.longitude, size);
-      final dist = (details.localPosition - offset).distance;
-      if (dist < tapRadius && dist < closestDist) {
-        closestDist = dist;
-        closestComp = comp;
-        closestOffset = offset;
-      }
-    }
-
-    setState(() {
-      _selectedCompetition = closestComp;
-      _selectedOffset = closestOffset;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -74,427 +41,403 @@ class _WorldMapViewState extends State<WorldMapView> with SingleTickerProviderSt
     final provider = Provider.of<CompetitionProvider>(context);
     final competitions = provider.competitions.where((c) => c.latitude != 0.0 || c.longitude != 0.0).toList();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = Size(constraints.maxWidth, max(320.0, constraints.maxHeight - 80));
-
-        return Center(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // Map Title & Description
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: Column(
-                    children: [
-                      Text(
-                        'COMPETITIONS MAP',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Interactive view of upcoming Streetlifting meets globally.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+    return Column(
+      children: [
+        // Map Title & Description
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Column(
+            children: [
+              Text(
+                'COMPETITIONS MAP',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                  color: theme.colorScheme.primary,
                 ),
-                
-                // Map Container
-                Container(
-                  width: size.width,
-                  height: size.height,
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F0B0A) : const Color(0xFFFAF6F4),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.shadow.withValues(alpha: isDark ? 0.2 : 0.05),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Stack(
-                      children: [
-                        // Map Painter
-                        GestureDetector(
-                          onTapUp: (details) => _onTapUp(details, size, competitions),
-                          child: AnimatedBuilder(
-                            animation: _pulseController,
-                            builder: (context, child) {
-                              return CustomPaint(
-                                size: size,
-                                painter: WorldMapPainter(
-                                  competitions: competitions,
-                                  isDark: isDark,
-                                  theme: theme,
-                                  pulseValue: _pulseController.value,
-                                  selectedCompetition: _selectedCompetition,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Interactive view of upcoming Streetlifting meets globally.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        
+        // Map Container (Expanded so it fits the remaining vertical space without scrolling)
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F0B0A) : const Color(0xFFFAF6F4),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.shadow.withValues(alpha: isDark ? 0.2 : 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final height = constraints.maxHeight;
+
+                  // Calculate min zoom required to contain the world map (-180 to 180 lon, -85 to 85 lat) without showing borders.
+                  // Width of map at zoom Z is 256 * 2^Z. We want 256 * 2^Z >= width => Z >= log2(width / 256).
+                  // Height of map at zoom Z is 256 * 2^Z. We want 256 * 2^Z >= height => Z >= log2(height / 256).
+                  // If constraints are not set or zero (e.g. initial layout pass), fallback to 1.8.
+                  double calculatedMinZoom = 1.8;
+                  if (width > 0 && height > 0) {
+                    final minZoomX = math.log(width / 256) / math.log(2);
+                    final minZoomY = math.log(height / 256) / math.log(2);
+                    calculatedMinZoom = math.max(1.8, math.max(minZoomX, minZoomY));
+                  }
+
+                  return Stack(
+                    children: [
+                      FlutterMap(
+                        options: MapOptions(
+                          initialCenter: const LatLng(30.0, 0.0),
+                          initialZoom: calculatedMinZoom,
+                          minZoom: calculatedMinZoom,
+                          maxZoom: 18.0,
+                          backgroundColor: isDark ? const Color(0xFF0F0B0A) : const Color(0xFFFAF6F4),
+                          cameraConstraint: SafeContainCameraConstraint(
+                            bounds: LatLngBounds(
+                              const LatLng(-85.0, -180.0),
+                              const LatLng(85.0, 180.0),
+                            ),
+                          ),
+                          onTap: (tapPosition, point) {
+                            setState(() {
+                              _selectedCompetition = null;
+                            });
+                          },
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: isDark
+                                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                                : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                            subdomains: const ['a', 'b', 'c', 'd'],
+                            userAgentPackageName: 'com.finalrep.app',
+                          ),
+                          MarkerLayer(
+                            markers: competitions.map((comp) {
+                              return Marker(
+                                point: LatLng(comp.latitude, comp.longitude),
+                                width: 60,
+                                height: 60,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedCompetition = comp;
+                                    });
+                                  },
+                                  child: AnimatedBuilder(
+                                    animation: _pulseController,
+                                    builder: (context, child) {
+                                      final isSelected = _selectedCompetition?.id == comp.id;
+                                      return Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          // Outer pulsing ring
+                                          Container(
+                                            width: 12 + _pulseController.value * 28,
+                                            height: 12 + _pulseController.value * 28,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: theme.colorScheme.primary.withValues(
+                                                  alpha: (1.0 - _pulseController.value) * 0.6,
+                                                ),
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isSelected)
+                                            // Selected state extra ring
+                                            Container(
+                                              width: 24,
+                                              height: 24,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                                              ),
+                                            ),
+                                          // Inner pin dot
+                                          Container(
+                                            width: isSelected ? 12 : 8,
+                                            height: isSelected ? 12 : 8,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: theme.colorScheme.primary,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 1.5,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.3),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
                                 ),
                               );
-                            },
+                            }).toList(),
                           ),
-                        ),
+                        ],
+                      ),
 
-                        // Popover Details Card
-                        if (_selectedCompetition != null && _selectedOffset != null)
-                          Positioned(
-                            left: max(16.0, min(_selectedOffset!.dx - 140.0, size.width - 296.0)),
-                            top: _selectedOffset!.dy < size.height / 2 
-                                ? _selectedOffset!.dy + 24.0 
-                                : _selectedOffset!.dy - 170.0,
-                            child: Container(
-                              width: 280,
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surface.withValues(alpha: 0.95),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: theme.colorScheme.primary,
-                                  width: 1.5,
+                      // Floating details card at the bottom of the map Stack
+                      if (_selectedCompetition != null)
+                        Positioned(
+                          bottom: 16,
+                          left: 16,
+                          right: 16,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 400),
+                              child: Card(
+                                margin: EdgeInsets.zero,
+                                elevation: 8,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: BorderSide(
+                                    color: theme.colorScheme.primary,
+                                    width: 1.5,
+                                  ),
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 6),
-                                  )
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                color: theme.colorScheme.surface.withValues(alpha: 0.95),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          _selectedCompetition!.title,
-                                          style: theme.textTheme.titleSmall?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            _selectedCompetition = null;
-                                            _selectedOffset = null;
-                                          });
-                                        },
-                                        child: const Icon(Icons.close, size: 16),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.location_on_outlined, size: 14, color: theme.colorScheme.primary),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          _selectedCompetition!.location,
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: theme.colorScheme.onSurfaceVariant,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.calendar_month_outlined, size: 14, color: theme.colorScheme.primary),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        DateFormat('MMM dd, yyyy').format(_selectedCompetition!.startDate),
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: _selectedCompetition!.isModern
-                                              ? theme.colorScheme.primaryContainer
-                                              : theme.colorScheme.tertiaryContainer,
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          _selectedCompetition!.sportSubtype.toUpperCase(),
-                                          style: theme.textTheme.labelSmall?.copyWith(
-                                            color: _selectedCompetition!.isModern
-                                                ? theme.colorScheme.onPrimaryContainer
-                                                : theme.colorScheme.onTertiaryContainer,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 9,
-                                          ),
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) => CompetitionDetailPage(
-                                                competition: _selectedCompetition!,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        style: TextButton.styleFrom(
-                                          padding: EdgeInsets.zero,
-                                          minimumSize: Size.zero,
-                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'Details',
-                                              style: TextStyle(
-                                                color: theme.colorScheme.primary,
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              _selectedCompetition!.title,
+                                              style: theme.textTheme.titleSmall?.copyWith(
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: 12,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                _selectedCompetition = null;
+                                              });
+                                            },
+                                            child: const Icon(Icons.close, size: 16),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.location_on_outlined, size: 14, color: theme.colorScheme.primary),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              _selectedCompetition!.location,
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                color: theme.colorScheme.onSurfaceVariant,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.calendar_month_outlined, size: 14, color: theme.colorScheme.primary),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            DateFormat('MMM dd, yyyy').format(_selectedCompetition!.startDate),
+                                            style: theme.textTheme.bodySmall?.copyWith(
+                                              color: theme.colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: _selectedCompetition!.isModern
+                                                  ? theme.colorScheme.primaryContainer
+                                                  : theme.colorScheme.tertiaryContainer,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              _selectedCompetition!.sportSubtype.toUpperCase(),
+                                              style: theme.textTheme.labelSmall?.copyWith(
+                                                color: _selectedCompetition!.isModern
+                                                    ? theme.colorScheme.onPrimaryContainer
+                                                    : theme.colorScheme.onTertiaryContainer,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 9,
                                               ),
                                             ),
-                                            const SizedBox(width: 2),
-                                            Icon(Icons.chevron_right, size: 14, color: theme.colorScheme.primary),
-                                          ],
-                                        ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => CompetitionDetailPage(
+                                                    competition: _selectedCompetition!,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  'Details',
+                                                  style: TextStyle(
+                                                    color: theme.colorScheme.primary,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                    height: 1.0,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Icon(Icons.chevron_right, size: 14, color: theme.colorScheme.primary),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-              ],
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
 
-class WorldMapPainter extends CustomPainter {
-  final List<Competition> competitions;
-  final bool isDark;
-  final ThemeData theme;
-  final double pulseValue;
-  final Competition? selectedCompetition;
+class SafeContainCameraConstraint extends CameraConstraint {
+  final LatLngBounds bounds;
 
-  WorldMapPainter({
-    required this.competitions,
-    required this.isDark,
-    required this.theme,
-    required this.pulseValue,
-    this.selectedCompetition,
-  });
+  const SafeContainCameraConstraint({required this.bounds});
 
-  Offset _getOffset(double lat, double lon, Size size) {
-    final double x = (lon + 180) * (size.width) / 360;
-    const double minLat = -50.0;
-    const double maxLat = 72.0;
-    final double y = (maxLat - lat) * (size.height) / (maxLat - minLat);
-    return Offset(x, y);
+  @override
+  MapCamera constrain(MapCamera camera) {
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize ||
+        camera.nonRotatedSize.width <= 0 ||
+        camera.nonRotatedSize.height <= 0) {
+      return camera;
+    }
+
+    // Detect if we are called from MapController's option setter or during widget updates.
+    // In these cases, return the camera unmodified to prevent the assertion failure:
+    // "MapCamera is no longer within the cameraConstraint after an option change."
+    final stack = StackTrace.current.toString();
+    if (stack.contains('setOptions') ||
+        stack.contains('didUpdateWidget')) {
+      return camera;
+    }
+
+    final testZoom = camera.zoom;
+    final testCenter = camera.center;
+
+    final nePixel = camera.projectAtZoom(bounds.northEast, testZoom);
+    final swPixel = camera.projectAtZoom(bounds.southWest, testZoom);
+
+    final halfSize = camera.size / 2;
+
+    final leftOkCenter = math.min(swPixel.dx, nePixel.dx) + halfSize.width;
+    final rightOkCenter = math.max(swPixel.dx, nePixel.dx) - halfSize.width;
+    final topOkCenter = math.min(swPixel.dy, nePixel.dy) + halfSize.height;
+    final bottomOkCenter = math.max(swPixel.dy, nePixel.dy) - halfSize.height;
+
+    final centerPix = camera.projectAtZoom(testCenter, testZoom);
+
+    double targetX = centerPix.dx;
+    if (leftOkCenter <= rightOkCenter) {
+      targetX = centerPix.dx.clamp(leftOkCenter, rightOkCenter);
+    } else {
+      // Screen is wider than the map bounds at this zoom level. Center horizontally.
+      targetX = (swPixel.dx + nePixel.dx) / 2;
+    }
+
+    double targetY = centerPix.dy;
+    if (topOkCenter <= bottomOkCenter) {
+      targetY = centerPix.dy.clamp(topOkCenter, bottomOkCenter);
+    } else {
+      // Screen is taller than the map bounds at this zoom level. Center vertically.
+      targetY = (swPixel.dy + nePixel.dy) / 2;
+    }
+
+    final newCenterPix = Offset(targetX, targetY);
+
+    if (newCenterPix == centerPix) return camera;
+
+    // Use a small tolerance for floating point errors to avoid creating a new camera
+    // when coordinates are visually identical.
+    final dxDiff = (newCenterPix.dx - centerPix.dx).abs();
+    final dyDiff = (newCenterPix.dy - centerPix.dy).abs();
+    if (dxDiff < 1e-3 && dyDiff < 1e-3) {
+      return camera;
+    }
+
+    return camera.withPosition(
+      center: camera.unprojectAtZoom(newCenterPix, testZoom),
+    );
   }
 
   @override
-  void paint(Canvas canvas, Size size) {
-    // 1. Draw Grid Lines
-    final gridPaint = Paint()
-      ..color = isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03)
-      ..strokeWidth = 1.0;
-
-    // Draw Longitudes (vertical)
-    for (double lon = -150; lon <= 150; lon += 30) {
-      final p1 = _getOffset(72, lon, size);
-      final p2 = _getOffset(-50, lon, size);
-      canvas.drawLine(p1, p2, gridPaint);
-    }
-    // Draw Latitudes (horizontal)
-    for (double lat = -40; lat <= 60; lat += 20) {
-      final p1 = _getOffset(lat, -180, size);
-      final p2 = _getOffset(lat, 180, size);
-      canvas.drawLine(p1, p2, gridPaint);
-    }
-
-    // 2. Continent Polygons
-    final Map<String, List<Offset>> continentPoints = {
-      'NorthAmerica': [
-        const Offset(-168, 65),
-        const Offset(-120, 70),
-        const Offset(-60, 80),
-        const Offset(-55, 60),
-        const Offset(-85, 45),
-        const Offset(-50, 48),
-        const Offset(-80, 25),
-        const Offset(-100, 15),
-        const Offset(-105, 20),
-        const Offset(-125, 32),
-        const Offset(-125, 48),
-      ],
-      'SouthAmerica': [
-        const Offset(-80, 10),
-        const Offset(-40, -5),
-        const Offset(-35, -5),
-        const Offset(-45, -22),
-        const Offset(-70, -55),
-        const Offset(-75, -50),
-        const Offset(-70, -20),
-        const Offset(-80, -5),
-      ],
-      'Greenland': [
-        const Offset(-73, 78),
-        const Offset(-60, 83),
-        const Offset(-10, 81),
-        const Offset(-40, 60),
-      ],
-      'Africa': [
-        const Offset(-17, 32),
-        const Offset(10, 37),
-        const Offset(32, 31),
-        const Offset(51, 11),
-        const Offset(40, -34),
-        const Offset(20, -34),
-        const Offset(9, 4),
-      ],
-      'Eurasia': [
-        const Offset(-9, 38), // Spain
-        const Offset(12, 65), // Scandinavia
-        const Offset(25, 71),
-        const Offset(60, 73), // Siberia
-        const Offset(100, 77),
-        const Offset(170, 66), // Bering strait
-        const Offset(140, 50),
-        const Offset(130, 35), // China
-        const Offset(120, 20),
-        const Offset(110, 10), // Indochina
-        const Offset(95, 10),
-        const Offset(90, 22), // India
-        const Offset(70, 8),
-        const Offset(60, 25), // Middle East
-        const Offset(48, 12),
-        const Offset(34, 30),
-        const Offset(26, 40), // Greece/Italy
-      ],
-      'Australia': [
-        const Offset(113, -22),
-        const Offset(136, -12),
-        const Offset(143, -10),
-        const Offset(153, -28),
-        const Offset(140, -38),
-        const Offset(115, -35),
-      ],
-      'Japan': [
-        const Offset(130, 32),
-        const Offset(133, 35),
-        const Offset(138, 35),
-        const Offset(142, 43),
-        const Offset(140, 38),
-      ],
-      'UnitedKingdom': [
-        const Offset(-8, 50),
-        const Offset(-2, 58),
-        const Offset(2, 51),
-      ]
-    };
-
-    final continentPaint = Paint()
-      ..color = isDark ? const Color(0xFF221815) : const Color(0xFFEFE8E5)
-      ..style = PaintingStyle.fill;
-
-    final borderPaint = Paint()
-      ..color = isDark ? const Color(0xFF382A25) : const Color(0xFFDFD4D0)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    continentPoints.forEach((name, points) {
-      final path = Path();
-      final start = _getOffset(points[0].dy, points[0].dx, size);
-      path.moveTo(start.dx, start.dy);
-
-      for (int i = 1; i < points.length; i++) {
-        final p = _getOffset(points[i].dy, points[i].dx, size);
-        path.lineTo(p.dx, p.dy);
-      }
-      path.close();
-
-      canvas.drawPath(path, continentPaint);
-      canvas.drawPath(path, borderPaint);
-    });
-
-    // 3. Draw Pins & Pulsing Rings for Competitions
-    final markerPaint = Paint()
-      ..color = theme.colorScheme.primary
-      ..style = PaintingStyle.fill;
-
-    final markerBorderPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    for (final comp in competitions) {
-      final offset = _getOffset(comp.latitude, comp.longitude, size);
-      final isSelected = selectedCompetition?.id == comp.id;
-
-      // Draw pulsing ring (multiple ripples)
-      final pulsePaint = Paint()
-        ..color = theme.colorScheme.primary.withValues(alpha: (1 - pulseValue) * 0.4)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-      
-      canvas.drawCircle(offset, 4.0 + pulseValue * 16.0, pulsePaint);
-      
-      if (isSelected) {
-        // Draw larger ring for selected marker
-        final selectedPaint = Paint()
-          ..color = theme.colorScheme.primary.withValues(alpha: 0.3)
-          ..style = PaintingStyle.fill;
-        canvas.drawCircle(offset, 14.0, selectedPaint);
-      }
-
-      // Draw the core pin dot
-      canvas.drawCircle(offset, isSelected ? 7.0 : 5.0, markerPaint);
-      canvas.drawCircle(offset, isSelected ? 7.0 : 5.0, markerBorderPaint);
-    }
+  bool operator ==(Object other) {
+    return other is SafeContainCameraConstraint && other.bounds == bounds;
   }
 
   @override
-  bool shouldRepaint(covariant WorldMapPainter oldDelegate) {
-    return oldDelegate.pulseValue != pulseValue || 
-           oldDelegate.selectedCompetition != selectedCompetition ||
-           oldDelegate.competitions.length != competitions.length;
-  }
+  int get hashCode => bounds.hashCode;
 }

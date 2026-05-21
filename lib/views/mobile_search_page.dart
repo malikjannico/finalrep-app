@@ -112,7 +112,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Search FinalRep Meets',
+                    'Search Competitions',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.onSurfaceVariant,

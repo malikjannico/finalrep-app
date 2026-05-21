@@ -21,7 +21,7 @@ class CompetitionProvider extends ChangeNotifier {
   int _activeTab = 0; // 0 = Feed, 1 = Map
   bool _isCompactLayout = false;
   String _sortOrder = 'date_asc'; // 'date_asc', 'date_desc', 'name_asc', 'name_desc'
-  final Set<String> _selectedSports = {'Streetlifting'};
+  final Set<String> _selectedSports = {};
 
   bool _isLoading = false;
   List<Competition> _allCompetitions = [];
@@ -305,7 +305,9 @@ class CompetitionProvider extends ChangeNotifier {
     }
 
     // 8. Sport Filter
-    temp = temp.where((c) => _selectedSports.contains(c.sportType)).toList();
+    if (_selectedSports.isNotEmpty) {
+      temp = temp.where((c) => _selectedSports.contains(c.sportType)).toList();
+    }
 
     // 9. Sorting
     if (_sortOrder == 'date_asc') {
@@ -330,7 +332,6 @@ class CompetitionProvider extends ChangeNotifier {
     _selectedCities.clear();
     _selectedDateRange = null;
     _selectedSports.clear();
-    _selectedSports.add('Streetlifting');
     _sortOrder = 'date_asc';
     _applyFilters();
     notifyListeners();
