@@ -9,6 +9,10 @@ class Competition {
   final String sportSubtype; // 'Modern' or 'Classic'
   final String? compGroupName; // 'FinalRep Underground', 'FinalRep Qualifier', 'FinalRep Final', or null
   final String status; // 'upcoming', 'ongoing', 'completed'
+  final String? area;
+  final String? country;
+  final String? city;
+  final String? titleImageUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,6 +27,10 @@ class Competition {
     required this.sportSubtype,
     this.compGroupName,
     this.status = 'upcoming',
+    this.area,
+    this.country,
+    this.city,
+    this.titleImageUrl,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -39,6 +47,10 @@ class Competition {
       sportSubtype: json['sport_subtype'] as String,
       compGroupName: json['comp_group_name'] as String?,
       status: json['status'] as String? ?? 'upcoming',
+      area: json['area'] as String?,
+      country: json['country'] as String?,
+      city: json['city'] as String?,
+      titleImageUrl: json['title_image_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
     );
@@ -56,6 +68,10 @@ class Competition {
       'sport_subtype': sportSubtype,
       'comp_group_name': compGroupName,
       'status': status,
+      'area': area,
+      'country': country,
+      'city': city,
+      'title_image_url': titleImageUrl,
       'created_at': createdAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
     };

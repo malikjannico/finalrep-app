@@ -54,6 +54,7 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      themeAnimationDuration: Duration.zero,
       home: SearchFeedPage(
         onToggleTheme: _toggleTheme,
         isDarkMode: _isDarkMode,

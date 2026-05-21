@@ -16,26 +16,40 @@ The platform is designed to promote Streetlifting from grassroots local meets up
 ---
 
 ## 3. Core Features (MVP)
-- **Responsive Search Feed:** A premium dashboard that scales dynamically across Desktop (3-column grid), Tablet (2-column grid), and Mobile (1-column list).
-- **Guest Access:** All upcoming competitions must be searchable and viewable without user login or authentication.
-- **Dynamic Search & Filtering:**
-  - Full-text search matching competition title or location.
-  - Filter by Streetlifting Subtype: **Modern** or **Classic**.
+- **Responsive Search Feed & Header**:
+  - A premium dashboard that scales dynamically across Desktop (3-column grid), Tablet (2-column grid), and Mobile (1-column list).
+  - Main page title "Competitions" displayed directly above the search results feed.
+- **Top Header Bar**:
+  - Contains the official FinalRep logo or icon, styled in brand color `#E94E1B`.
+  - Integrates the global search bar directly in the header.
+  - Features a Navigation Bar with "Competitions" as an active navigation element.
+  - Zero-animation fast theme toggle (light/dark mode switch operates immediately without animation transitions).
+- **Guest Access**: All upcoming competitions must be searchable and viewable without user login or authentication.
+- **Dynamic Search & Filtering**:
+  - Full-text search matching competition title or location (real-time in header).
+  - Filter by Streetlifting Subtype: **Modern** or **Classic** (via format dropdown).
   - Filter by Competition Group: **FinalRep Underground**, **FinalRep Qualifier**, **FinalRep Final**, or **Individual** (independent meets).
-- **Event Detail & Card Layout:**
-  - Clear labeling of disciplines (MU, PU, DP, SQ) based on the format.
-  - Highlighting of the associated Competition Group (if any).
-  - Dynamic visual interaction (hover glow, movement offsets, responsive color themes).
-  - Direct details overlay summarizing competition schedules and official weight classes.
+- **Cascading Location Filters**:
+  - Multi-select filters for **Area**, **Country**, and **City**.
+  - Cascading rules: Selecting an Area filters available Country and City options. Selecting a Country filters available City options.
+  - Auto-pruning: If an Area or Country is deselected, any selected Country or City that no longer matches the available options is automatically pruned from the active filters.
+- **Calendar Date Filter**:
+  - Filter competitions by date range (start and end date overlap).
+  - Opens a native date-range calendar picker.
+- **Event Detail & Card Layout**:
+  - Optional title image shown edge-to-edge at the top of each card.
+  - Fallback to a premium gradient if no image is provided.
+  - Clear floating badges for disciplines (MU, PU, DP, SQ) and the associated Competition Group.
+  - Smooth hover scale and glow visual feedback.
 
 ---
 
 ## 4. Technical Stack
-- **Frontend Framework:** Flutter (Multiplatform targeting Web, Android, and iOS).
-- **Backend & Database:** Supabase (Remote PostgreSQL database with Row Level Security enabled).
-- **State Management:** Provider pattern for reactive search state and data flow.
-- **Assets:** Custom SVGs (`finalrep_icon.svg` and `finalrep_logo.svg`) for official branding representation.
-- **Hosting/Runtime:** Cross-platform web compiler output.
+- **Frontend Framework**: Flutter (Multiplatform targeting Web, Android, and iOS).
+- **Backend & Database**: Supabase (Remote PostgreSQL database with Row Level Security enabled).
+- **State Management**: Provider pattern for reactive search state, cascading logic, and filtering.
+- **Assets**: Custom SVGs (`finalrep_icon.svg` and `finalrep_logo.svg`) and premium local photo assets for default competition images.
+- **Hosting/Runtime**: Cross-platform web compiler output.
 
 ---
 
@@ -43,12 +57,12 @@ The platform is designed to promote Streetlifting from grassroots local meets up
 Streetlifting is a young, urban strength sport based on the **One-Rep-Max (1RM)** format. 
 
 ### Disciplines
-1. **Modern Format (4 Disciplines):**
+1. **Modern Format (4 Disciplines)**:
    - Muscle Up
    - Pull Up
    - Dip
    - Squat
-2. **Classic Format (2 Disciplines):**
+2. **Classic Format (2 Disciplines)**:
    - Pull Up
    - Dip
 
@@ -59,8 +73,8 @@ Streetlifting is a young, urban strength sport based on the **One-Rep-Max (1RM)*
 - Winners are determined per weight class based on the highest total.
 
 ### Official Weight Classes
-- **Men:** -66 kg, -73 kg, -80 kg, -87 kg, -101 kg, +101 kg
-- **Women:** -52 kg, -57 kg, -63 kg, -70 kg, +70 kg
+- **Men**: -66 kg, -73 kg, -80 kg, -87 kg, -101 kg, +101 kg
+- **Women**: -52 kg, -57 kg, -63 kg, -70 kg, +70 kg
 
 ---
 
@@ -79,6 +93,10 @@ CREATE TABLE public.competitions (
     sport_subtype TEXT NOT NULL CHECK (sport_subtype IN ('Modern', 'Classic')),
     comp_group_name TEXT,
     status TEXT NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'ongoing', 'completed')),
+    area TEXT,
+    country TEXT,
+    city TEXT,
+    title_image_url TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -87,7 +105,7 @@ CREATE TABLE public.competitions (
 ---
 
 ## 7. Future Scope & Roadmap
-- **User Authentication:** Athlete registration and profiles linked to Supabase Auth.
-- **Competition Entry:** Payment and signup flow for athletes to register for upcoming meets.
-- **Live Leaderboard:** Real-time score entry for attempts (1st, 2nd, 3rd) during ongoing meets.
-- **Doping-Test Registry:** Integration of testing records to guarantee clean sports standards.
+- **User Authentication**: Athlete registration and profiles linked to Supabase Auth.
+- **Competition Entry**: Payment and signup flow for athletes to register for upcoming meets.
+- **Live Leaderboard**: Real-time score entry for attempts (1st, 2nd, 3rd) during ongoing meets.
+- **Doping-Test Registry**: Integration of testing records to guarantee clean sports standards.

@@ -15,6 +15,10 @@ void main() {
         'sport_subtype': 'Modern',
         'comp_group_name': 'FinalRep Qualifier',
         'status': 'upcoming',
+        'area': 'Europe',
+        'country': 'Germany',
+        'city': 'Hamburg',
+        'title_image_url': 'assets/images/comp_hamburg.png',
         'created_at': '2026-05-20T20:00:00Z',
         'updated_at': '2026-05-20T20:00:00Z',
       };
@@ -28,6 +32,10 @@ void main() {
       expect(comp.isClassic, false);
       expect(comp.isPartOfGroup, true);
       expect(comp.compGroupName, 'FinalRep Qualifier');
+      expect(comp.area, 'Europe');
+      expect(comp.country, 'Germany');
+      expect(comp.city, 'Hamburg');
+      expect(comp.titleImageUrl, 'assets/images/comp_hamburg.png');
       expect(comp.disciplines, ['Muscle Up', 'Pull Up', 'Dip', 'Squat']);
     });
 
@@ -43,6 +51,10 @@ void main() {
         'sport_subtype': 'Classic',
         'comp_group_name': null,
         'status': 'upcoming',
+        'area': 'Europe',
+        'country': 'Germany',
+        'city': 'Berlin',
+        'title_image_url': null,
         'created_at': '2026-05-20T20:00:00Z',
         'updated_at': '2026-05-20T20:00:00Z',
       };
@@ -52,6 +64,10 @@ void main() {
       expect(comp.isModern, false);
       expect(comp.isClassic, true);
       expect(comp.isPartOfGroup, false);
+      expect(comp.area, 'Europe');
+      expect(comp.country, 'Germany');
+      expect(comp.city, 'Berlin');
+      expect(comp.titleImageUrl, isNull);
       expect(comp.disciplines, ['Pull Up', 'Dip']);
     });
   });

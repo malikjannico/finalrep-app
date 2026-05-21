@@ -5,7 +5,6 @@ import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/views/search_feed_page.dart';
-import 'package:finalrep_app/widgets/competition_card.dart';
 
 // Mock repository for UI testing
 class FakeCompetitionRepository implements CompetitionRepository {
@@ -64,7 +63,6 @@ class FakeCompetitionRepository implements CompetitionRepository {
 
 void main() {
   testWidgets('SearchFeedPage Renders and Filters Competitions', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
     final repo = FakeCompetitionRepository();
     final provider = CompetitionProvider(repo);
 
@@ -84,9 +82,10 @@ void main() {
 
     // Initial load frame
     await tester.pump();
+    await tester.pump(Duration.zero); // Wait for provider fetch complete
 
     // Verify title and header logo elements exist
-    expect(find.text('FinalRep Sport Platform'), findsOneWidget);
+    expect(find.text('Competitions'), findsAtLeast(1));
     expect(find.byType(TextField), findsOneWidget);
 
     // Verify both mock competitions exist on feed
@@ -98,13 +97,17 @@ void main() {
     expect(find.text('CLASSIC'), findsOneWidget);
 
     // Filter by Modern subtype
-    final modernChip = find.text('Modern');
-    expect(modernChip, findsOneWidget);
-    await tester.tap(modernChip);
-    await tester.pump();
+    // Tap on the Format dropdown chip
+    final formatChip = find.text('Format');
+    expect(formatChip, findsOneWidget);
+    await tester.tap(formatChip);
+    await tester.pumpAndSettle(); // Settle popup menu open animation
 
-    // Wait for async search completion
-    await tester.pump(Duration.zero);
+    // Tap on 'Modern' in the menu
+    final modernMenuItem = find.text('Modern');
+    expect(modernMenuItem, findsAtLeast(1));
+    await tester.tap(modernMenuItem.last);
+    await tester.pumpAndSettle(); // Settle popup menu close animation
 
     // Verify Classic competition is now filtered out
     expect(find.text('Hamburg Streetlifting Meet'), findsOneWidget);

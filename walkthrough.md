@@ -1,85 +1,82 @@
-# FinalRep App Walkthrough
+# Walkthrough: Competitions Page UI Redesign & Cascading Filters
 
-We have successfully built the responsive sport competition search platform **FinalRep App** using Flutter and Supabase! Below is the walkthrough of the implementation details, verification results, and next steps.
-
----
-
-## 🛠️ Accomplished Implementation
-
-### 1. Database Setup
-We created the `competitions` table on the remote Supabase database instance with Row Level Security (RLS) enabled and a public read access policy. The schema is optimized for Streetlifting:
-- Renamed columns `sport_subtype` (Modern / Classic) and `comp_group_name` (Underground / Qualifier / Final / Individual) according to your comments.
-- Seeded the database with 5 mock Streetlifting competitions.
-
-### 2. Design System Integration
-We integrated the color tokens and typography from [design.md](file:///Users/malikjannico/Desktop/Development/finalrep-app/design.md) into a custom-configured `AppTheme` within [theme.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/theme.dart). This supports:
-- **Dark Mode** (Premium default theme) & **Light Mode** matching Material 3 palettes.
-- High-fidelity visual accents, micro-animations (hover elevation offsets, scale, and box-shadow glows on cards), custom rounded borders (radius: 16), and Outfit typography.
-
-### 3. Responsive UI Layout
-The [SearchFeedPage](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/views/search_feed_page.dart) automatically responds to viewport widths:
-- **Desktop/Tablet:** Displayed in a grid (3 columns for desktop, 2 for tablet). Includes an interactive "About Streetlifting" rules dialog.
-- **Mobile:** Rendered in a single-column layout for optimized readability and swipe-scrolling.
-- Integrated your SVG assets (`finalrep_icon.svg` and `finalrep_logo.svg`) directly into the header to match the brand identity.
-
-### 4. Interactive Search & Filtering
-- Search input matching title or location.
-- Multi-filter chips for **Subtypes** (`All`, `Modern`, `Classic`) and **Competition Groups** (`All`, `FinalRep Underground`, `FinalRep Qualifier`, `FinalRep Final`, `Individual`).
-- Smooth visual feedback when no matches are found, along with a quick-reset filter action.
+I have successfully re-designed the Competitions Search Feed page and implemented cascading multi-select filters, calendar date-range filtering, and dynamic card layouts with premium Streetlifting photography.
 
 ---
 
-## 📂 Created & Modified Files
+## 📸 Premium Generated Streetlifting Assets
+Below are the high-quality photos generated to showcase active competitions in the feed:
 
-- [pubspec.yaml](file:///Users/malikjannico/Desktop/Development/finalrep-app/pubspec.yaml): Added `supabase_flutter`, `flutter_svg`, `provider`, `intl` dependencies and SVG assets.
-- [lib/main.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/main.dart): Entrypoint initializing Supabase Client and Providers.
-- [lib/theme.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/theme.dart): AppTheme styling configurations.
-- [lib/models/competition.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/models/competition.dart): Streetlifting competition entity and helper getters (e.g., disciplines, subtype check).
-- [lib/repositories/competition_repository.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/repositories/competition_repository.dart): Query builder connecting to Supabase with search/filter logic.
-- [lib/providers/competition_provider.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/providers/competition_provider.dart): Application state management.
-- [lib/widgets/competition_card.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/widgets/competition_card.dart): Dynamic hover card rendering details and discipline tags (MU, PU, DP, SQ).
-- [lib/views/search_feed_page.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/views/search_feed_page.dart): Primary search feed view.
+````carousel
+![Weighted Pull-Up - Hamburg](/Users/malikjannico/.gemini/antigravity/brain/ed21527c-28a7-41ad-acd7-96d08d8199ff/comp_hamburg_1779308937183.png)
+<!-- slide -->
+![Weighted Dip - Berlin](/Users/malikjannico/.gemini/antigravity/brain/ed21527c-28a7-41ad-acd7-96d08d8199ff/comp_berlin_1779308958198.png)
+<!-- slide -->
+![Weighted Muscle-Up - Vienna](/Users/malikjannico/.gemini/antigravity/brain/ed21527c-28a7-41ad-acd7-96d08d8199ff/comp_vienna_1779308981979.png)
+<!-- slide -->
+![Weighted Squat - Munich](/Users/malikjannico/.gemini/antigravity/brain/ed21527c-28a7-41ad-acd7-96d08d8199ff/comp_munich_1779309015499.png)
+````
 
 ---
 
-## 🧪 Verification Results
+## 🛠️ Changes Implemented
 
-### Automated Tests
-We wrote 3 test files covering the model parsing, state repository filters, and widget layout mounting. 
+### 1. Database Schema (`public.competitions` Migration)
+- Added new columns: `area`, `country`, `city`, and `title_image_url` to the database.
+- Updated all existing rows to seed location metadata (Germany/Austria/France/Sweden) and local asset paths (e.g. `assets/images/comp_hamburg.png`).
+- Inserted mock competitions (USA/Japan) to test cross-continental cascading filtering.
 
-Running the test suite yields:
+### 2. Competition Model & Repository
+- Added `area`, `country`, `city`, and `titleImageUrl` fields to [lib/models/competition.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/models/competition.dart) with full JSON mapping.
+- Updated the repository [lib/repositories/competition_repository.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/repositories/competition_repository.dart) to automatically select all new database fields.
+
+### 3. State Management & Cascading Filters (`CompetitionProvider`)
+- Updated [lib/providers/competition_provider.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/providers/competition_provider.dart):
+  - Transitioned filtering to a highly responsive, synchronous client-side architecture.
+  - Implemented **cascading multi-select location filters**:
+    - Area options (`availableAreas`) are extracted from the raw data.
+    - Country options (`availableCountries`) are restricted based on the selected Areas.
+    - City options (`availableCities`) are restricted based on the selected Areas and Countries.
+    - **Selection Pruning**: Dynamically deselects countries and cities that become invalid when parent selections (Area/Country) change.
+  - Added a **Calendar Date-Range filter** that selects all competitions whose dates overlap with the active range.
+
+### 4. Re-designed UI Elements (`SearchFeedPage`)
+- Updated [lib/views/search_feed_page.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/views/search_feed_page.dart):
+  - **Header Redesign**: Embedded the logo (colored `#E94E1B`), a text-based navigation bar featuring active "Competitions" tab, and a responsive search bar inside the header bar.
+  - **Instant Theme Switching**: Programmed `themeAnimationDuration: Duration.zero` in [lib/main.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/main.dart) for instantaneous zero-animation toggle.
+  - **Clean Title**: Replaced the large "FinaRep Sport Platform" title banner with a simple, clean "Competitions" title over the results feed.
+  - **Horizontal Filter Row**: Laid out cascading filters (Date Range, Area, Country, City, Format, Group) in a modern scrolling chip layout:
+    - Format and Group filters are implemented as dropdown chips using `PopupMenuButton` widgets.
+    - Area, Country, and City open an elegant modal bottom sheet list of checkboxes for multi-select.
+    - Shows an active count of events and a "Reset" button when any filter is active.
+
+### 5. Competition Cards Redesign
+- Updated [lib/widgets/competition_card.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/widgets/competition_card.dart):
+  - Renders the competition title image edge-to-edge at the top of the card.
+  - Falls back to a premium, colorful brand linear gradient if no image is present.
+  - Overlay badges (Format, Group / Individual) float cleanly at the top corners of the image.
+  - Wrapped image elements inside a `ClipRRect` to seamlessly match the card's rounded borders.
+
+---
+
+## 🧪 Verification & Test Results
+
+### 1. Automated Tests
+- Updated `test/competition_model_test.dart` to verify parsing of the new database columns.
+- Updated `test/competition_provider_test.dart` to verify cascading options lists, automatic pruning, search queries, and calendar date-range overlaps.
+- Updated `test/widget_test.dart` to align with the new header search bar, page title, and popup format selector.
+
+All **11 tests passed successfully** in the test suite:
 ```bash
-/opt/homebrew/bin/flutter test
+$ flutter test
+00:01 +11: All tests passed!
 ```
 
-**Results:**
-- `test/competition_model_test.dart` (Modern & Classic parsing): **PASSED**
-- `test/competition_provider_test.dart` (State filters, searches, and mock DB requests): **PASSED**
-- `test/widget_test.dart` (Renders `SearchFeedPage`, interacts with filter chips, updates widget tree): **PASSED**
-
-```text
-00:00 +0: loading /Users/malikjannico/Desktop/Development/finalrep-app/test/competition_model_test.dart
-00:00 +2: /Users/malikjannico/Desktop/Development/finalrep-app/test/widget_test.dart: SearchFeedPage Renders and Filters Competitions
-00:01 +7: All tests passed!
-```
-
-### Production Build Compilation
-The application compiles cleanly for Web:
-```bash
-/opt/homebrew/bin/flutter build web
-```
-**Results:**
-```text
-Compiling lib/main.dart for the Web...
-✓ Built build/web
-```
-
----
-
-## 🚀 How to Run the App Locally
-
-To launch a local development server for the web:
-```bash
-flutter run -d chrome
-```
-This starts the app with hot-reload enabled, connected to your remote Supabase instance containing the seeded Streetlifting competitions data.
+### 2. Manual Verification Checklist
+- Run `npm run dev` or equivalent dev server (the flutter dev application) to verify the UI.
+- Confirm the brand logo is correctly colored `#E94E1B`.
+- Check that selecting "Europe" as Area restricts the "Country" selector sheet to only Germany and Austria.
+- Check that selecting "Germany" as Country restricts "City" selector to Berlin and Hamburg.
+- Check that clearing the Area selection re-opens all countries/cities.
+- Click the calendar chip, select a date range, and verify only overlapping events are shown.
+- Click the Theme Toggle in the header and verify it switches immediately.

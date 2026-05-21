@@ -1,27 +1,13 @@
-# Tasks - FinalRep App Sport Competition Platform
+# Implementation Tasks
 
-- [x] Initialize Flutter Project & Configuration
-  - [x] Initialize Flutter project via MCP tools (targeting web, android, ios)
-  - [x] Add dependencies to `pubspec.yaml` (supabase_flutter, flutter_svg, provider, intl)
-  - [x] Copy `finalrep_icon.svg` and `finalrep_logo.svg` to project assets
-- [x] Database Schema & Supabase Setup
-  - [x] Create `competitions` table on remote database via Supabase MCP
-  - [x] Enable RLS and add public read access policy
-  - [x] Populate with sample upcoming/ongoing/completed Streetlifting competitions
-- [x] Core Setup & Models in Flutter
-  - [x] Setup `ThemeData` based on design tokens in `design.md`
-  - [x] Create `Competition` model (`lib/models/competition.dart`)
-- [x] State Management & Repositories
-  - [x] Create `CompetitionRepository` (`lib/repositories/competition_repository.dart`) for searching & filtering
-  - [x] Implement search/filter logic with Provider (`lib/providers/competition_provider.dart`)
-- [x] UI Development (Responsive Search Feed)
-  - [x] Create responsive Competition Card widget (`lib/widgets/competition_card.dart`)
-  - [x] Create Search Feed Page UI (`lib/views/search_feed_page.dart`) with search bar and filter chips
-  - [x] Integrate FinalRep Logo and Icon SVGs into UI
-- [x] Test Driven Development (TDD) Verification
-  - [x] Create and run unit tests for the model parsing
-  - [x] Create and run repository search/filter logic tests
-  - [x] Create and run widget/UI tests for search and filters
-- [x] Final Walkthrough & Verification
-  - [x] Verify build compiles on Web
-  - [x] Create walkthrough.md summarizing features and test results
+- [x] Modify Supabase database schema (add columns `area`, `country`, `city`, `title_image_url`, and update rows)
+- [x] Update Competition model (`lib/models/competition.dart`)
+- [x] Update Competition repository (`lib/repositories/competition_repository.dart`)
+- [x] Update state management (`lib/providers/competition_provider.dart`)
+- [x] Redesign header & page titles (`lib/views/search_feed_page.dart`)
+- [x] Implement instant theme switching (`lib/main.dart`)
+- [x] Build location filters and calendar date-range picker UI (`lib/views/search_feed_page.dart`)
+- [x] Update CompetitionCard UI with title images/gradients (`lib/widgets/competition_card.dart`)
+- [x] Generate beautiful Streetlifting images for the competitions
+- [x] Update unit and widget tests
+- [x] Run and verify tests and manual run

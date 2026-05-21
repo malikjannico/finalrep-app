@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
+import 'package:flutter/material.dart';
 
 // A mock implementation of the repository
 class MockCompetitionRepository implements CompetitionRepository {
@@ -9,33 +10,56 @@ class MockCompetitionRepository implements CompetitionRepository {
     Competition(
       id: '1',
       title: 'Qualifier Hamburg',
-      location: 'Hamburg',
+      location: 'Hamburg, Germany',
       sportSubtype: 'Modern',
       compGroupName: 'FinalRep Qualifier',
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
+      area: 'Europe',
+      country: 'Germany',
+      city: 'Hamburg',
+      startDate: DateTime(2026, 6, 15),
+      endDate: DateTime(2026, 6, 15),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     ),
     Competition(
       id: '2',
       title: 'Underground Berlin',
-      location: 'Berlin',
+      location: 'Berlin, Germany',
       sportSubtype: 'Classic',
       compGroupName: 'FinalRep Underground',
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
+      area: 'Europe',
+      country: 'Germany',
+      city: 'Berlin',
+      startDate: DateTime(2026, 7, 10),
+      endDate: DateTime(2026, 7, 10),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     ),
     Competition(
       id: '3',
       title: 'Classic Cup Vienna',
-      location: 'Vienna',
+      location: 'Vienna, Austria',
       sportSubtype: 'Classic',
       compGroupName: null,
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
+      area: 'Europe',
+      country: 'Austria',
+      city: 'Vienna',
+      startDate: DateTime(2026, 8, 1),
+      endDate: DateTime(2026, 8, 1),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ),
+    Competition(
+      id: '4',
+      title: 'US Qualifier',
+      location: 'New York, USA',
+      sportSubtype: 'Modern',
+      compGroupName: 'FinalRep Qualifier',
+      area: 'North America',
+      country: 'USA',
+      city: 'New York',
+      startDate: DateTime(2026, 9, 20),
+      endDate: DateTime(2026, 9, 20),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     ),
@@ -76,55 +100,97 @@ void main() {
     late MockCompetitionRepository repository;
     late CompetitionProvider provider;
 
-    setUp(() {
+    setUp(() async {
       repository = MockCompetitionRepository();
       provider = CompetitionProvider(repository);
+      // Wait for the initial load to complete
+      await Future.delayed(Duration.zero);
     });
 
     test('Initial State - Loads all competitions', () async {
       expect(provider.isLoading, false);
-      expect(provider.competitions.length, 3);
+      expect(provider.competitions.length, 4);
       expect(provider.query, '');
       expect(provider.selectedSubtype, 'All');
       expect(provider.selectedGroup, 'All');
+      expect(provider.selectedAreas, isEmpty);
+      expect(provider.selectedCountries, isEmpty);
+      expect(provider.selectedCities, isEmpty);
     });
 
-    test('Filter by Subtype Modern', () async {
-      await Future.delayed(Duration.zero); // Load initial
-      
+    test('Filter by Subtype Modern', () {
       provider.setSelectedSubtype('Modern');
       expect(provider.selectedSubtype, 'Modern');
-      expect(provider.isLoading, true);
-
-      await Future.delayed(Duration.zero);
-
-      expect(provider.isLoading, false);
-      expect(provider.competitions.length, 1);
-      expect(provider.competitions.first.title, 'Qualifier Hamburg');
+      expect(provider.competitions.length, 2);
+      expect(provider.competitions.any((c) => c.title == 'Qualifier Hamburg'), true);
+      expect(provider.competitions.any((c) => c.title == 'US Qualifier'), true);
     });
 
-    test('Filter by Group Individual', () async {
-      await Future.delayed(Duration.zero); // Load initial
-      
+    test('Filter by Group Individual', () {
       provider.setSelectedGroup('Individual');
       expect(provider.selectedGroup, 'Individual');
-
-      await Future.delayed(Duration.zero);
-
       expect(provider.competitions.length, 1);
       expect(provider.competitions.first.title, 'Classic Cup Vienna');
     });
 
-    test('Search by query "Berlin"', () async {
-      await Future.delayed(Duration.zero); // Load initial
-      
+    test('Search by query "Berlin"', () {
       provider.setQuery('Berlin');
       expect(provider.query, 'Berlin');
-
-      await Future.delayed(Duration.zero);
-
       expect(provider.competitions.length, 1);
       expect(provider.competitions.first.title, 'Underground Berlin');
+    });
+
+    test('Cascading Location Filters - Area filters Country & City option lists', () {
+      expect(provider.availableAreas, containsAll(['Europe', 'North America']));
+
+      provider.toggleArea('North America');
+      expect(provider.selectedAreas, contains('North America'));
+      expect(provider.availableCountries, equals({'USA'}));
+      expect(provider.availableCities, equals({'New York'}));
+    });
+
+    test('Cascading Location Filters - Country filters City option list', () {
+      provider.toggleArea('Europe');
+      expect(provider.availableCountries, containsAll(['Germany', 'Austria']));
+
+      provider.toggleCountry('Germany');
+      expect(provider.selectedCountries, contains('Germany'));
+
+      expect(provider.availableCities, containsAll(['Hamburg', 'Berlin']));
+      expect(provider.availableCities, isNot(contains('Vienna')));
+    });
+
+    test('Cascading Location Filters - Pruning invalid selections', () {
+      provider.toggleArea('Europe');
+      provider.toggleCountry('Germany');
+      provider.toggleCity('Berlin');
+      
+      expect(provider.selectedAreas, contains('Europe'));
+      expect(provider.selectedCountries, contains('Germany'));
+      expect(provider.selectedCities, contains('Berlin'));
+
+      provider.toggleArea('Europe'); // deselect Europe
+      provider.toggleArea('North America'); // select North America
+      
+      expect(provider.selectedCountries, isNot(contains('Germany')));
+      expect(provider.selectedCities, isNot(contains('Berlin')));
+    });
+
+    test('Filter by Date Range', () {
+      final range = DateTimeRange(
+        start: DateTime(2026, 7, 1),
+        end: DateTime(2026, 7, 31),
+      );
+      
+      provider.setDateRange(range);
+      expect(provider.selectedDateRange, range);
+      
+      expect(provider.competitions.length, 1);
+      expect(provider.competitions.first.title, 'Underground Berlin');
+
+      provider.clearDateRange();
+      expect(provider.selectedDateRange, isNull);
+      expect(provider.competitions.length, 4);
     });
   });
 }
