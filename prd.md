@@ -17,17 +17,20 @@ The platform is designed to promote Streetlifting from grassroots local meets up
 
 ## 3. Core Features (MVP)
 - **Responsive Header & Navigation**:
-  - **Desktop**: Main header features a centered search bar (with real-time dropdown results), left-aligned FinalRep Icon in brand color `#E94E1B`, and right-aligned zero-animation theme toggle. A dedicated navigation bar is positioned below the header, displaying tabs for "Competitions Feed" and "World Map".
-  - **Mobile**: Top header has a centered FinalRep Icon, a hamburger menu icon (left) that opens a navigation/app drawer, and a search icon (right) that opens a full-screen mobile search view. A bottom navigation bar with icons and labels switches between the "Feed" and "World Map" views.
+  - **Desktop**: Main header features a centered search bar (with real-time dropdown results), left-aligned FinalRep Icon in brand color `#E94E1B`, and right-aligned zero-animation theme toggle. A dedicated navigation bar is positioned below the header, displaying centered navigation tabs for "Competitions" and "World Map" without active-item underline decoration.
+  - **Mobile**: Top header has a centered FinalRep Icon, a hamburger menu icon (left) that opens a navigation/app drawer, and a search icon (right) that opens a full-screen mobile search view (with search placeholder "Search Competitions"). A bottom navigation bar with icons and labels switches between the "Competitions" and "World Map" views.
 - **Dynamic Search & Filtering (Competitions View)**:
-  - **Desktop Sidebar**: Left-aligned, always-visible filter panel with collapsible sections for Sport, Format, Group, Location, and Date. Options are displayed as checkboxes with the count of matches next to them. The date filter uses a docked input selector.
-  - **Mobile Filter Drawer**: A slide-in left drawer triggered by a filter icon in the competitions view, mirroring the collapsible checkbox layout.
+  - **Desktop Sidebar**: Left-aligned, always-visible filter panel with a "Filters" header title at the top, followed by collapsible sections for Sport, Format, Group, Location, and Date. Options are displayed as checkboxes with the count of matches next to them. The date filter uses a docked input selector.
+  - **Mobile Filter Drawer**: A slide-in right drawer (`openEndDrawer`) triggered by a filter icon in the competitions view, mirroring the collapsible checkbox layout.
+  - **Default Behavior**: No default filters are applied at startup (all competitions are shown initially).
+  - **Results Indicator**: Displays results count as "X competitions" on mobile.
   - **Filter Chips**: All applied filters are displayed as chips categorized by type under the results header, with an easy remove `[x]` functionality.
-  - **Sorting & Layouts**: Dropdowns to sort by Date (ascending/descending) and Title (A-Z/Z-A), and a toggle to switch between a visual Card grid layout and a high-density Compact list row layout.
+  - **Sorting & Layouts**: A unified action button design: Sort button is a clean icon-only `PopupMenuButton` triggering sorting variations ("Date: Asc", "Date: Desc", "Name: A-Z", "Name: Z-A"), and Layout toggle switches between a visual Card grid layout and a high-density Compact list row layout. All action icons share identical size and styling (`onSurfaceVariant` color).
 - **Single Competition Detail View**:
   - A premium detail page for individual competitions containing a hero banner, Floating Group/Individual badge, location address, date, disciplines explanation list, and registration status.
 - **Interactive World Map View**:
   - An interactive vector-dot world map showing upcoming competition markers with pulsing radar rings. Clicking a marker reveals a popup card linking to that competition's detail view.
+  - Fully constrained navigation: Zooming out is restricted (dynamically calculated `minZoom` based on viewport constraints, minimum 1.8), and a strict `cameraConstraint` restricts camera panning to keep the map centered and prevent background borders/empty space from being exposed.
 - **Guest Access**: All upcoming competitions, map pins, and details must be searchable and viewable without user login or authentication.
 
 
