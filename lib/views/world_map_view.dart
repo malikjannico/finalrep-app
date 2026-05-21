@@ -7,7 +7,7 @@ import '../providers/competition_provider.dart';
 import 'competition_detail_page.dart';
 
 class WorldMapView extends StatefulWidget {
-  const WorldMapView({Key? key}) : super(key: key);
+  const WorldMapView({super.key});
 
   @override
   State<WorldMapView> createState() => _WorldMapViewState();
@@ -116,11 +116,11 @@ class _WorldMapViewState extends State<WorldMapView> with SingleTickerProviderSt
                     color: isDark ? const Color(0xFF0F0B0A) : const Color(0xFFFAF6F4),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: theme.colorScheme.shadow.withOpacity(isDark ? 0.2 : 0.05),
+                        color: theme.colorScheme.shadow.withValues(alpha: isDark ? 0.2 : 0.05),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -161,7 +161,7 @@ class _WorldMapViewState extends State<WorldMapView> with SingleTickerProviderSt
                               width: 280,
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.surface.withOpacity(0.95),
+                                color: theme.colorScheme.surface.withValues(alpha: 0.95),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: theme.colorScheme.primary,
@@ -169,7 +169,7 @@ class _WorldMapViewState extends State<WorldMapView> with SingleTickerProviderSt
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
+                                    color: Colors.black.withValues(alpha: 0.2),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),
                                   )
@@ -334,7 +334,7 @@ class WorldMapPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // 1. Draw Grid Lines
     final gridPaint = Paint()
-      ..color = isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03)
+      ..color = isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03)
       ..strokeWidth = 1.0;
 
     // Draw Longitudes (vertical)
@@ -471,7 +471,7 @@ class WorldMapPainter extends CustomPainter {
 
       // Draw pulsing ring (multiple ripples)
       final pulsePaint = Paint()
-        ..color = theme.colorScheme.primary.withOpacity((1 - pulseValue) * 0.4)
+        ..color = theme.colorScheme.primary.withValues(alpha: (1 - pulseValue) * 0.4)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
       
@@ -480,7 +480,7 @@ class WorldMapPainter extends CustomPainter {
       if (isSelected) {
         // Draw larger ring for selected marker
         final selectedPaint = Paint()
-          ..color = theme.colorScheme.primary.withOpacity(0.3)
+          ..color = theme.colorScheme.primary.withValues(alpha: 0.3)
           ..style = PaintingStyle.fill;
         canvas.drawCircle(offset, 14.0, selectedPaint);
       }

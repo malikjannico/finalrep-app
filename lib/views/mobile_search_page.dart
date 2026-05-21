@@ -6,7 +6,7 @@ import '../providers/competition_provider.dart';
 import 'competition_detail_page.dart';
 
 class MobileSearchPage extends StatefulWidget {
-  const MobileSearchPage({Key? key}) : super(key: key);
+  const MobileSearchPage({super.key});
 
   @override
   State<MobileSearchPage> createState() => _MobileSearchPageState();
@@ -59,7 +59,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
     final provider = Provider.of<CompetitionProvider>(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -96,7 +96,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
           preferredSize: const Size.fromHeight(1.0),
           child: Divider(
             height: 1.0,
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -108,7 +108,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                   Icon(
                     Icons.search,
                     size: 64,
-                    color: theme.colorScheme.outline.withOpacity(0.5),
+                    color: theme.colorScheme.outline.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -122,7 +122,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                   Text(
                     'Type a city, country, or keyword to begin.',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -138,7 +138,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                         Icon(
                           Icons.search_off_outlined,
                           size: 64,
-                          color: theme.colorScheme.outline.withOpacity(0.5),
+                          color: theme.colorScheme.outline.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -152,7 +152,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                         Text(
                           'Double check your spelling or search another keyword.',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                           ),
                           textAlign: TextAlign.center,
                         ),

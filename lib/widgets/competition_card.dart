@@ -6,7 +6,7 @@ import '../views/competition_detail_page.dart';
 class CompetitionCard extends StatefulWidget {
   final Competition competition;
 
-  const CompetitionCard({Key? key, required this.competition}) : super(key: key);
+  const CompetitionCard({super.key, required this.competition});
 
   @override
   State<CompetitionCard> createState() => _CompetitionCardState();
@@ -43,7 +43,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
         transform: _isHovered 
-            ? (Matrix4.identity()..translate(0, -4, 0)) 
+            ? Matrix4.translationValues(0.0, -4.0, 0.0) 
             : Matrix4.identity(),
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
@@ -57,7 +57,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
           boxShadow: _isHovered
               ? [
                   BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(isDark ? 0.25 : 0.15),
+                    color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.25 : 0.15),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   )
@@ -89,7 +89,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.black.withOpacity(0.4),
+                              Colors.black.withValues(alpha: 0.4),
                               Colors.transparent,
                             ],
                             stops: const [0.0, 0.6],
@@ -136,10 +136,10 @@ class _CompetitionCardState extends State<CompetitionCard> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.secondaryContainer.withOpacity(0.9),
+                                  color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.9),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: theme.colorScheme.secondary.withOpacity(0.3),
+                                    color: theme.colorScheme.secondary.withValues(alpha: 0.3),
                                     width: 1,
                                   ),
                                 ),
@@ -159,7 +159,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
+                                  color: Colors.black.withValues(alpha: 0.5),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -264,7 +264,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
                         Text(
                           'DISCIPLINES:',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                             fontWeight: FontWeight.bold,
                             fontSize: 8,
                             letterSpacing: 1.0,
@@ -279,7 +279,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
                               return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceVariant,
+                                  color: theme.colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -321,7 +321,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Container(
-            color: theme.colorScheme.surfaceVariant,
+            color: theme.colorScheme.surfaceContainerHighest,
             child: const Center(
               child: SizedBox(
                 width: 20,
@@ -357,7 +357,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
         child: Icon(
           Icons.fitness_center_outlined,
           size: 40,
-          color: theme.colorScheme.onPrimary.withOpacity(0.4),
+          color: theme.colorScheme.onPrimary.withValues(alpha: 0.4),
         ),
       ),
     );

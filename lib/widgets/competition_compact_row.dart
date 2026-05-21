@@ -7,10 +7,10 @@ class CompetitionCompactRow extends StatefulWidget {
   final VoidCallback onTap;
 
   const CompetitionCompactRow({
-    Key? key,
+    super.key,
     required this.competition,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   State<CompetitionCompactRow> createState() => _CompetitionCompactRowState();
@@ -35,13 +35,13 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: _isHovered
-                ? theme.colorScheme.primaryContainer.withOpacity(isDark ? 0.15 : 0.4)
+                ? theme.colorScheme.primaryContainer.withValues(alpha: isDark ? 0.15 : 0.4)
                 : theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _isHovered
                   ? theme.colorScheme.primary
-                  : theme.colorScheme.outlineVariant.withOpacity(0.5),
+                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               width: 1,
             ),
           ),
@@ -54,7 +54,7 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                 decoration: BoxDecoration(
                   border: Border(
                     right: BorderSide(
-                      color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                       width: 1,
                     ),
                   ),
@@ -74,7 +74,7 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                     Text(
                       DateFormat('yyyy').format(widget.competition.startDate),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                         fontSize: 11,
                       ),
                     ),
@@ -132,8 +132,8 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: widget.competition.isPartOfGroup
-                        ? theme.colorScheme.secondaryContainer.withOpacity(0.6)
-                        : theme.colorScheme.surfaceVariant,
+                        ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.6)
+                        : theme.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -157,8 +157,8 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: widget.competition.isModern
-                      ? theme.colorScheme.primaryContainer.withOpacity(0.6)
-                      : theme.colorScheme.tertiaryContainer.withOpacity(0.6),
+                      ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
+                      : theme.colorScheme.tertiaryContainer.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -181,7 +181,7 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.6),
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -200,7 +200,7 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
               Icon(
                 Icons.chevron_right,
                 size: 18,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ],
           ),

@@ -6,21 +6,20 @@ class CompetitionDetailPage extends StatelessWidget {
   final Competition competition;
 
   const CompetitionDetailPage({
-    Key? key,
+    super.key,
     required this.competition,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     
     final dateFormat = DateFormat('EEEE, MMMM dd, yyyy');
     final dateStr = dateFormat.format(competition.startDate);
     final timeStr = "${DateFormat('HH:mm').format(competition.startDate)} - ${DateFormat('HH:mm').format(competition.endDate)}";
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           // Hero Top App Bar
@@ -31,7 +30,7 @@ class CompetitionDetailPage extends StatelessWidget {
               icon: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
+                  color: Colors.black.withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
@@ -50,9 +49,9 @@ class CompetitionDetailPage extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.4),
+                          Colors.black.withValues(alpha: 0.4),
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
+                          Colors.black.withValues(alpha: 0.7),
                         ],
                         stops: const [0.0, 0.4, 1.0],
                       ),
@@ -88,7 +87,7 @@ class CompetitionDetailPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer.withOpacity(0.8),
+                            color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -175,10 +174,10 @@ class CompetitionDetailPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Column(
@@ -299,7 +298,7 @@ class CompetitionDetailPage extends StatelessWidget {
           child: Icon(
             Icons.fitness_center_outlined,
             size: 64,
-            color: theme.colorScheme.onPrimary.withOpacity(0.3),
+            color: theme.colorScheme.onPrimary.withValues(alpha: 0.3),
           ),
         ),
       );
@@ -325,7 +324,7 @@ class CompetitionDetailPage extends StatelessWidget {
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
         ),
         child: Row(
@@ -339,7 +338,7 @@ class CompetitionDetailPage extends StatelessWidget {
                   Text(
                     title,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/competition.dart';
 
@@ -45,7 +46,7 @@ class CompetitionRepository {
           .toList();
     } catch (e) {
       // Return empty list on failure or log error
-      print('Error fetching competitions: $e');
+      debugPrint('Error fetching competitions: $e');
       return [];
     }
   }

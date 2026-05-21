@@ -14,10 +14,10 @@ class SearchFeedPage extends StatefulWidget {
   final bool isDarkMode;
 
   const SearchFeedPage({
-    Key? key,
+    super.key,
     required this.onToggleTheme,
     required this.isDarkMode,
-  }) : super(key: key);
+  });
 
   @override
   State<SearchFeedPage> createState() => _SearchFeedPageState();
@@ -137,14 +137,14 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       drawer: _buildDrawer(context, provider, theme),
       bottomNavigationBar: !isDesktop
           ? BottomNavigationBar(
               currentIndex: provider.activeTab,
               onTap: provider.setActiveTab,
               selectedItemColor: const Color(0xFFE94E1B),
-              unselectedItemColor: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+              unselectedItemColor: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.explore),
@@ -191,7 +191,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
         color: theme.colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
             width: 1,
           ),
         ),
@@ -266,7 +266,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
         color: theme.colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
             width: 1,
           ),
         ),
@@ -563,7 +563,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   'AREAS',
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -575,7 +575,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     (val) => provider.toggleArea(area),
                     theme,
                   );
-                }).toList(),
+                }),
                 const SizedBox(height: 8),
               ],
               if (provider.availableCountries.isNotEmpty) ...[
@@ -583,7 +583,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   'COUNTRIES',
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -595,7 +595,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     (val) => provider.toggleCountry(country),
                     theme,
                   );
-                }).toList(),
+                }),
                 const SizedBox(height: 8),
               ],
               if (provider.availableCities.isNotEmpty) ...[
@@ -603,7 +603,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   'CITIES',
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -615,7 +615,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     (val) => provider.toggleCity(city),
                     theme,
                   );
-                }).toList(),
+                }),
               ],
             ],
           ),
@@ -719,7 +719,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             Text(
               '($count)',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -747,7 +747,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               color: theme.colorScheme.surface,
               border: Border(
                 right: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                   width: 1,
                 ),
               ),
@@ -902,7 +902,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           },
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           labelStyle: TextStyle(
             color: theme.colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -921,7 +921,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           onDeleted: () => provider.toggleSport(sport),
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           labelStyle: TextStyle(
             color: theme.colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -939,7 +939,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           onDeleted: () => provider.setSelectedSubtype('All'),
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           labelStyle: TextStyle(
             color: theme.colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -957,7 +957,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           onDeleted: () => provider.setSelectedGroup('All'),
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           labelStyle: TextStyle(
             color: theme.colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -975,7 +975,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           onDeleted: () => provider.toggleArea(area),
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           labelStyle: TextStyle(
             color: theme.colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -993,7 +993,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           onDeleted: () => provider.toggleCountry(country),
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           labelStyle: TextStyle(
             color: theme.colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -1011,7 +1011,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           onDeleted: () => provider.toggleCity(city),
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           labelStyle: TextStyle(
             color: theme.colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -1031,7 +1031,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           onDeleted: () => provider.clearDateRange(),
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
           labelStyle: TextStyle(
             color: theme.colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.bold,
@@ -1176,11 +1176,11 @@ class CollapsibleFilterSection extends StatefulWidget {
   final bool isInitiallyExpanded;
 
   const CollapsibleFilterSection({
-    Key? key,
+    super.key,
     required this.title,
     required this.child,
     this.isInitiallyExpanded = true,
-  }) : super(key: key);
+  });
 
   @override
   State<CollapsibleFilterSection> createState() => _CollapsibleFilterSectionState();
@@ -1230,14 +1230,14 @@ class _CollapsibleFilterSectionState extends State<CollapsibleFilterSection> {
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
             child: widget.child,
           ),
-        Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.3)),
+        Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
       ],
     );
   }
 }
 
 class DesktopSearchBar extends StatefulWidget {
-  const DesktopSearchBar({Key? key}) : super(key: key);
+  const DesktopSearchBar({super.key});
 
   @override
   State<DesktopSearchBar> createState() => _DesktopSearchBarState();
