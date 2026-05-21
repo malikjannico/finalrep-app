@@ -14,7 +14,8 @@ import '../widgets/user_compact_row.dart';
 import 'competition_detail_page.dart';
 import 'mobile_search_page.dart';
 import 'world_map_view.dart';
-import 'auth_page.dart';
+import 'login_page.dart';
+import 'register_page.dart';
 import 'profile_page.dart';
 
 class SearchFeedPage extends StatefulWidget {
@@ -203,8 +204,8 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       return;
     }
 
-    // Check `/auth`
-    if (path == '/auth') {
+    // Check `/auth`, `/login` or `/register`
+    if (path == '/auth' || path == '/login') {
       final isDesktop = MediaQuery.of(context).size.width >= 900;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -212,8 +213,8 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           if (isDesktop) {
             Navigator.of(context).push(
               MaterialPageRoute(
-                settings: const RouteSettings(name: '/auth'),
-                builder: (_) => const AuthPage(),
+                settings: const RouteSettings(name: '/login'),
+                builder: (_) => const LoginPage(),
               ),
             );
           } else {
@@ -221,6 +222,21 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               _currentMobileTabIndex = 1;
             });
           }
+        }
+      });
+      return;
+    }
+
+    if (path == '/register') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _hasCheckedSharedLink = true;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              settings: const RouteSettings(name: '/register'),
+              builder: (_) => const RegisterPage(),
+            ),
+          );
         }
       });
       return;
@@ -407,7 +423,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               child: showProfileTab
                   ? (authProvider.isAuthenticated
                       ? const ProfilePage(isInline: true)
-                      : const AuthPage())
+                      : const LoginPage(isInline: true))
                   : _buildMainContent(
                       context,
                       provider,
@@ -599,21 +615,45 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
         ),
       );
     } else {
-      return OutlinedButton.icon(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              settings: const RouteSettings(name: '/auth'),
-              builder: (_) => const AuthPage(),
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OutlinedButton(
+            key: const Key('desktop_signin_button'),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  settings: const RouteSettings(name: '/login'),
+                  builder: (_) => const LoginPage(),
+                ),
+              );
+            },
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
-          );
-        },
-        icon: const Icon(Icons.login, size: 16),
-        label: const Text('Login / Register', style: TextStyle(fontSize: 13)),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        ),
+            child: const Text('Sign In', style: TextStyle(fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            key: const Key('desktop_register_button'),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  settings: const RouteSettings(name: '/register'),
+                  builder: (_) => const RegisterPage(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE94E1B),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+            child: const Text('Register', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          ),
+        ],
       );
     }
   }
@@ -807,31 +847,60 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               if (!authProvider.isAuthenticated) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-                          Navigator.of(context).pop();
-                        }
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            settings: const RouteSettings(name: '/auth'),
-                            builder: (_) => const AuthPage(),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: const Key('drawer_signin_button'),
+                          onPressed: () {
+                            if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                              Navigator.of(context).pop();
+                            }
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                settings: const RouteSettings(name: '/login'),
+                                builder: (_) => const LoginPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.login, size: 16),
+                          label: const Text('Sign In'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.login),
-                      label: const Text('Sign In / Register'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          key: const Key('drawer_register_button'),
+                          onPressed: () {
+                            if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                              Navigator.of(context).pop();
+                            }
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                settings: const RouteSettings(name: '/register'),
+                                builder: (_) => const RegisterPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.person_add, size: 16),
+                          label: const Text('Register'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE94E1B),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Divider(height: 1),

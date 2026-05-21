@@ -1,5 +1,8 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/models/profile.dart';
@@ -12,7 +15,8 @@ import 'package:finalrep_app/views/competition_detail_page.dart';
 import 'package:finalrep_app/widgets/competition_card.dart';
 import 'package:finalrep_app/widgets/competition_compact_row.dart';
 import 'package:finalrep_app/views/world_map_view.dart';
-import 'package:finalrep_app/views/auth_page.dart';
+import 'package:finalrep_app/views/login_page.dart';
+import 'package:finalrep_app/views/register_page.dart';
 
 class MockProfileRepository implements ProfileRepository {
   @override
@@ -50,6 +54,32 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   bool get isLoading => false;
   @override
   String? get errorMessage => null;
+}
+
+class MockFilePicker extends FilePicker {
+  @override
+  Future<FilePickerResult?> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    bool allowCompression = true,
+    int compressionQuality = 30,
+    bool allowMultiple = false,
+    bool withData = false,
+    bool withReadStream = false,
+    bool lockParentWindow = false,
+    bool readSequential = false,
+  }) async {
+    return FilePickerResult([
+      PlatformFile(
+        name: 'test_avatar.png',
+        size: 100,
+        bytes: base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='),
+      ),
+    ]);
+  }
 }
 
 // Mock repository for UI testing
@@ -414,4 +444,290 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'Desktop Header displays separate Sign In and Register buttons for guest',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final repo = FakeCompetitionRepository();
+      final provider = CompetitionProvider(repo, MockProfileRepository());
+      final authProvider = MockAuthProvider(isAuthenticated: false);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<CompetitionProvider>.value(value: provider),
+            ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+          ],
+          child: MaterialApp(
+            home: SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(Duration.zero);
+
+      // Verify separate Sign In and Register buttons exist in desktop view
+      expect(find.byKey(const Key('desktop_signin_button')), findsOneWidget);
+      expect(find.byKey(const Key('desktop_register_button')), findsOneWidget);
+
+      // Tap Sign In and verify LoginPage is pushed
+      await tester.tap(find.byKey(const Key('desktop_signin_button')));
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginPage), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'RegisterPage has a multi-step registration flow with step validation',
+    (WidgetTester tester) async {
+      // Set physical size to avoid overflow warnings/tap offscreen errors
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      debugNetworkImageHttpClientProvider = () => MockHttpClient();
+      try {
+        final authProvider = MockAuthProvider(isAuthenticated: false);
+
+        await tester.pumpWidget(
+          ChangeNotifierProvider<AuthProvider>.value(
+            value: authProvider,
+            child: const MaterialApp(
+              home: RegisterPage(),
+            ),
+          ),
+        );
+
+        // Verify we start at Step 1: Account
+        expect(find.text('Create Account'), findsOneWidget);
+        expect(find.text('Account'), findsOneWidget);
+        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+        expect(find.byKey(const Key('register_email_field')), findsOneWidget);
+        expect(find.byKey(const Key('register_password_field')), findsOneWidget);
+
+        // Verify password safety rules are displayed
+        expect(find.text('Minimum 8 characters'), findsOneWidget);
+        expect(find.text('At least one uppercase letter (A-Z)'), findsOneWidget);
+        expect(find.text('At least one lowercase letter (a-z)'), findsOneWidget);
+        expect(find.text('At least one numeric digit (0-9)'), findsOneWidget);
+        expect(find.text('At least one special character (!@#\$%^&*)'), findsOneWidget);
+
+        // Tap NEXT to advance - validation should trigger and keep us on Step 1
+        // (NEXT is disabled since password is empty)
+        await tester.tap(find.text('NEXT'));
+        await tester.pumpAndSettle();
+        
+        // Fields are still present, indicating we did not advance
+        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+
+        // Fill out Step 1 with a weak password (fails rules)
+        await tester.enterText(find.byKey(const Key('register_username_field')), 'testuser');
+        await tester.enterText(find.byKey(const Key('register_email_field')), 'test@email.com');
+        await tester.enterText(find.byKey(const Key('register_password_field')), 'password123');
+        await tester.pumpAndSettle();
+
+        // NEXT should still be disabled because password rules are not met
+        await tester.tap(find.text('NEXT'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+
+        // Fill out Step 1 with a strong/valid password (satisfies all 5 rules)
+        await tester.enterText(find.byKey(const Key('register_password_field')), 'Password123!');
+        await tester.pumpAndSettle();
+
+        // Tap NEXT to advance to Step 2
+        await tester.tap(find.text('NEXT'));
+        await tester.pumpAndSettle();
+
+        // Verify we are now on Step 2: Details
+        expect(find.byKey(const Key('register_fullname_field')), findsOneWidget);
+        expect(find.text('Gender'), findsOneWidget);
+        expect(find.text('Country'), findsOneWidget);
+
+        // Tap NEXT to validate Step 2 (Full Name is empty)
+        await tester.tap(find.text('NEXT'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('register_fullname_field')), findsOneWidget); // still on step 2
+
+        // Fill out Step 2
+        await tester.enterText(find.byKey(const Key('register_fullname_field')), 'Test User');
+        await tester.pumpAndSettle();
+
+        // Tap NEXT to advance to Step 3
+        await tester.tap(find.text('NEXT'));
+        await tester.pumpAndSettle();
+
+        // Verify we are on Step 3: Avatar / Profile Picture
+        expect(find.text('Profile Picture'), findsOneWidget);
+        expect(find.text('UPLOAD CUSTOM PHOTO'), findsOneWidget);
+
+        // Setup custom FilePicker mock
+        FilePicker? originalPlatform;
+        try {
+          originalPlatform = FilePicker.platform;
+        } catch (_) {}
+        FilePicker.platform = MockFilePicker();
+
+        // Tap UPLOAD CUSTOM PHOTO
+        await tester.tap(find.text('UPLOAD CUSTOM PHOTO'));
+        await tester.pumpAndSettle();
+
+        // Verify custom photo is previewed
+        expect(find.text('test_avatar.png'), findsOneWidget);
+
+        // Verify there is a delete/remove option and press it
+        final deleteIcon = find.byIcon(Icons.delete_outline);
+        expect(deleteIcon, findsOneWidget);
+        await tester.tap(deleteIcon);
+        await tester.pumpAndSettle();
+
+        // Custom photo name should be gone, and UPLOAD CUSTOM PHOTO button visible again
+        expect(find.text('test_avatar.png'), findsNothing);
+        expect(find.text('UPLOAD CUSTOM PHOTO'), findsOneWidget);
+
+        // Upload custom photo again for final registration submission test
+        await tester.tap(find.text('UPLOAD CUSTOM PHOTO'));
+        await tester.pumpAndSettle();
+        expect(find.text('test_avatar.png'), findsOneWidget);
+
+        // Tap CREATE ACCOUNT
+        expect(find.text('CREATE ACCOUNT'), findsOneWidget);
+        await tester.tap(find.text('CREATE ACCOUNT'));
+        await tester.pump(); // Start request
+
+        // Restore default FilePicker platform
+        if (originalPlatform != null) {
+          FilePicker.platform = originalPlatform;
+        }
+
+        // Tap BACK to return to Step 2 (if we were to click BACK)
+        // Since we are mocking register, the tester is in step 3
+      } finally {
+        debugNetworkImageHttpClientProvider = null;
+      }
+    },
+  );
+
+  testWidgets(
+    'Mobile drawer displays separate Sign In and Register buttons side-by-side',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final repo = FakeCompetitionRepository();
+      final provider = CompetitionProvider(repo, MockProfileRepository());
+      final authProvider = MockAuthProvider(isAuthenticated: false);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<CompetitionProvider>.value(value: provider),
+            ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+          ],
+          child: MaterialApp(
+            home: SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(Duration.zero);
+
+      // Open the navigation drawer by tapping the menu icon
+      final menuIcon = find.byIcon(Icons.menu);
+      expect(menuIcon, findsOneWidget);
+      await tester.tap(menuIcon);
+      await tester.pumpAndSettle();
+
+      // Verify separate buttons exist in drawer
+      expect(find.byKey(const Key('drawer_signin_button')), findsOneWidget);
+      expect(find.byKey(const Key('drawer_register_button')), findsOneWidget);
+    },
+  );
+}
+
+class MockHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return MockHttpClient();
+  }
+}
+
+class MockHttpClient implements HttpClient {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #getUrl) {
+      return Future.value(MockHttpClientRequest());
+    }
+    if (invocation.memberName == #autoUncompress) {
+      return true;
+    }
+    return null;
+  }
+}
+
+class MockHttpClientRequest implements HttpClientRequest {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #close) {
+      return Future.value(MockHttpClientResponse());
+    }
+    if (invocation.memberName == #headers) {
+      return MockHttpHeaders();
+    }
+    return null;
+  }
+}
+
+class MockHttpHeaders implements HttpHeaders {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    return null;
+  }
+}
+
+class MockHttpClientResponse implements HttpClientResponse {
+  static final List<int> kTransparentImage = [
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00,
+    0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b
+  ];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #listen) {
+      final Stream<List<int>> stream = Stream.value(kTransparentImage);
+      return stream.listen(
+        invocation.positionalArguments[0] as void Function(List<int>),
+        onError: invocation.namedArguments[#onError] as Function?,
+        onDone: invocation.namedArguments[#onDone] as void Function()?,
+        cancelOnError: invocation.namedArguments[#cancelOnError] as bool?,
+      );
+    }
+    if (invocation.memberName == #statusCode) {
+      return HttpStatus.ok;
+    }
+    if (invocation.memberName == #contentLength) {
+      return kTransparentImage.length;
+    }
+    if (invocation.memberName == #compressionState) {
+      return HttpClientResponseCompressionState.notCompressed;
+    }
+    return null;
+  }
 }

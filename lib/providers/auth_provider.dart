@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/profile.dart';
@@ -80,6 +81,8 @@ class AuthProvider extends ChangeNotifier {
     String? gender,
     String? country,
     String? profilePictureUrl,
+    Uint8List? customAvatarBytes,
+    String? customAvatarExtension,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -92,7 +95,7 @@ class AuthProvider extends ChangeNotifier {
         throw Exception("Username '$username' is already taken.");
       }
 
-      await _client.auth.signUp(
+      final response = await _client.auth.signUp(
         email: email,
         password: password,
         data: {
@@ -103,6 +106,33 @@ class AuthProvider extends ChangeNotifier {
           if (profilePictureUrl != null) 'profile_picture_url': profilePictureUrl,
         },
       );
+
+      final user = response.user;
+      if (user != null && customAvatarBytes != null) {
+        final ext = customAvatarExtension ?? 'jpg';
+        final filePath = 'profiles/${user.id}/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+        await _client.storage.from('avatars').uploadBinary(
+          filePath,
+          customAvatarBytes,
+          fileOptions: FileOptions(
+            contentType: 'image/$ext',
+            cacheControl: '3600',
+            upsert: true,
+          ),
+        );
+
+        final publicUrl = _client.storage.from('avatars').getPublicUrl(filePath);
+
+        // Fetch user profile with retry since trigger is async
+        final profile = await _fetchProfileWithRetry(user.id);
+        if (profile != null) {
+          final updated = profile.copyWith(profilePictureUrl: publicUrl);
+          await _profileRepository.updateProfile(updated);
+          _currentUserProfile = updated;
+          notifyListeners();
+        }
+      }
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;

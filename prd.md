@@ -41,8 +41,13 @@ The platform is designed to promote Streetlifting from grassroots local meets up
   - Fully constrained navigation: Zooming out is restricted (dynamically calculated `minZoom` based on viewport constraints, minimum 1.8), and a strict `cameraConstraint` restricts camera panning to keep the map centered and prevent background borders/empty space from being exposed.
 - **Guest Access**: All upcoming competitions, map pins, and details must be searchable and viewable without user login or authentication.
 - **User Authentication & Profiles**:
-  - **Register & Login**: Users can register and log in to the application.
-  - **Registration Fields**: Registration requires username, full name, email, gender, country, and an optional profile picture.
+  - **Register & Login**: Users can register and log in to the application via dedicated pages (`LoginPage` and `RegisterPage`) with mutual navigation links.
+  - **Multi-step Registration Flow**:
+    - **Step 1 (Account)**: Form validation for Username (length >= 3), Email, and Password.
+      - **Password Safety Rules**: Enforced by design. Passwords must be at least 8 characters long, and contain at least one uppercase letter, one lowercase letter, one numeric digit, and one special character. Renders a real-time 3-stage colored strength indicator bar (Red/Weak ➔ Yellow/Medium ➔ Green/Strong) and an interactive checklist of met rules. The **NEXT** button is disabled until all rules are met.
+    - **Step 2 (Details)**: Form validation for Full Name, and dropdown selectors for Gender and Country.
+    - **Step 3 (Avatar)**: Support horizontal-scrolling Unsplash preset avatars or uploading a custom profile picture.
+      - **Custom Profile Image Upload**: Users can pick a custom image from their device gallery/file picker (using `file_picker`). Shows a premium preview circle with metadata and a clear option. Upon registration, bytes are uploaded to the public `avatars` Supabase Storage bucket under `profiles/{user_id}/` (secured via RLS policies), and the user's profile is updated with the public URL.
   - **Login Methods**: Users can log in using either:
     - Email + Password
     - Username + Password
@@ -191,10 +196,13 @@ For development and deployment across different environments (e.g. production, s
 ---
 
 ## 9. Implementation Status
-All MVP features described in this document have been fully implemented and verified on the branch `implement-user-authentication-system`:
-- **User Authentication**: Login (email/username + password) and Sign Up are complete.
+All MVP features described in this document have been fully implemented and verified on the branch `split-auth-multistep-registration`:
+- **User Authentication**: Dedicated separate `LoginPage` and `RegisterPage` are complete, with mutual navigation links.
+- **Multi-step Onboarding Wizard**: A 3-step registration stepper (Account ➔ Details ➔ Avatar) is complete with state preservation on backing.
+- **Password Strength Rules**: Real-time evaluation of 5 strength criteria, dynamic indicator checklist, 3-stage colored strength bar, and NEXT button blocking logic are complete.
+- **Custom Profile Image**: Support for picking images via native/web galleries (`file_picker`), displaying custom preview/remove circles, uploading to Supabase Storage `avatars` bucket with RLS policies, and updating Profile records are complete.
 - **Profiles**: Edit bio, settings, color mode preferences, and share profile features are complete.
-- **Deep Linking & URL Sync**: Handled startup deep link routing (`/competitions/:id`, `/profile`, `/auth`, `/users/:username`) and browser URL address bar synchronization without duplicate path or hash-fragment bugs.
+- **Deep Linking & URL Sync**: Handled startup deep link routing (`/competitions/:id`, `/profile`, `/login`, `/register`, `/users/:username`) and browser URL address bar synchronization.
 - **Layout dropdowns**: Integrated layouts into a unified dropdown.
 - **Search Race Conditions**: Resolved atomically.
 
