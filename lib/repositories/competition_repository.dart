@@ -10,7 +10,8 @@ class CompetitionRepository {
   Future<List<Competition>> getUpcomingCompetitions({
     String? query,
     String? sportSubtype, // 'Modern', 'Classic', or null/empty for All
-    String? compGroupName, // 'FinalRep Underground', 'FinalRep Qualifier', 'FinalRep Final', 'Individual', or null/empty for All
+    String?
+    compGroupName, // 'FinalRep Underground', 'FinalRep Qualifier', 'FinalRep Final', 'Individual', or null/empty for All
   }) async {
     try {
       var request = _client
@@ -21,16 +22,22 @@ class CompetitionRepository {
       // Filter by search query (title or location)
       if (query != null && query.trim().isNotEmpty) {
         final cleanQuery = query.trim();
-        request = request.or('title.ilike.%$cleanQuery%,location.ilike.%$cleanQuery%');
+        request = request.or(
+          'title.ilike.%$cleanQuery%,location.ilike.%$cleanQuery%',
+        );
       }
 
       // Filter by Streetlifting subtype
-      if (sportSubtype != null && sportSubtype.isNotEmpty && sportSubtype != 'All') {
+      if (sportSubtype != null &&
+          sportSubtype.isNotEmpty &&
+          sportSubtype != 'All') {
         request = request.eq('sport_subtype', sportSubtype);
       }
 
       // Filter by Competition Group Name
-      if (compGroupName != null && compGroupName.isNotEmpty && compGroupName != 'All') {
+      if (compGroupName != null &&
+          compGroupName.isNotEmpty &&
+          compGroupName != 'All') {
         if (compGroupName == 'Individual') {
           request = request.isFilter('comp_group_name', null);
         } else {

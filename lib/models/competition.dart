@@ -7,7 +7,8 @@ class Competition {
   final String location;
   final String sportType;
   final String sportSubtype; // 'Modern' or 'Classic'
-  final String? compGroupName; // 'FinalRep Underground', 'FinalRep Qualifier', 'FinalRep Final', or null
+  final String?
+  compGroupName; // 'FinalRep Underground', 'FinalRep Qualifier', 'FinalRep Final', or null
   final String status; // 'upcoming', 'ongoing', 'completed'
   final String? area;
   final String? country;
@@ -88,7 +89,8 @@ class Competition {
 
   bool get isModern => sportSubtype.toLowerCase() == 'modern';
   bool get isClassic => sportSubtype.toLowerCase() == 'classic';
-  bool get isPartOfGroup => compGroupName != null && compGroupName!.trim().isNotEmpty;
+  bool get isPartOfGroup =>
+      compGroupName != null && compGroupName!.trim().isNotEmpty;
 
   double get latitude {
     final c = city?.toLowerCase() ?? '';
@@ -99,7 +101,7 @@ class Competition {
     if (c.contains('tokyo')) return 35.6762;
     if (c.contains('frankfurt')) return 50.1109;
     if (c.contains('munich')) return 48.1351;
-    
+
     final loc = location.toLowerCase();
     if (loc.contains('germany')) return 51.1657;
     if (loc.contains('austria')) return 47.5162;
@@ -117,7 +119,7 @@ class Competition {
     if (c.contains('tokyo')) return 139.6503;
     if (c.contains('frankfurt')) return 8.6821;
     if (c.contains('munich')) return 11.5820;
-    
+
     final loc = location.toLowerCase();
     if (loc.contains('germany')) return 10.4515;
     if (loc.contains('austria')) return 14.5501;

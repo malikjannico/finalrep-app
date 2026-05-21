@@ -19,13 +19,17 @@ class _CompetitionCardState extends State<CompetitionCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+    final size = MediaQuery.of(context).size;
+    final isMobileLayout = size.width < 900;
+    final showHover = _isHovered && !isMobileLayout;
+
     // Formatting date
     final startFormat = DateFormat('MMM dd, yyyy');
     final dateStr = startFormat.format(widget.competition.startDate);
 
     final cardRadius = theme.cardTheme.shape is RoundedRectangleBorder
-        ? ((theme.cardTheme.shape as RoundedRectangleBorder).borderRadius as BorderRadius)
+        ? ((theme.cardTheme.shape as RoundedRectangleBorder).borderRadius
+              as BorderRadius)
         : BorderRadius.circular(16);
 
     return MouseRegion(
@@ -35,275 +39,301 @@ class _CompetitionCardState extends State<CompetitionCard> {
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => CompetitionDetailPage(competition: widget.competition),
+              builder: (_) =>
+                  CompetitionDetailPage(competition: widget.competition),
             ),
           );
         },
         child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        transform: _isHovered 
-            ? Matrix4.translationValues(0.0, -4.0, 0.0) 
-            : Matrix4.identity(),
-        decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: cardRadius,
-          border: Border.all(
-            color: _isHovered 
-                ? theme.colorScheme.primary 
-                : theme.colorScheme.outlineVariant,
-            width: _isHovered ? 2 : 1,
-          ),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.25 : 0.15),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  )
-                ]
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Image/Gradient Section with Floating Badges
-            ClipRRect(
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(cardRadius.topLeft.x - 1),
-              ),
-              child: SizedBox(
-                height: 140,
-                width: double.infinity,
-                child: Stack(
-                  children: [
-                    // Title Image or Fallback Gradient
-                    Positioned.fill(
-                      child: _buildTitleImage(context, theme),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          transform: showHover
+              ? Matrix4.translationValues(0.0, -4.0, 0.0)
+              : Matrix4.identity(),
+          decoration: BoxDecoration(
+            color: theme.cardTheme.color,
+            borderRadius: cardRadius,
+            border: Border.all(
+              color: showHover
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outlineVariant,
+              width: showHover ? 2 : 1,
+            ),
+            boxShadow: showHover
+                ? [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(
+                        alpha: isDark ? 0.25 : 0.15,
+                      ),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
                     ),
-                    // Gradient overlay to ensure badge text is readable
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.4),
-                              Colors.transparent,
-                            ],
-                            stops: const [0.0, 0.6],
+                  ]
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Image/Gradient Section with Floating Badges
+              ClipRRect(
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(cardRadius.topLeft.x - 1),
+                ),
+                child: SizedBox(
+                  height: 140,
+                  width: double.infinity,
+                  child: Stack(
+                    children: [
+                      // Title Image or Fallback Gradient
+                      Positioned.fill(child: _buildTitleImage(context, theme)),
+                      // Gradient overlay to ensure badge text is readable
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.4),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.6],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    // Floating Badges
-                    Positioned(
-                      top: 12,
-                      left: 12,
-                      right: 12,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Subtype Badge
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: widget.competition.isModern
-                                    ? theme.colorScheme.primaryContainer
-                                    : theme.colorScheme.tertiaryContainer,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                widget.competition.sportSubtype.toUpperCase(),
-                                style: theme.textTheme.labelSmall?.copyWith(
+                      // Floating Badges
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        right: 12,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Subtype Badge
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
                                   color: widget.competition.isModern
-                                      ? theme.colorScheme.onPrimaryContainer
-                                      : theme.colorScheme.onTertiaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.1,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          // Group Name Pill
-                          if (widget.competition.isPartOfGroup)
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.9),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: theme.colorScheme.secondary.withValues(alpha: 0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  widget.competition.compGroupName!,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSecondaryContainer,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                            )
-                          else
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.5),
+                                      ? theme.colorScheme.primaryContainer
+                                      : theme.colorScheme.tertiaryContainer,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  'INDIVIDUAL',
+                                  widget.competition.sportSubtype.toUpperCase(),
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
+                                    color: widget.competition.isModern
+                                        ? theme.colorScheme.onPrimaryContainer
+                                        : theme.colorScheme.onTertiaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.1,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
                                 ),
                               ),
                             ),
-                        ],
+                            const SizedBox(width: 4),
+                            // Group Name Pill
+                            if (widget.competition.isPartOfGroup)
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondaryContainer
+                                        .withValues(alpha: 0.9),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: theme.colorScheme.secondary
+                                          .withValues(alpha: 0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    widget.competition.compGroupName!,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme
+                                          .colorScheme
+                                          .onSecondaryContainer,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              )
+                            else
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    'INDIVIDUAL',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            
-            // Text and details section
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    Text(
-                      widget.competition.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    
-                    // Description
-                    if (widget.competition.description != null &&
-                        widget.competition.description!.isNotEmpty) ...[
+
+              // Text and details section
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title
                       Text(
-                        widget.competition.description!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 12,
+                        widget.competition.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: theme.colorScheme.onSurface,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                    
-                    const Spacer(),
-                    const Divider(height: 1),
-                    const SizedBox(height: 10),
-                    
-                    // Details: Location, Date & Disciplines
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_outlined, 
-                            size: 14, color: theme.colorScheme.primary),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            widget.competition.location,
+                      const SizedBox(height: 6),
+
+                      // Description
+                      if (widget.competition.description != null &&
+                          widget.competition.description!.isNotEmpty) ...[
+                        Text(
+                          widget.competition.description!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+
+                      const Spacer(),
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+
+                      // Details: Location, Date & Disciplines
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              widget.competition.location,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_month_outlined,
+                            size: 14,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            dateStr,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w500,
                               fontSize: 11,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_month_outlined, 
-                            size: 14, color: theme.colorScheme.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          dateStr,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 11,
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Disciplines indicators
+                      Row(
+                        children: [
+                          Text(
+                            'DISCIPLINES:',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.7),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 8,
+                              letterSpacing: 1.0,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 10),
-                    
-                    // Disciplines indicators
-                    Row(
-                      children: [
-                        Text(
-                          'DISCIPLINES:',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 8,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Wrap(
-                            spacing: 4,
-                            runSpacing: 2,
-                            children: widget.competition.disciplines.map((d) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  _abbreviateDiscipline(d),
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: widget.competition.disciplines.map((d) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 1,
                                   ),
-                                ),
-                              );
-                            }).toList(),
+                                  decoration: BoxDecoration(
+                                    color: theme
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    _abbreviateDiscipline(d),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           ),
-                        )
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -312,12 +342,13 @@ class _CompetitionCardState extends State<CompetitionCard> {
     if (path == null || path.trim().isEmpty) {
       return _buildDefaultGradient(theme);
     }
-    
+
     if (path.startsWith('http')) {
       return Image.network(
         path,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildDefaultGradient(theme),
+        errorBuilder: (context, error, stackTrace) =>
+            _buildDefaultGradient(theme),
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Container(
@@ -336,7 +367,8 @@ class _CompetitionCardState extends State<CompetitionCard> {
       return Image.asset(
         path,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildDefaultGradient(theme),
+        errorBuilder: (context, error, stackTrace) =>
+            _buildDefaultGradient(theme),
       );
     }
   }
@@ -347,10 +379,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.secondary,
-          ],
+          colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
         ),
       ),
       child: Center(

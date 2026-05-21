@@ -66,10 +66,10 @@ Below are the high-quality photos generated to showcase active competitions in t
 - Updated `test/competition_provider_test.dart` to verify cascading options lists, automatic pruning, search queries, and calendar date-range overlaps.
 - Updated `test/widget_test.dart` to align with the new header search bar, page title, and popup format selector.
 
-All **11 tests passed successfully** in the test suite:
+All **18 tests passed successfully** in the test suite:
 ```bash
 $ flutter test
-00:01 +11: All tests passed!
+00:01 +18: All tests passed!
 ```
 
 ### 2. Manual Verification Checklist
@@ -80,3 +80,24 @@ $ flutter test
 - Check that clearing the Area selection re-opens all countries/cities.
 - Click the calendar chip, select a date range, and verify only overlapping events are shown.
 - Click the Theme Toggle in the header and verify it switches immediately.
+
+---
+
+## 🚀 Layout Dropdown, Filter Drawer Improvements, and Deprecation Fixes
+
+We have implemented the following enhancements:
+
+### 1. Combined Layout Dropdown Selector
+- Replaced the three separate layout toggles with a single premium `PopupMenuButton<CompetitionsLayout>` dropdown selector.
+- The dropdown button itself displays **only the icon** of the active layout (using standard `theme.colorScheme.onSurfaceVariant`), giving a clean, minimal, icon-only button look on the results bar header.
+- Dropdown menu items show **both the icon and the text label** side-by-side (e.g., `Grid Layout`, `Compact Layout`, `Map Layout`) inside the dropdown menu list.
+- The dropdown trigger button and menu items use standard theme colors instead of the orange brand color.
+- The active/selected option's text label in the dropdown menu is emphasized in **bold** (`FontWeight.bold`), while unselected options are rendered with normal weight.
+
+### 2. Streamlined Mobile Filter Drawer
+- **Removed the "Apply" button**: Filter parameters are now updated instantly when checkboxes are checked or date ranges are changed, eliminating redundant user actions.
+- **Removed the "Reset All" button**: The "Reset All" action is already available at the trailing end of the active filter chips list, reducing visual clutter in the drawer layout.
+
+### 3. Chrome `Intl.v8BreakIterator` Deprecation Resolution
+- Added a inline `<script>` snippet to [web/index.html](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/enhance-competitions-view-functionality/web/index.html) that deletes the legacy `Intl.v8BreakIterator` object prior to launching the Flutter engine.
+- This forces Chromium-based browsers to fallback to standard, non-deprecated `Intl.Segmenter` for line breaking, suppressing console noise and deprecation warnings in current Chrome builds.

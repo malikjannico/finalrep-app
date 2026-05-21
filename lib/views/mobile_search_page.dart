@@ -40,13 +40,17 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
     }
 
     final q = query.trim().toLowerCase();
-    final results = allCompetitions.where((c) =>
-      c.title.toLowerCase().contains(q) ||
-      c.location.toLowerCase().contains(q) ||
-      (c.description != null && c.description!.toLowerCase().contains(q)) ||
-      (c.city != null && c.city!.toLowerCase().contains(q)) ||
-      (c.country != null && c.country!.toLowerCase().contains(q))
-    ).toList();
+    final results = allCompetitions
+        .where(
+          (c) =>
+              c.title.toLowerCase().contains(q) ||
+              c.location.toLowerCase().contains(q) ||
+              (c.description != null &&
+                  c.description!.toLowerCase().contains(q)) ||
+              (c.city != null && c.city!.toLowerCase().contains(q)) ||
+              (c.country != null && c.country!.toLowerCase().contains(q)),
+        )
+        .toList();
 
     setState(() {
       _suggestions = results;
@@ -122,71 +126,78 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                   Text(
                     'Type a city, country, or keyword to begin.',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                     ),
                   ),
                 ],
               ),
             )
           : _suggestions.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.search_off_outlined,
-                          size: 64,
-                          color: theme.colorScheme.outline.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No suggestions found',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Double check your spelling or search another keyword.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.search_off_outlined,
+                      size: 64,
+                      color: theme.colorScheme.outline.withValues(alpha: 0.5),
                     ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No suggestions found',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Double check your spelling or search another keyword.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _suggestions.length,
+              itemBuilder: (context, index) {
+                final comp = _suggestions[index];
+                return ListTile(
+                  leading: Icon(
+                    Icons.fitness_center,
+                    color: theme.colorScheme.primary,
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _suggestions.length,
-                  itemBuilder: (context, index) {
-                    final comp = _suggestions[index];
-                    return ListTile(
-                      leading: Icon(
-                        Icons.fitness_center,
-                        color: theme.colorScheme.primary,
+                  title: Text(
+                    comp.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${comp.location} • ${DateFormat('MMM dd, yyyy').format(comp.startDate)}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right, size: 16),
+                  onTap: () {
+                    // Close search page and open details view
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CompetitionDetailPage(competition: comp),
                       ),
-                      title: Text(
-                        comp.title,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text('${comp.location} • ${DateFormat('MMM dd, yyyy').format(comp.startDate)}'),
-                      trailing: const Icon(Icons.chevron_right, size: 16),
-                      onTap: () {
-                        // Close search page and open details view
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) => CompetitionDetailPage(competition: comp),
-                          ),
-                        );
-                      },
                     );
                   },
-                ),
+                );
+              },
+            ),
     );
   }
 }

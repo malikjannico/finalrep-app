@@ -1,22 +1,22 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/competition.dart';
 
 class CompetitionDetailPage extends StatelessWidget {
   final Competition competition;
 
-  const CompetitionDetailPage({
-    super.key,
-    required this.competition,
-  });
+  const CompetitionDetailPage({super.key, required this.competition});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     final dateFormat = DateFormat('EEEE, MMMM dd, yyyy');
     final dateStr = dateFormat.format(competition.startDate);
-    final timeStr = "${DateFormat('HH:mm').format(competition.startDate)} - ${DateFormat('HH:mm').format(competition.endDate)}";
+    final timeStr =
+        "${DateFormat('HH:mm').format(competition.startDate)} - ${DateFormat('HH:mm').format(competition.endDate)}";
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -33,10 +33,43 @@ class CompetitionDetailPage extends StatelessWidget {
                   color: Colors.black.withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
+            actions: [
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.share, color: Colors.white, size: 20),
+                ),
+                onPressed: () {
+                  const String appDomain = String.fromEnvironment(
+                    'APP_DOMAIN',
+                    defaultValue: 'app.final-rep.com',
+                  );
+                  final String url = kIsWeb
+                      ? '${Uri.base.origin}/competitions/${competition.id}'
+                      : 'https://$appDomain/competitions/${competition.id}';
+                  Clipboard.setData(ClipboardData(text: url));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Link copied to clipboard: $url'),
+                      backgroundColor: theme.colorScheme.primary,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,
@@ -65,7 +98,10 @@ class CompetitionDetailPage extends StatelessWidget {
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: competition.isModern
                                 ? theme.colorScheme.primaryContainer
@@ -85,9 +121,13 @@ class CompetitionDetailPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.8),
+                            color: theme.colorScheme.secondaryContainer
+                                .withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -166,7 +206,8 @@ class CompetitionDetailPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    competition.description ?? 'No detailed description available for this meet yet.',
+                    competition.description ??
+                        'No detailed description available for this meet yet.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       height: 1.5,
@@ -178,10 +219,13 @@ class CompetitionDetailPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                        color: theme.colorScheme.outlineVariant.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                     ),
                     child: Column(
@@ -189,7 +233,10 @@ class CompetitionDetailPage extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.fitness_center, color: theme.colorScheme.primary),
+                            Icon(
+                              Icons.fitness_center,
+                              color: theme.colorScheme.primary,
+                            ),
                             const SizedBox(width: 10),
                             Text(
                               'Streetlifting ${competition.sportSubtype} Format',
@@ -213,7 +260,9 @@ class CompetitionDetailPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        ...competition.disciplines.map((d) => _buildDisciplineRow(theme, d)),
+                        ...competition.disciplines.map(
+                          (d) => _buildDisciplineRow(theme, d),
+                        ),
                       ],
                     ),
                   ),
@@ -227,7 +276,9 @@ class CompetitionDetailPage extends StatelessWidget {
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Registration for ${competition.title} is not active yet!'),
+                                content: Text(
+                                  'Registration for ${competition.title} is not active yet!',
+                                ),
                                 backgroundColor: theme.colorScheme.primary,
                               ),
                             );
@@ -256,7 +307,11 @@ class CompetitionDetailPage extends StatelessWidget {
                         child: OutlinedButton(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tickets will be available soon!')),
+                              const SnackBar(
+                                content: Text(
+                                  'Tickets will be available soon!',
+                                ),
+                              ),
                             );
                           },
                           style: OutlinedButton.styleFrom(
@@ -268,6 +323,39 @@ class CompetitionDetailPage extends StatelessWidget {
                           ),
                           child: Text(
                             'Buy Spectator Ticket',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Thank you for your interest! Volunteer applications for ${competition.title} will open soon.',
+                                ),
+                                backgroundColor: theme.colorScheme.primary,
+                              ),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: theme.colorScheme.outline),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Apply as Volunteer',
                             style: TextStyle(
                               color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.bold,
@@ -315,7 +403,8 @@ class CompetitionDetailPage extends StatelessWidget {
     }
   }
 
-  Widget _buildQuickInfoCard(BuildContext context, {
+  Widget _buildQuickInfoCard(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
@@ -342,7 +431,9 @@ class CompetitionDetailPage extends StatelessWidget {
                   Text(
                     title,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -380,7 +471,8 @@ class CompetitionDetailPage extends StatelessWidget {
         desc = 'The athlete lowers and presses their body on parallel bars.';
         break;
       case 'squat':
-        desc = 'The athlete squats below parallel with load on their shoulders.';
+        desc =
+            'The athlete squats below parallel with load on their shoulders.';
         break;
     }
 
@@ -389,7 +481,11 @@ class CompetitionDetailPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.check_circle_outline, color: theme.colorScheme.primary, size: 16),
+          Icon(
+            Icons.check_circle_outline,
+            color: theme.colorScheme.primary,
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(

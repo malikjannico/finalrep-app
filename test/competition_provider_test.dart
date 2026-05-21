@@ -76,11 +76,17 @@ class MockCompetitionRepository implements CompetitionRepository {
   }) async {
     return _fakeCompetitions.where((comp) {
       if (query != null && query.isNotEmpty) {
-        final matchesTitle = comp.title.toLowerCase().contains(query.toLowerCase());
-        final matchesLocation = comp.location.toLowerCase().contains(query.toLowerCase());
+        final matchesTitle = comp.title.toLowerCase().contains(
+          query.toLowerCase(),
+        );
+        final matchesLocation = comp.location.toLowerCase().contains(
+          query.toLowerCase(),
+        );
         if (!matchesTitle && !matchesLocation) return false;
       }
-      if (sportSubtype != null && sportSubtype != 'All' && comp.sportSubtype != sportSubtype) {
+      if (sportSubtype != null &&
+          sportSubtype != 'All' &&
+          comp.sportSubtype != sportSubtype) {
         return false;
       }
       if (compGroupName != null && compGroupName != 'All') {
@@ -122,7 +128,10 @@ void main() {
       provider.setSelectedSubtype('Modern');
       expect(provider.selectedSubtype, 'Modern');
       expect(provider.competitions.length, 2);
-      expect(provider.competitions.any((c) => c.title == 'Qualifier Hamburg'), true);
+      expect(
+        provider.competitions.any((c) => c.title == 'Qualifier Hamburg'),
+        true,
+      );
       expect(provider.competitions.any((c) => c.title == 'US Qualifier'), true);
     });
 
@@ -133,6 +142,27 @@ void main() {
       expect(provider.competitions.first.title, 'Classic Cup Vienna');
     });
 
+    test('Multi-select Format (Modern & Classic)', () {
+      provider.toggleSubtype('Modern');
+      provider.toggleSubtype('Classic');
+      expect(provider.selectedSubtypes, containsAll(['Modern', 'Classic']));
+      expect(provider.competitions.length, 4);
+    });
+
+    test('Multi-select Group (Qualifier & Underground)', () {
+      provider.toggleGroup('FinalRep Qualifier');
+      provider.toggleGroup('FinalRep Underground');
+      expect(
+        provider.selectedGroups,
+        containsAll(['FinalRep Qualifier', 'FinalRep Underground']),
+      );
+      expect(provider.competitions.length, 3);
+      expect(
+        provider.competitions.any((c) => c.title == 'Classic Cup Vienna'),
+        false,
+      );
+    });
+
     test('Search by query "Berlin"', () {
       provider.setQuery('Berlin');
       expect(provider.query, 'Berlin');
@@ -140,14 +170,20 @@ void main() {
       expect(provider.competitions.first.title, 'Underground Berlin');
     });
 
-    test('Cascading Location Filters - Area filters Country & City option lists', () {
-      expect(provider.availableAreas, containsAll(['Europe', 'North America']));
+    test(
+      'Cascading Location Filters - Area filters Country & City option lists',
+      () {
+        expect(
+          provider.availableAreas,
+          containsAll(['Europe', 'North America']),
+        );
 
-      provider.toggleArea('North America');
-      expect(provider.selectedAreas, contains('North America'));
-      expect(provider.availableCountries, equals({'USA'}));
-      expect(provider.availableCities, equals({'New York'}));
-    });
+        provider.toggleArea('North America');
+        expect(provider.selectedAreas, contains('North America'));
+        expect(provider.availableCountries, equals({'USA'}));
+        expect(provider.availableCities, equals({'New York'}));
+      },
+    );
 
     test('Cascading Location Filters - Country filters City option list', () {
       provider.toggleArea('Europe');
@@ -164,14 +200,14 @@ void main() {
       provider.toggleArea('Europe');
       provider.toggleCountry('Germany');
       provider.toggleCity('Berlin');
-      
+
       expect(provider.selectedAreas, contains('Europe'));
       expect(provider.selectedCountries, contains('Germany'));
       expect(provider.selectedCities, contains('Berlin'));
 
       provider.toggleArea('Europe'); // deselect Europe
       provider.toggleArea('North America'); // select North America
-      
+
       expect(provider.selectedCountries, isNot(contains('Germany')));
       expect(provider.selectedCities, isNot(contains('Berlin')));
     });
@@ -181,10 +217,10 @@ void main() {
         start: DateTime(2026, 7, 1),
         end: DateTime(2026, 7, 31),
       );
-      
+
       provider.setDateRange(range);
       expect(provider.selectedDateRange, range);
-      
+
       expect(provider.competitions.length, 1);
       expect(provider.competitions.first.title, 'Underground Berlin');
 

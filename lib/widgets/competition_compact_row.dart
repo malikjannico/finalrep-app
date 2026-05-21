@@ -24,6 +24,9 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final size = MediaQuery.of(context).size;
+    final isMobileLayout = size.width < 900;
+    final showHover = _isHovered && !isMobileLayout;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -35,12 +38,14 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
           margin: const EdgeInsets.symmetric(vertical: 4),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: _isHovered
-                ? theme.colorScheme.primaryContainer.withValues(alpha: isDark ? 0.15 : 0.4)
+            color: showHover
+                ? theme.colorScheme.primaryContainer.withValues(
+                    alpha: isDark ? 0.15 : 0.4,
+                  )
                 : theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _isHovered
+              color: showHover
                   ? theme.colorScheme.primary
                   : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               width: 1,
@@ -55,7 +60,9 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                 decoration: BoxDecoration(
                   border: Border(
                     right: BorderSide(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.5,
+                      ),
                       width: 1,
                     ),
                   ),
@@ -65,7 +72,9 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      DateFormat('MMM dd').format(widget.competition.startDate).toUpperCase(),
+                      DateFormat(
+                        'MMM dd',
+                      ).format(widget.competition.startDate).toUpperCase(),
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w900,
                         color: theme.colorScheme.primary,
@@ -75,7 +84,9 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                     Text(
                       DateFormat('yyyy').format(widget.competition.startDate),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
                         fontSize: 11,
                       ),
                     ),
@@ -131,11 +142,16 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                         children: [
                           // Format Badge (Classic / Modern)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: widget.competition.isModern
-                                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
-                                  : theme.colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                                  ? theme.colorScheme.primaryContainer
+                                        .withValues(alpha: 0.6)
+                                  : theme.colorScheme.tertiaryContainer
+                                        .withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -154,9 +170,15 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                             spacing: 4,
                             children: widget.competition.disciplines.map((d) {
                               return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                                  color: theme
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.6),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -183,9 +205,14 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                 // Group Badge (Desktop/Tablet)
                 if (widget.competition.isPartOfGroup) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.6),
+                      color: theme.colorScheme.secondaryContainer.withValues(
+                        alpha: 0.6,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -202,11 +229,18 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
 
                 // Format Badge (Classic / Modern)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: widget.competition.isModern
-                      ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
-                      : theme.colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                        ? theme.colorScheme.primaryContainer.withValues(
+                            alpha: 0.6,
+                          )
+                        : theme.colorScheme.tertiaryContainer.withValues(
+                            alpha: 0.6,
+                          ),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -227,9 +261,13 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
                   spacing: 4,
                   children: widget.competition.disciplines.map((d) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -249,7 +287,9 @@ class _CompetitionCompactRowState extends State<CompetitionCompactRow> {
               Icon(
                 Icons.chevron_right,
                 size: 18,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.5,
+                ),
               ),
             ],
           ),

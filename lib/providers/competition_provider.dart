@@ -2,25 +2,27 @@ import 'package:flutter/material.dart';
 import '../models/competition.dart';
 import '../repositories/competition_repository.dart';
 
+enum CompetitionsLayout { grid, list, map }
+
 class CompetitionProvider extends ChangeNotifier {
   final CompetitionRepository _repository;
 
   String _query = '';
-  String _selectedSubtype = 'All'; // 'All', 'Modern', 'Classic'
-  String _selectedGroup = 'All'; // 'All', 'FinalRep Underground', 'FinalRep Qualifier', 'FinalRep Final', 'Individual'
-  
+  final Set<String> _selectedSubtypes = {};
+  final Set<String> _selectedGroups = {};
+
   // Location filters
   final Set<String> _selectedAreas = {};
   final Set<String> _selectedCountries = {};
   final Set<String> _selectedCities = {};
-  
+
   // Date range filter
   DateTimeRange? _selectedDateRange;
 
   // New features
-  int _activeTab = 0; // 0 = Feed, 1 = Map
-  bool _isCompactLayout = false;
-  String _sortOrder = 'date_asc'; // 'date_asc', 'date_desc', 'name_asc', 'name_desc'
+  CompetitionsLayout _layout = CompetitionsLayout.grid;
+  String _sortOrder =
+      'date_asc'; // 'date_asc', 'date_desc', 'name_asc', 'name_desc'
   final Set<String> _selectedSports = {};
 
   bool _isLoading = false;
@@ -34,8 +36,21 @@ class CompetitionProvider extends ChangeNotifier {
 
   // Getters
   String get query => _query;
-  String get selectedSubtype => _selectedSubtype;
-  String get selectedGroup => _selectedGroup;
+  Set<String> get selectedSubtypes => _selectedSubtypes;
+  Set<String> get selectedGroups => _selectedGroups;
+
+  String get selectedSubtype {
+    if (_selectedSubtypes.isEmpty) return 'All';
+    if (_selectedSubtypes.length == 1) return _selectedSubtypes.first;
+    return _selectedSubtypes.join(', ');
+  }
+
+  String get selectedGroup {
+    if (_selectedGroups.isEmpty) return 'All';
+    if (_selectedGroups.length == 1) return _selectedGroups.first;
+    return _selectedGroups.join(', ');
+  }
+
   bool get isLoading => _isLoading;
   List<Competition> get competitions => _filteredCompetitions;
   List<Competition> get allCompetitions => _allCompetitions;
@@ -46,21 +61,35 @@ class CompetitionProvider extends ChangeNotifier {
   Set<String> get selectedCities => _selectedCities;
   DateTimeRange? get selectedDateRange => _selectedDateRange;
 
-  int get activeTab => _activeTab;
-  bool get isCompactLayout => _isCompactLayout;
+  CompetitionsLayout get layout => _layout;
+  int get activeTab => _layout == CompetitionsLayout.map ? 1 : 0;
+  bool get isCompactLayout => _layout == CompetitionsLayout.list;
   String get sortOrder => _sortOrder;
   Set<String> get selectedSports => _selectedSports;
 
+  void setLayout(CompetitionsLayout newLayout) {
+    if (_layout != newLayout) {
+      _layout = newLayout;
+      notifyListeners();
+    }
+  }
+
   void setActiveTab(int tab) {
-    if (_activeTab != tab) {
-      _activeTab = tab;
+    final targetLayout = tab == 1
+        ? CompetitionsLayout.map
+        : CompetitionsLayout.grid;
+    if (_layout != targetLayout) {
+      _layout = targetLayout;
       notifyListeners();
     }
   }
 
   void setIsCompactLayout(bool val) {
-    if (_isCompactLayout != val) {
-      _isCompactLayout = val;
+    final targetLayout = val
+        ? CompetitionsLayout.list
+        : CompetitionsLayout.grid;
+    if (_layout != targetLayout) {
+      _layout = targetLayout;
       notifyListeners();
     }
   }
@@ -85,11 +114,15 @@ class CompetitionProvider extends ChangeNotifier {
 
   // Get counts for filters
   int getSportCount(String sport) {
-    return _allCompetitions.where((c) => c.sportType.toLowerCase() == sport.toLowerCase()).length;
+    return _allCompetitions
+        .where((c) => c.sportType.toLowerCase() == sport.toLowerCase())
+        .length;
   }
 
   int getSubtypeCount(String subtype) {
-    return _allCompetitions.where((c) => c.sportSubtype.toLowerCase() == subtype.toLowerCase()).length;
+    return _allCompetitions
+        .where((c) => c.sportSubtype.toLowerCase() == subtype.toLowerCase())
+        .length;
   }
 
   int getGroupCount(String group) {
@@ -100,15 +133,29 @@ class CompetitionProvider extends ChangeNotifier {
   }
 
   int getAreaCount(String area) {
-    return _allCompetitions.where((c) => c.area != null && c.area!.toLowerCase() == area.toLowerCase()).length;
+    return _allCompetitions
+        .where(
+          (c) => c.area != null && c.area!.toLowerCase() == area.toLowerCase(),
+        )
+        .length;
   }
 
   int getCountryCount(String country) {
-    return _allCompetitions.where((c) => c.country != null && c.country!.toLowerCase() == country.toLowerCase()).length;
+    return _allCompetitions
+        .where(
+          (c) =>
+              c.country != null &&
+              c.country!.toLowerCase() == country.toLowerCase(),
+        )
+        .length;
   }
 
   int getCityCount(String city) {
-    return _allCompetitions.where((c) => c.city != null && c.city!.toLowerCase() == city.toLowerCase()).length;
+    return _allCompetitions
+        .where(
+          (c) => c.city != null && c.city!.toLowerCase() == city.toLowerCase(),
+        )
+        .length;
   }
 
   // Setters and action handlers
@@ -121,19 +168,41 @@ class CompetitionProvider extends ChangeNotifier {
   }
 
   void setSelectedSubtype(String subtype) {
-    if (_selectedSubtype != subtype) {
-      _selectedSubtype = subtype;
-      _applyFilters();
-      notifyListeners();
+    _selectedSubtypes.clear();
+    if (subtype != 'All') {
+      _selectedSubtypes.add(subtype);
     }
+    _applyFilters();
+    notifyListeners();
   }
 
   void setSelectedGroup(String group) {
-    if (_selectedGroup != group) {
-      _selectedGroup = group;
-      _applyFilters();
-      notifyListeners();
+    _selectedGroups.clear();
+    if (group != 'All') {
+      _selectedGroups.add(group);
     }
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void toggleSubtype(String subtype) {
+    if (_selectedSubtypes.contains(subtype)) {
+      _selectedSubtypes.remove(subtype);
+    } else {
+      _selectedSubtypes.add(subtype);
+    }
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void toggleGroup(String group) {
+    if (_selectedGroups.contains(group)) {
+      _selectedGroups.remove(group);
+    } else {
+      _selectedGroups.add(group);
+    }
+    _applyFilters();
+    notifyListeners();
   }
 
   void toggleArea(String area) {
@@ -194,7 +263,9 @@ class CompetitionProvider extends ChangeNotifier {
   Set<String> get availableCountries {
     Iterable<Competition> comps = _allCompetitions;
     if (_selectedAreas.isNotEmpty) {
-      comps = comps.where((c) => c.area != null && _selectedAreas.contains(c.area));
+      comps = comps.where(
+        (c) => c.area != null && _selectedAreas.contains(c.area),
+      );
     }
     return comps
         .map((c) => c.country)
@@ -206,10 +277,14 @@ class CompetitionProvider extends ChangeNotifier {
   Set<String> get availableCities {
     Iterable<Competition> comps = _allCompetitions;
     if (_selectedAreas.isNotEmpty) {
-      comps = comps.where((c) => c.area != null && _selectedAreas.contains(c.area));
+      comps = comps.where(
+        (c) => c.area != null && _selectedAreas.contains(c.area),
+      );
     }
     if (_selectedCountries.isNotEmpty) {
-      comps = comps.where((c) => c.country != null && _selectedCountries.contains(c.country));
+      comps = comps.where(
+        (c) => c.country != null && _selectedCountries.contains(c.country),
+      );
     }
     return comps
         .map((c) => c.city)
@@ -252,55 +327,90 @@ class CompetitionProvider extends ChangeNotifier {
     // 1. Search Query
     if (_query.trim().isNotEmpty) {
       final q = _query.trim().toLowerCase();
-      temp = temp.where((c) =>
-        c.title.toLowerCase().contains(q) ||
-        c.location.toLowerCase().contains(q) ||
-        (c.description != null && c.description!.toLowerCase().contains(q)) ||
-        (c.city != null && c.city!.toLowerCase().contains(q)) ||
-        (c.country != null && c.country!.toLowerCase().contains(q)) ||
-        (c.area != null && c.area!.toLowerCase().contains(q))
-      ).toList();
+      temp = temp
+          .where(
+            (c) =>
+                c.title.toLowerCase().contains(q) ||
+                c.location.toLowerCase().contains(q) ||
+                (c.description != null &&
+                    c.description!.toLowerCase().contains(q)) ||
+                (c.city != null && c.city!.toLowerCase().contains(q)) ||
+                (c.country != null && c.country!.toLowerCase().contains(q)) ||
+                (c.area != null && c.area!.toLowerCase().contains(q)),
+          )
+          .toList();
     }
 
-    // 2. Subtype
-    if (_selectedSubtype != 'All') {
-      temp = temp.where((c) => c.sportSubtype.toLowerCase() == _selectedSubtype.toLowerCase()).toList();
+    // 2. Subtypes
+    if (_selectedSubtypes.isNotEmpty) {
+      temp = temp
+          .where(
+            (c) => _selectedSubtypes.any(
+              (s) => s.toLowerCase() == c.sportSubtype.toLowerCase(),
+            ),
+          )
+          .toList();
     }
 
-    // 3. Group
-    if (_selectedGroup != 'All') {
-      if (_selectedGroup == 'Individual') {
-        temp = temp.where((c) => !c.isPartOfGroup).toList();
-      } else {
-        temp = temp.where((c) => c.compGroupName == _selectedGroup).toList();
-      }
+    // 3. Groups
+    if (_selectedGroups.isNotEmpty) {
+      temp = temp.where((c) {
+        if (!c.isPartOfGroup) {
+          return _selectedGroups.any((g) => g.toLowerCase() == 'individual');
+        } else {
+          return _selectedGroups.any(
+            (g) => g.toLowerCase() == c.compGroupName?.toLowerCase(),
+          );
+        }
+      }).toList();
     }
 
     // 4. Area (Multi-select)
     if (_selectedAreas.isNotEmpty) {
-      temp = temp.where((c) => c.area != null && _selectedAreas.contains(c.area)).toList();
+      temp = temp
+          .where((c) => c.area != null && _selectedAreas.contains(c.area))
+          .toList();
     }
 
     // 5. Country (Multi-select)
     if (_selectedCountries.isNotEmpty) {
-      temp = temp.where((c) => c.country != null && _selectedCountries.contains(c.country)).toList();
+      temp = temp
+          .where(
+            (c) => c.country != null && _selectedCountries.contains(c.country),
+          )
+          .toList();
     }
 
     // 6. City (Multi-select)
     if (_selectedCities.isNotEmpty) {
-      temp = temp.where((c) => c.city != null && _selectedCities.contains(c.city)).toList();
+      temp = temp
+          .where((c) => c.city != null && _selectedCities.contains(c.city))
+          .toList();
     }
 
     // 7. Date Range Filter
     if (_selectedDateRange != null) {
-      final filterStart = DateTime(_selectedDateRange!.start.year, _selectedDateRange!.start.month, _selectedDateRange!.start.day);
-      final filterEnd = DateTime(_selectedDateRange!.end.year, _selectedDateRange!.end.month, _selectedDateRange!.end.day, 23, 59, 59);
+      final filterStart = DateTime(
+        _selectedDateRange!.start.year,
+        _selectedDateRange!.start.month,
+        _selectedDateRange!.start.day,
+      );
+      final filterEnd = DateTime(
+        _selectedDateRange!.end.year,
+        _selectedDateRange!.end.month,
+        _selectedDateRange!.end.day,
+        23,
+        59,
+        59,
+      );
 
       temp = temp.where((c) {
         final compStart = c.startDate;
         final compEnd = c.endDate;
-        return (compEnd.isAfter(filterStart) || compEnd.isAtSameMomentAs(filterStart)) &&
-               (compStart.isBefore(filterEnd) || compStart.isAtSameMomentAs(filterEnd));
+        return (compEnd.isAfter(filterStart) ||
+                compEnd.isAtSameMomentAs(filterStart)) &&
+            (compStart.isBefore(filterEnd) ||
+                compStart.isAtSameMomentAs(filterEnd));
       }).toList();
     }
 
@@ -315,9 +425,13 @@ class CompetitionProvider extends ChangeNotifier {
     } else if (_sortOrder == 'date_desc') {
       temp.sort((a, b) => b.startDate.compareTo(a.startDate));
     } else if (_sortOrder == 'name_asc') {
-      temp.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+      temp.sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      );
     } else if (_sortOrder == 'name_desc') {
-      temp.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+      temp.sort(
+        (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),
+      );
     }
 
     _filteredCompetitions = temp;
@@ -325,8 +439,8 @@ class CompetitionProvider extends ChangeNotifier {
 
   void clearFilters() {
     _query = '';
-    _selectedSubtype = 'All';
-    _selectedGroup = 'All';
+    _selectedSubtypes.clear();
+    _selectedGroups.clear();
     _selectedAreas.clear();
     _selectedCountries.clear();
     _selectedCities.clear();

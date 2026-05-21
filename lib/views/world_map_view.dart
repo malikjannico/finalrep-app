@@ -15,7 +15,8 @@ class WorldMapView extends StatefulWidget {
   State<WorldMapView> createState() => _WorldMapViewState();
 }
 
-class _WorldMapViewState extends State<WorldMapView> with SingleTickerProviderStateMixin {
+class _WorldMapViewState extends State<WorldMapView>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   Competition? _selectedCompetition;
 
@@ -39,326 +40,349 @@ class _WorldMapViewState extends State<WorldMapView> with SingleTickerProviderSt
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final provider = Provider.of<CompetitionProvider>(context);
-    final competitions = provider.competitions.where((c) => c.latitude != 0.0 || c.longitude != 0.0).toList();
+    final competitions = provider.competitions
+        .where((c) => c.latitude != 0.0 || c.longitude != 0.0)
+        .toList();
 
-    return Column(
-      children: [
-        // Map Title & Description
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Column(
-            children: [
-              Text(
-                'COMPETITIONS MAP',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Interactive view of upcoming Streetlifting meets globally.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F0B0A) : const Color(0xFFFAF6F4),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
-        
-        // Map Container (Expanded so it fits the remaining vertical space without scrolling)
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F0B0A) : const Color(0xFFFAF6F4),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.colorScheme.shadow.withValues(alpha: isDark ? 0.2 : 0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(
+              alpha: isDark ? 0.2 : 0.05,
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-                  final height = constraints.maxHeight;
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final height = constraints.maxHeight;
 
-                  // Calculate min zoom required to contain the world map (-180 to 180 lon, -85 to 85 lat) without showing borders.
-                  // Width of map at zoom Z is 256 * 2^Z. We want 256 * 2^Z >= width => Z >= log2(width / 256).
-                  // Height of map at zoom Z is 256 * 2^Z. We want 256 * 2^Z >= height => Z >= log2(height / 256).
-                  // If constraints are not set or zero (e.g. initial layout pass), fallback to 1.8.
-                  double calculatedMinZoom = 1.8;
-                  if (width > 0 && height > 0) {
-                    final minZoomX = math.log(width / 256) / math.log(2);
-                    final minZoomY = math.log(height / 256) / math.log(2);
-                    calculatedMinZoom = math.max(1.8, math.max(minZoomX, minZoomY));
-                  }
+            // Calculate min zoom required to contain the world map (-180 to 180 lon, -85 to 85 lat) without showing borders.
+            // Width of map at zoom Z is 256 * 2^Z. We want 256 * 2^Z >= width => Z >= log2(width / 256).
+            // Height of map at zoom Z is 256 * 2^Z. We want 256 * 2^Z >= height => Z >= log2(height / 256).
+            // If constraints are not set or zero (e.g. initial layout pass), fallback to 1.8.
+            double calculatedMinZoom = 1.8;
+            if (width > 0 && height > 0) {
+              final minZoomX = math.log(width / 256) / math.log(2);
+              final minZoomY = math.log(height / 256) / math.log(2);
+              calculatedMinZoom = math.max(1.8, math.max(minZoomX, minZoomY));
+            }
 
-                  return Stack(
-                    children: [
-                      FlutterMap(
-                        options: MapOptions(
-                          initialCenter: const LatLng(30.0, 0.0),
-                          initialZoom: calculatedMinZoom,
-                          minZoom: calculatedMinZoom,
-                          maxZoom: 18.0,
-                          backgroundColor: isDark ? const Color(0xFF0F0B0A) : const Color(0xFFFAF6F4),
-                          cameraConstraint: SafeContainCameraConstraint(
-                            bounds: LatLngBounds(
-                              const LatLng(-85.0, -180.0),
-                              const LatLng(85.0, 180.0),
-                            ),
-                          ),
-                          onTap: (tapPosition, point) {
-                            setState(() {
-                              _selectedCompetition = null;
-                            });
-                          },
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: isDark
-                                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-                                : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                            subdomains: const ['a', 'b', 'c', 'd'],
-                            userAgentPackageName: 'com.finalrep.app',
-                          ),
-                          MarkerLayer(
-                            markers: competitions.map((comp) {
-                              return Marker(
-                                point: LatLng(comp.latitude, comp.longitude),
-                                width: 60,
-                                height: 60,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedCompetition = comp;
-                                    });
-                                  },
-                                  child: AnimatedBuilder(
-                                    animation: _pulseController,
-                                    builder: (context, child) {
-                                      final isSelected = _selectedCompetition?.id == comp.id;
-                                      return Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          // Outer pulsing ring
-                                          Container(
-                                            width: 12 + _pulseController.value * 28,
-                                            height: 12 + _pulseController.value * 28,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: theme.colorScheme.primary.withValues(
-                                                  alpha: (1.0 - _pulseController.value) * 0.6,
-                                                ),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                          ),
-                                          if (isSelected)
-                                            // Selected state extra ring
-                                            Container(
-                                              width: 24,
-                                              height: 24,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                                              ),
-                                            ),
-                                          // Inner pin dot
-                                          Container(
-                                            width: isSelected ? 12 : 8,
-                                            height: isSelected ? 12 : 8,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: theme.colorScheme.primary,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 1.5,
-                                              ),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withValues(alpha: 0.3),
-                                                  blurRadius: 4,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
+            return Stack(
+              children: [
+                FlutterMap(
+                  options: MapOptions(
+                    initialCenter: const LatLng(30.0, 0.0),
+                    initialZoom: calculatedMinZoom,
+                    minZoom: calculatedMinZoom,
+                    maxZoom: 18.0,
+                    backgroundColor: isDark
+                        ? const Color(0xFF0F0B0A)
+                        : const Color(0xFFFAF6F4),
+                    cameraConstraint: SafeContainCameraConstraint(
+                      bounds: LatLngBounds(
+                        const LatLng(-85.0, -180.0),
+                        const LatLng(85.0, 180.0),
                       ),
+                    ),
+                    onTap: (tapPosition, point) {
+                      setState(() {
+                        _selectedCompetition = null;
+                      });
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: isDark
+                          ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                          : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      userAgentPackageName: 'com.finalrep.app',
+                    ),
+                    MarkerLayer(
+                      markers: competitions.map((comp) {
+                        return Marker(
+                          point: LatLng(comp.latitude, comp.longitude),
+                          width: 60,
+                          height: 60,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              setState(() {
+                                _selectedCompetition = comp;
+                              });
+                            },
+                            child: AnimatedBuilder(
+                              animation: _pulseController,
+                              builder: (context, child) {
+                                final isSelected =
+                                    _selectedCompetition?.id == comp.id;
+                                return Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Outer pulsing ring
+                                    Container(
+                                      width: 12 + _pulseController.value * 28,
+                                      height: 12 + _pulseController.value * 28,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: theme.colorScheme.primary
+                                              .withValues(
+                                                alpha:
+                                                    (1.0 -
+                                                        _pulseController
+                                                            .value) *
+                                                    0.6,
+                                              ),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      // Selected state extra ring
+                                      Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: theme.colorScheme.primary
+                                              .withValues(alpha: 0.2),
+                                        ),
+                                      ),
+                                    // Inner pin dot
+                                    Container(
+                                      width: isSelected ? 12 : 8,
+                                      height: isSelected ? 12 : 8,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: theme.colorScheme.primary,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.3,
+                                            ),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
 
-                      // Floating details card at the bottom of the map Stack
-                      if (_selectedCompetition != null)
-                        Positioned(
-                          bottom: 16,
-                          left: 16,
-                          right: 16,
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 400),
-                              child: Card(
-                                margin: EdgeInsets.zero,
-                                elevation: 8,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(
-                                    color: theme.colorScheme.primary,
-                                    width: 1.5,
-                                  ),
+                // Floating details card at the bottom of the map Stack
+                if (_selectedCompetition != null)
+                  Positioned(
+                    bottom: 16,
+                    left: 16,
+                    right: 16,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        child: Card(
+                          margin: EdgeInsets.zero,
+                          elevation: 8,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          color: theme.colorScheme.surface.withValues(
+                            alpha: 0.95,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _selectedCompetition!.title,
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedCompetition = null;
+                                        });
+                                      },
+                                      child: const Icon(Icons.close, size: 16),
+                                    ),
+                                  ],
                                 ),
-                                color: theme.colorScheme.surface.withValues(alpha: 0.95),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              _selectedCompetition!.title,
-                                              style: theme.textTheme.titleSmall?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 14,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        _selectedCompetition!.location,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
                                             ),
-                                          ),
-                                          GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                _selectedCompetition = null;
-                                              });
-                                            },
-                                            child: const Icon(Icons.close, size: 16),
-                                          ),
-                                        ],
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.location_on_outlined, size: 14, color: theme.colorScheme.primary),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              _selectedCompetition!.location,
-                                              style: theme.textTheme.bodySmall?.copyWith(
-                                                color: theme.colorScheme.onSurfaceVariant,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_month_outlined,
+                                      size: 14,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      DateFormat(
+                                        'MMM dd, yyyy',
+                                      ).format(_selectedCompetition!.startDate),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _selectedCompetition!.isModern
+                                            ? theme.colorScheme.primaryContainer
+                                            : theme
+                                                  .colorScheme
+                                                  .tertiaryContainer,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        _selectedCompetition!.sportSubtype
+                                            .toUpperCase(),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color:
+                                                  _selectedCompetition!.isModern
+                                                  ? theme
+                                                        .colorScheme
+                                                        .onPrimaryContainer
+                                                  : theme
+                                                        .colorScheme
+                                                        .onTertiaryContainer,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 9,
                                             ),
-                                          ),
-                                        ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                CompetitionDetailPage(
+                                                  competition:
+                                                      _selectedCompetition!,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.calendar_month_outlined, size: 14, color: theme.colorScheme.primary),
-                                          const SizedBox(width: 4),
                                           Text(
-                                            DateFormat('MMM dd, yyyy').format(_selectedCompetition!.startDate),
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              color: theme.colorScheme.onSurfaceVariant,
+                                            'Details',
+                                            style: TextStyle(
+                                              color: theme.colorScheme.primary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              height: 1.0,
                                             ),
+                                          ),
+                                          const SizedBox(width: 2),
+                                          Icon(
+                                            Icons.chevron_right,
+                                            size: 14,
+                                            color: theme.colorScheme.primary,
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: _selectedCompetition!.isModern
-                                                  ? theme.colorScheme.primaryContainer
-                                                  : theme.colorScheme.tertiaryContainer,
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              _selectedCompetition!.sportSubtype.toUpperCase(),
-                                              style: theme.textTheme.labelSmall?.copyWith(
-                                                color: _selectedCompetition!.isModern
-                                                    ? theme.colorScheme.onPrimaryContainer
-                                                    : theme.colorScheme.onTertiaryContainer,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 9,
-                                              ),
-                                            ),
-                                          ),
-                                          TextButton(
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (_) => CompetitionDetailPage(
-                                                    competition: _selectedCompetition!,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            style: TextButton.styleFrom(
-                                              padding: EdgeInsets.zero,
-                                              minimumSize: Size.zero,
-                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  'Details',
-                                                  style: TextStyle(
-                                                    color: theme.colorScheme.primary,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 12,
-                                                    height: 1.0,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 2),
-                                                Icon(Icons.chevron_right, size: 14, color: theme.colorScheme.primary),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              ),
+                              ],
                             ),
                           ),
                         ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
-      ],
+      ),
     );
   }
 }
@@ -380,8 +404,7 @@ class SafeContainCameraConstraint extends CameraConstraint {
     // In these cases, return the camera unmodified to prevent the assertion failure:
     // "MapCamera is no longer within the cameraConstraint after an option change."
     final stack = StackTrace.current.toString();
-    if (stack.contains('setOptions') ||
-        stack.contains('didUpdateWidget')) {
+    if (stack.contains('setOptions') || stack.contains('didUpdateWidget')) {
       return camera;
     }
 
