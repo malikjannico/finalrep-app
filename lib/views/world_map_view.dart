@@ -334,6 +334,9 @@ class _WorldMapViewState extends State<WorldMapView>
                                       onPressed: () {
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
+                                            settings: RouteSettings(
+                                              name: '/competitions/${_selectedCompetition!.id}',
+                                            ),
                                             builder: (_) =>
                                                 CompetitionDetailPage(
                                                   competition:

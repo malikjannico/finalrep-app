@@ -2,12 +2,18 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'theme.dart';
 import 'repositories/competition_repository.dart';
+import 'repositories/profile_repository.dart';
 import 'providers/competition_provider.dart';
+import 'providers/auth_provider.dart';
 import 'views/search_feed_page.dart';
+import 'utils/url_helper.dart';
 
 void main() async {
+  UrlHelper.initialize();
+  usePathUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
 
   // Intercept pointer data packets to map trackpad device kind to mouse,
@@ -74,12 +80,16 @@ void main() async {
 
   final supabase = Supabase.instance.client;
   final competitionRepository = CompetitionRepository(supabase);
+  final profileRepository = ProfileRepository(supabase);
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) => CompetitionProvider(competitionRepository),
+          create: (_) => CompetitionProvider(competitionRepository, profileRepository),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(supabase, profileRepository),
         ),
       ],
       child: const MyApp(),
@@ -95,27 +105,82 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  bool _isDarkMode = true; // Defaulting to premium dark mode
+  bool _isDarkMode = true; // Defaulting to premium dark mode for guests
 
-  void _toggleTheme() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-    });
+  void _toggleTheme(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isAuthenticated && authProvider.currentUserProfile != null) {
+      final profile = authProvider.currentUserProfile!;
+      final currentMode = profile.colorMode;
+      String newMode;
+      if (currentMode == 'system') {
+        // Toggle based on platform brightness
+        final isSystemDark =
+            MediaQuery.of(context).platformBrightness == Brightness.dark;
+        newMode = isSystemDark ? 'light' : 'dark';
+      } else {
+        newMode = currentMode == 'dark' ? 'light' : 'dark';
+      }
+      authProvider.updateProfile(
+        fullName: profile.fullName,
+        email: profile.email,
+        gender: profile.gender,
+        country: profile.country,
+        description: profile.description,
+        colorMode: newMode,
+      );
+    } else {
+      setState(() {
+        _isDarkMode = !_isDarkMode;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FinalRep App',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      themeAnimationDuration: Duration.zero,
-      home: SearchFeedPage(
-        onToggleTheme: _toggleTheme,
-        isDarkMode: _isDarkMode,
-      ),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        final profile = authProvider.currentUserProfile;
+        ThemeMode themeMode;
+        bool isDarkTheme;
+
+        if (authProvider.isAuthenticated && profile != null) {
+          final mode = profile.colorMode;
+          if (mode == 'light') {
+            themeMode = ThemeMode.light;
+            isDarkTheme = false;
+          } else if (mode == 'dark') {
+            themeMode = ThemeMode.dark;
+            isDarkTheme = true;
+          } else {
+            themeMode = ThemeMode.system;
+            isDarkTheme =
+                MediaQuery.of(context).platformBrightness == Brightness.dark;
+          }
+        } else {
+          themeMode = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+          isDarkTheme = _isDarkMode;
+        }
+
+        return MaterialApp(
+          title: 'FinalRep App',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
+          themeAnimationDuration: Duration.zero,
+          navigatorObservers: [
+            WebUrlObserver(Provider.of<CompetitionProvider>(context, listen: false)),
+          ],
+          initialRoute: '/',
+          home: Builder(
+            builder: (context) => SearchFeedPage(
+              onToggleTheme: () => _toggleTheme(context),
+              isDarkMode: isDarkTheme,
+            ),
+          ),
+        );
+      },
     );
   }
 }

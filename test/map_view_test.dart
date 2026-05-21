@@ -2,9 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:finalrep_app/models/competition.dart';
+import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
+import 'package:finalrep_app/repositories/profile_repository.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/views/world_map_view.dart';
+
+class MockProfileRepository implements ProfileRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<List<Profile>> searchProfiles(String query) async {
+    return [];
+  }
+}
 
 class FakeMapCompetitionRepository implements CompetitionRepository {
   final List<Competition> _fakeCompetitions = [
@@ -60,7 +72,7 @@ void main() {
       });
 
       final repo = FakeMapCompetitionRepository();
-      final provider = CompetitionProvider(repo);
+      final provider = CompetitionProvider(repo, MockProfileRepository());
 
       // Initial load
       await provider.fetchCompetitions();

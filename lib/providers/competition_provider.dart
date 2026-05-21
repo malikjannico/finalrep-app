@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import '../models/competition.dart';
+import '../models/profile.dart';
 import '../repositories/competition_repository.dart';
+import '../repositories/profile_repository.dart';
 
 enum CompetitionsLayout { grid, list, map }
+enum SearchScope { competitions, users }
 
 class CompetitionProvider extends ChangeNotifier {
   final CompetitionRepository _repository;
+  final ProfileRepository _profileRepository;
 
   String _query = '';
   final Set<String> _selectedSubtypes = {};
@@ -19,18 +23,23 @@ class CompetitionProvider extends ChangeNotifier {
   // Date range filter
   DateTimeRange? _selectedDateRange;
 
-  // New features
+  // Layout and sorting
   CompetitionsLayout _layout = CompetitionsLayout.grid;
-  String _sortOrder =
-      'date_asc'; // 'date_asc', 'date_desc', 'name_asc', 'name_desc'
+  String _sortOrder = 'date_asc'; // 'date_asc', 'date_desc', 'name_asc', 'name_desc'
   final Set<String> _selectedSports = {};
+
+  // Search scope
+  SearchScope _searchScope = SearchScope.competitions;
+  List<Profile> _searchedUsers = [];
+  bool _isLoadingUsers = false;
+  String _lastUserQuery = '';
 
   bool _isLoading = false;
   List<Competition> _allCompetitions = [];
   List<Competition> _filteredCompetitions = [];
   String? _errorMessage;
 
-  CompetitionProvider(this._repository) {
+  CompetitionProvider(this._repository, this._profileRepository) {
     fetchCompetitions();
   }
 
@@ -66,6 +75,11 @@ class CompetitionProvider extends ChangeNotifier {
   bool get isCompactLayout => _layout == CompetitionsLayout.list;
   String get sortOrder => _sortOrder;
   Set<String> get selectedSports => _selectedSports;
+
+  // Scope Getters
+  SearchScope get searchScope => _searchScope;
+  List<Profile> get searchedUsers => _searchedUsers;
+  bool get isLoadingUsers => _isLoadingUsers;
 
   void setLayout(CompetitionsLayout newLayout) {
     if (_layout != newLayout) {
@@ -110,6 +124,39 @@ class CompetitionProvider extends ChangeNotifier {
     }
     _applyFilters();
     notifyListeners();
+  }
+
+  // Search scope setter
+  void setSearchScope(SearchScope scope) {
+    if (_searchScope != scope) {
+      _searchScope = scope;
+      if (_searchScope == SearchScope.users) {
+        searchUsers(_query);
+      } else {
+        _applyFilters();
+      }
+      notifyListeners();
+    }
+  }
+
+  void setSearchScopeAndQuery(SearchScope scope, String newQuery) {
+    bool changed = false;
+    if (_searchScope != scope) {
+      _searchScope = scope;
+      changed = true;
+    }
+    if (_query != newQuery) {
+      _query = newQuery;
+      changed = true;
+    }
+    if (changed) {
+      if (_searchScope == SearchScope.users) {
+        searchUsers(_query);
+      } else {
+        _applyFilters();
+      }
+      notifyListeners();
+    }
   }
 
   // Get counts for filters
@@ -162,7 +209,11 @@ class CompetitionProvider extends ChangeNotifier {
   void setQuery(String newQuery) {
     if (_query != newQuery) {
       _query = newQuery;
-      _applyFilters();
+      if (_searchScope == SearchScope.competitions) {
+        _applyFilters();
+      } else {
+        searchUsers(newQuery);
+      }
       notifyListeners();
     }
   }
@@ -301,6 +352,15 @@ class CompetitionProvider extends ChangeNotifier {
     _selectedCities.retainWhere((c) => validCities.contains(c));
   }
 
+  Future<Competition?> getCompetitionById(String id) async {
+    try {
+      return await _repository.getCompetitionById(id);
+    } catch (e) {
+      debugPrint('Error getting competition by ID: $e');
+      return null;
+    }
+  }
+
   Future<void> fetchCompetitions() async {
     _isLoading = true;
     _errorMessage = null;
@@ -318,6 +378,29 @@ class CompetitionProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> searchUsers(String query) async {
+    _lastUserQuery = query;
+    _isLoadingUsers = true;
+    notifyListeners();
+
+    try {
+      final results = await _profileRepository.searchProfiles(query);
+      if (_lastUserQuery == query) {
+        _searchedUsers = results;
+      }
+    } catch (e) {
+      if (_lastUserQuery == query) {
+        _errorMessage = 'Failed to load users: $e';
+        _searchedUsers = [];
+      }
+    } finally {
+      if (_lastUserQuery == query) {
+        _isLoadingUsers = false;
+        notifyListeners();
+      }
     }
   }
 

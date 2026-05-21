@@ -2,13 +2,55 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:finalrep_app/models/competition.dart';
+import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
+import 'package:finalrep_app/repositories/profile_repository.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
+import 'package:finalrep_app/providers/auth_provider.dart';
 import 'package:finalrep_app/views/search_feed_page.dart';
 import 'package:finalrep_app/views/competition_detail_page.dart';
 import 'package:finalrep_app/widgets/competition_card.dart';
 import 'package:finalrep_app/widgets/competition_compact_row.dart';
 import 'package:finalrep_app/views/world_map_view.dart';
+import 'package:finalrep_app/views/auth_page.dart';
+
+class MockProfileRepository implements ProfileRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<List<Profile>> searchProfiles(String query) async {
+    return [];
+  }
+}
+
+class MockAuthProvider extends ChangeNotifier implements AuthProvider {
+  final bool _isAuthenticated;
+  final Profile? _currentUserProfile;
+  final AuthStatus _status;
+
+  MockAuthProvider({
+    bool isAuthenticated = false,
+    Profile? currentUserProfile,
+    AuthStatus status = AuthStatus.unauthenticated,
+  })  : _isAuthenticated = isAuthenticated,
+        _currentUserProfile = currentUserProfile,
+        _status = status;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  AuthStatus get status => _status;
+  @override
+  Profile? get currentUserProfile => _currentUserProfile;
+  @override
+  bool get isAuthenticated => _isAuthenticated;
+  @override
+  bool get isLoading => false;
+  @override
+  String? get errorMessage => null;
+}
 
 // Mock repository for UI testing
 class FakeCompetitionRepository implements CompetitionRepository {
@@ -81,12 +123,14 @@ void main() {
     });
 
     final repo = FakeCompetitionRepository();
-    final provider = CompetitionProvider(repo);
+    final provider = CompetitionProvider(repo, MockProfileRepository());
+    final authProvider = MockAuthProvider();
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           ChangeNotifierProvider<CompetitionProvider>.value(value: provider),
+          ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ],
         child: MaterialApp(
           home: SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
@@ -104,7 +148,7 @@ void main() {
       find.byWidgetPredicate(
         (w) =>
             w is TextField &&
-            w.decoration?.hintText == 'Search competitions globally...',
+            w.decoration?.hintText == 'Search competitions',
       ),
       findsOneWidget,
     );
@@ -177,12 +221,14 @@ void main() {
     });
 
     final repo = FakeCompetitionRepository();
-    final provider = CompetitionProvider(repo);
+    final provider = CompetitionProvider(repo, MockProfileRepository());
+    final authProvider = MockAuthProvider();
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           ChangeNotifierProvider<CompetitionProvider>.value(value: provider),
+          ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ],
         child: MaterialApp(
           home: SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
@@ -216,12 +262,14 @@ void main() {
       });
 
       final repo = FakeCompetitionRepository();
-      final provider = CompetitionProvider(repo);
+      final provider = CompetitionProvider(repo, MockProfileRepository());
+      final authProvider = MockAuthProvider();
 
       await tester.pumpWidget(
         MultiProvider(
           providers: [
             ChangeNotifierProvider<CompetitionProvider>.value(value: provider),
+            ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
           ],
           child: MaterialApp(
             home: SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
@@ -289,7 +337,7 @@ void main() {
   );
 
   testWidgets(
-    'Verify mobile layout has no bottom navigation bar, and filter chips are in the drawer',
+    'Verify mobile layout has bottom navigation bar, and filter chips are in the drawer',
     (WidgetTester tester) async {
       // Mobile layout
       tester.view.physicalSize = const Size(400, 800);
@@ -300,12 +348,14 @@ void main() {
       });
 
       final repo = FakeCompetitionRepository();
-      final provider = CompetitionProvider(repo);
+      final provider = CompetitionProvider(repo, MockProfileRepository());
+      final authProvider = MockAuthProvider(isAuthenticated: true);
 
       await tester.pumpWidget(
         MultiProvider(
           providers: [
             ChangeNotifierProvider<CompetitionProvider>.value(value: provider),
+            ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
           ],
           child: MaterialApp(
             home: SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
@@ -316,19 +366,19 @@ void main() {
       await tester.pump();
       await tester.pump(Duration.zero);
 
-      // Verify no BottomNavigationBar is found
-      expect(find.byType(BottomNavigationBar), findsNothing);
+      // Verify BottomNavigationBar is found
+      expect(find.byType(BottomNavigationBar), findsOneWidget);
 
       // Open the navigation drawer and verify no "World Map" list tile exists
       final menuIcon = find.byIcon(Icons.menu);
       await tester.tap(menuIcon);
       await tester.pumpAndSettle();
 
-      expect(find.text('Competitions'), findsOneWidget);
+      expect(find.text('Competitions'), findsAtLeast(1));
       expect(find.text('World Map'), findsNothing);
 
       // Close the navigation drawer by popping it
-      Navigator.of(tester.element(find.text('Competitions'))).pop();
+      Navigator.of(tester.element(find.text('Competitions').first)).pop();
       await tester.pumpAndSettle();
 
       // Filter by modern using the mobile search page or filter drawer

@@ -5,11 +5,17 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/competition.dart';
 import '../providers/competition_provider.dart';
+import '../providers/auth_provider.dart';
+import '../utils/url_helper.dart';
 import '../widgets/competition_card.dart';
 import '../widgets/competition_compact_row.dart';
+import '../widgets/profile_card.dart';
+import '../widgets/user_compact_row.dart';
 import 'competition_detail_page.dart';
 import 'mobile_search_page.dart';
 import 'world_map_view.dart';
+import 'auth_page.dart';
+import 'profile_page.dart';
 
 class SearchFeedPage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -33,6 +39,12 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
   final FocusNode _endFocusNode = FocusNode();
   late CompetitionProvider _provider;
   bool _hasCheckedSharedLink = false;
+  int _currentMobileTabIndex = 0;
+  bool _userIsCompactLayout = false;
+
+  // Stored startup URL info to avoid address-bar overwrite race conditions
+  String? _initialPath;
+  Map<String, String>? _initialQueryParams;
 
   @override
   void initState() {
@@ -40,6 +52,29 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     _provider = Provider.of<CompetitionProvider>(context, listen: false);
     _provider.addListener(_onProviderChanged);
     _syncDateControllers(_provider.selectedDateRange);
+
+    // Capture the initial deep link URL information immediately on startup from UrlHelper
+    final initialUri = UrlHelper.initialUri;
+    String path = initialUri.path;
+    Map<String, String> queryParams = initialUri.queryParameters;
+
+    if (initialUri.fragment.isNotEmpty) {
+      final cleanFragment = initialUri.fragment.startsWith('/')
+          ? initialUri.fragment
+          : '/${initialUri.fragment}';
+      try {
+        final fragmentUri = Uri.parse(cleanFragment);
+        if (fragmentUri.path.isNotEmpty && fragmentUri.path != '/') {
+          path = fragmentUri.path;
+        }
+        if (fragmentUri.queryParameters.isNotEmpty) {
+          queryParams = fragmentUri.queryParameters;
+        }
+      } catch (_) {}
+    }
+
+    _initialPath = path;
+    _initialQueryParams = queryParams;
 
     // Check deep link routing after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,68 +116,198 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       }
     }
 
+    if (_hasCheckedSharedLink) {
+      _updateSearchFeedUrl();
+    }
+
     // Attempt to route to shared link once data has loaded
     _checkSharedLink(_provider);
   }
 
-  String? _getSharedCompetitionId() {
-    if (!kIsWeb) return null;
-    final uri = Uri.base;
 
-    // 1. Check path segments: /competitions/uuid
+  String? _getUserRouteSegments(String path) {
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+    final uri = Uri.parse(cleanPath);
+    if (uri.pathSegments.length >= 2 &&
+        (uri.pathSegments[0] == 'users' || uri.pathSegments[0] == 'profiles')) {
+      return uri.pathSegments[1];
+    }
+    return null;
+  }
+
+  String? _getCompetitionRouteSegments(String path) {
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+    final uri = Uri.parse(cleanPath);
     if (uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'competitions') {
       return uri.pathSegments[1];
     }
-
-    // 2. Check fragment (hash routing): /#/competitions/uuid
-    if (uri.fragment.isNotEmpty) {
-      try {
-        final cleanFragment = uri.fragment.startsWith('/')
-            ? uri.fragment
-            : '/${uri.fragment}';
-        final fragmentUri = Uri.parse(cleanFragment);
-        if (fragmentUri.pathSegments.length >= 2 &&
-            fragmentUri.pathSegments[0] == 'competitions') {
-          return fragmentUri.pathSegments[1];
-        }
-      } catch (_) {}
-    }
-
-    // 3. Fallback to query parameter: ?competitionId=uuid
-    if (uri.queryParameters.containsKey('competitionId')) {
-      return uri.queryParameters['competitionId'];
-    }
-
     return null;
+  }
+
+  void _updateSearchFeedUrl() {
+    if (!kIsWeb) return;
+    if (ModalRoute.of(context)?.isCurrent == true) {
+      final Map<String, String> params = {};
+      if (_provider.query.isNotEmpty) {
+        params['q'] = _provider.query;
+      }
+      params['scope'] = _provider.searchScope.name;
+      updateWebUrl('/', params);
+    }
   }
 
   void _checkSharedLink(CompetitionProvider provider) {
     if (_hasCheckedSharedLink) return;
-    if (provider.isLoading) return;
 
-    final sharedId = _getSharedCompetitionId();
-    if (sharedId != null && provider.allCompetitions.isNotEmpty) {
-      _hasCheckedSharedLink = true; // Only try once
+    final path = _initialPath ?? '/';
+    final queryParams = _initialQueryParams ?? const {};
 
+    final userSegments = _getUserRouteSegments(path);
+    final compId = _getCompetitionRouteSegments(path) ?? queryParams['competitionId'];
+    final q = queryParams['q'] ?? '';
+    final scopeStr = queryParams['scope'];
+
+    // If there is no deep link, set check to true and return
+    final hasNoDeepLink = path == '/' &&
+        queryParams.isEmpty &&
+        userSegments == null &&
+        compId == null &&
+        q.isEmpty &&
+        scopeStr == null;
+
+    if (hasNoDeepLink) {
+      _hasCheckedSharedLink = true;
+      return;
+    }
+
+    // 1. Check `/profile`
+    if (path == '/profile') {
+      final isDesktop = MediaQuery.of(context).size.width >= 900;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _hasCheckedSharedLink = true;
+          if (isDesktop) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                settings: const RouteSettings(name: '/profile'),
+                builder: (_) => const ProfilePage(),
+              ),
+            );
+          } else {
+            setState(() {
+              _currentMobileTabIndex = 1;
+            });
+          }
+        }
+      });
+      return;
+    }
+
+    // Check `/auth`
+    if (path == '/auth') {
+      final isDesktop = MediaQuery.of(context).size.width >= 900;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _hasCheckedSharedLink = true;
+          if (isDesktop) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                settings: const RouteSettings(name: '/auth'),
+                builder: (_) => const AuthPage(),
+              ),
+            );
+          } else {
+            setState(() {
+              _currentMobileTabIndex = 1;
+            });
+          }
+        }
+      });
+      return;
+    }
+
+    // 2. Check `/users/username`
+    if (userSegments != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _hasCheckedSharedLink = true;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              settings: RouteSettings(name: '/users/$userSegments'),
+              builder: (_) => ProfilePage(username: userSegments),
+            ),
+          );
+        }
+      });
+      return;
+    }
+
+    // 3. Check query parameters like ?scope=users&q=marie
+    if (q.isNotEmpty || scopeStr != null) {
+      SearchScope scope = SearchScope.competitions;
+      if (scopeStr == 'users') {
+        scope = SearchScope.users;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _hasCheckedSharedLink = true;
+          provider.setSearchScopeAndQuery(scope, q);
+        }
+      });
+      return;
+    }
+
+    // 4. Check `/competitions/uuid`
+    if (provider.isLoading) {
+      debugPrint('[DeepLink] provider is loading, returning');
+      return; // Wait for competitions to load
+    }
+
+    debugPrint('[DeepLink] path: $path, compId: $compId');
+    if (compId != null) {
       Competition? foundComp;
       for (final c in provider.allCompetitions) {
-        if (c.id == sharedId) {
+        if (c.id == compId) {
           foundComp = c;
           break;
         }
       }
-
+      debugPrint('[DeepLink] foundComp in memory: $foundComp');
       if (foundComp != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
+            _hasCheckedSharedLink = true;
+            debugPrint('[DeepLink] navigating to foundComp: ${foundComp!.id}');
             Navigator.of(context).push(
               MaterialPageRoute(
+                settings: RouteSettings(name: '/competitions/${foundComp!.id}'),
                 builder: (_) => CompetitionDetailPage(competition: foundComp!),
               ),
             );
           }
         });
+      } else {
+        debugPrint('[DeepLink] comp not in memory, fetching...');
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          final comp = await provider.getCompetitionById(compId);
+          debugPrint('[DeepLink] fetched comp: $comp');
+          if (comp != null && mounted) {
+            _hasCheckedSharedLink = true;
+            debugPrint('[DeepLink] navigating to fetched comp: ${comp.id}');
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                settings: RouteSettings(name: '/competitions/${comp.id}'),
+                builder: (_) => CompetitionDetailPage(competition: comp),
+              ),
+            );
+          } else if (mounted) {
+            _hasCheckedSharedLink = true;
+          }
+        });
       }
+    } else {
+      _hasCheckedSharedLink = true;
     }
   }
 
@@ -210,37 +375,75 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = Provider.of<CompetitionProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
+
+    // Automatically switch back to competitions tab if user logs out
+    if (!authProvider.isAuthenticated && _currentMobileTabIndex == 1) {
+      _currentMobileTabIndex = 0;
+    }
+
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width >= 900;
     final isTablet = size.width >= 600 && size.width < 900;
+    final showProfileTab = !isDesktop && _currentMobileTabIndex == 1;
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: theme.colorScheme.surface,
-      drawer: _buildNavigationDrawer(context, provider, theme),
-      endDrawer: _buildFiltersDrawer(context, provider, theme),
+      drawer: showProfileTab ? null : _buildNavigationDrawer(context, provider, theme),
+      endDrawer: showProfileTab ? null : _buildFiltersDrawer(context, provider, theme),
       body: SafeArea(
         child: Column(
           children: [
             // Responsive Top Header
-            _buildTopHeader(context, provider, theme, isDesktop, isTablet),
+            if (!showProfileTab)
+              _buildTopHeader(context, provider, theme, isDesktop, isTablet),
 
             // Sub-navigation bar for desktop view
             if (isDesktop) _buildDesktopSubNavBar(provider, theme),
 
             // Main View Content
             Expanded(
-              child: _buildMainContent(
-                context,
-                provider,
-                theme,
-                isDesktop,
-                isTablet,
-              ),
+              child: showProfileTab
+                  ? (authProvider.isAuthenticated
+                      ? const ProfilePage(isInline: true)
+                      : const AuthPage())
+                  : _buildMainContent(
+                      context,
+                      provider,
+                      theme,
+                      isDesktop,
+                      isTablet,
+                    ),
             ),
           ],
         ),
       ),
+      bottomNavigationBar: !isDesktop && authProvider.isAuthenticated
+          ? BottomNavigationBar(
+              currentIndex: _currentMobileTabIndex,
+              selectedItemColor: const Color(0xFFE94E1B),
+              unselectedItemColor: theme.colorScheme.onSurfaceVariant,
+              onTap: (index) {
+                if (index == 0) {
+                  provider.setSearchScopeAndQuery(SearchScope.competitions, '');
+                }
+                setState(() {
+                  _currentMobileTabIndex = index;
+                });
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.explore),
+                  label: 'Competitions',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
+            )
+          : null,
     );
   }
 
@@ -262,62 +465,157 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          if (!isDesktop) ...[
-            // Hamburger menu on mobile left
-            IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () {
-                _scaffoldKey.currentState?.openDrawer();
-              },
+      child: isDesktop
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                // Brand Icon
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      provider.setSearchScopeAndQuery(SearchScope.competitions, '');
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: SvgPicture.asset(
+                        'assets/finalrep_icon.svg',
+                        height: 28,
+                        colorFilter: const ColorFilter.mode(
+                          Color(0xFFE94E1B),
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Centered Search bar
+                const SizedBox(
+                  width: 440,
+                  child: DesktopSearchBar(),
+                ),
+                // Theme toggle and profile on desktop right
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        onPressed: widget.onToggleTheme,
+                        tooltip: 'Toggle Theme',
+                      ),
+                      const SizedBox(width: 12),
+                      _buildProfileHeaderButton(context, theme),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                // Hamburger menu on mobile left
+                IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () {
+                    _scaffoldKey.currentState?.openDrawer();
+                  },
+                ),
+                const Spacer(),
+                // Brand Icon
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    provider.setSearchScopeAndQuery(SearchScope.competitions, '');
+                  },
+                  child: SvgPicture.asset(
+                    'assets/finalrep_icon.svg',
+                    height: 28,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFFE94E1B),
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // Mobile search icon on right
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MobileSearchPage()),
+                    );
+                  },
+                ),
+              ],
             ),
-            const Spacer(),
-          ],
-
-          // Brand Icon
-          SvgPicture.asset(
-            'assets/finalrep_icon.svg',
-            height: 28,
-            colorFilter: const ColorFilter.mode(
-              Color(0xFFE94E1B),
-              BlendMode.srcIn,
-            ),
-          ),
-
-          if (!isDesktop) const Spacer(),
-
-          // Centered Search bar in desktop
-          if (isDesktop) ...[
-            const Spacer(),
-            SizedBox(width: 400, child: const DesktopSearchBar()),
-            const Spacer(),
-          ],
-
-          if (!isDesktop) ...[
-            // Mobile search icon on right
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const MobileSearchPage()),
-                );
-              },
-            ),
-          ] else ...[
-            // Theme toggle on desktop right
-            IconButton(
-              icon: Icon(
-                widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                color: theme.colorScheme.onSurface,
-              ),
-              onPressed: widget.onToggleTheme,
-              tooltip: 'Toggle Theme',
-            ),
-          ],
-        ],
-      ),
     );
+  }
+
+  Widget _buildProfileHeaderButton(BuildContext context, ThemeData theme) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    if (authProvider.isAuthenticated) {
+      final user = authProvider.currentUserProfile;
+      final initials = user != null && user.fullName.isNotEmpty
+          ? user.fullName
+              .trim()
+              .split(' ')
+              .map((e) => e.isEmpty ? '' : e[0])
+              .take(2)
+              .join()
+              .toUpperCase()
+          : user?.username.isNotEmpty == true
+              ? user!.username[0].toUpperCase()
+              : '?';
+      return GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              settings: const RouteSettings(name: '/profile'),
+              builder: (_) => const ProfilePage(),
+            ),
+          );
+        },
+        child: CircleAvatar(
+          radius: 18,
+          backgroundColor: theme.colorScheme.primaryContainer,
+          backgroundImage: user?.profilePictureUrl != null
+              ? NetworkImage(user!.profilePictureUrl!)
+              : null,
+          child: user?.profilePictureUrl == null
+              ? Text(
+                  initials,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                )
+              : null,
+        ),
+      );
+    } else {
+      return OutlinedButton.icon(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              settings: const RouteSettings(name: '/auth'),
+              builder: (_) => const AuthPage(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.login, size: 16),
+        label: const Text('Login / Register', style: TextStyle(fontSize: 13)),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        ),
+      );
+    }
   }
 
   Widget _buildDesktopSubNavBar(CompetitionProvider provider, ThemeData theme) {
@@ -337,8 +635,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
         children: [
           _buildSubNavButton(
             label: 'Competitions',
-            isActive: true,
-            onPressed: () {},
+            isActive: provider.searchScope == SearchScope.competitions,
+            onPressed: () {
+              provider.setSearchScopeAndQuery(SearchScope.competitions, '');
+            },
             theme: theme,
           ),
         ],
@@ -375,31 +675,101 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     CompetitionProvider provider,
     ThemeData theme,
   ) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.currentUserProfile;
+    final initials = user != null && user.fullName.isNotEmpty
+        ? user.fullName
+            .trim()
+            .split(' ')
+            .map((e) => e.isEmpty ? '' : e[0])
+            .take(2)
+            .join()
+            .toUpperCase()
+        : user?.username.isNotEmpty == true
+            ? user!.username[0].toUpperCase()
+            : '?';
+
     return Drawer(
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity != null &&
               details.primaryVelocity! < -200) {
-            Navigator.of(context).pop();
+            if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+              Navigator.of(context).pop();
+            }
           }
         },
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: SvgPicture.asset(
-                  'assets/finalrep_icon.svg',
-                  height: 32,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFFE94E1B),
-                    BlendMode.srcIn,
+              if (authProvider.isAuthenticated && user != null) ...[
+                UserAccountsDrawerHeader(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  currentAccountPicture: CircleAvatar(
+                    backgroundColor: theme.colorScheme.primaryContainer,
+                    backgroundImage: user.profilePictureUrl != null
+                        ? NetworkImage(user.profilePictureUrl!)
+                        : null,
+                    child: user.profilePictureUrl == null
+                        ? Text(
+                            initials,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          )
+                        : null,
+                  ),
+                  accountName: Text(
+                    user.fullName,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  accountEmail: Text(
+                    '@${user.username}',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  onDetailsPressed: () {
+                    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                      Navigator.of(context).pop(); // close drawer
+                    }
+                     Navigator.of(context).push(
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: '/profile'),
+                        builder: (_) => const ProfilePage(),
+                      ),
+                    );
+                  },
+                ),
+              ] else ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+                  child: SvgPicture.asset(
+                    'assets/finalrep_icon.svg',
+                    height: 36,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFFE94E1B),
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ),
-              ),
-              const Divider(height: 1),
+                const Divider(height: 1),
+              ],
+
               ListTile(
                 leading: const Icon(Icons.explore, color: Color(0xFFE94E1B)),
                 title: const Text(
@@ -410,12 +780,62 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   ),
                 ),
                 onTap: () {
+                  provider.setSearchScopeAndQuery(SearchScope.competitions, '');
                   provider.setLayout(CompetitionsLayout.grid);
-                  Navigator.of(context).pop();
+                  if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                    Navigator.of(context).pop();
+                  }
                 },
               ),
+              if (authProvider.isAuthenticated)
+                ListTile(
+                  leading: const Icon(Icons.person),
+                  title: const Text('Profile'),
+                  onTap: () {
+                    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                      Navigator.of(context).pop();
+                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: '/profile'),
+                        builder: (_) => const ProfilePage(),
+                      ),
+                    );
+                  },
+                ),
               const Spacer(),
-              const Divider(height: 1),
+              if (!authProvider.isAuthenticated) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                          Navigator.of(context).pop();
+                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            settings: const RouteSettings(name: '/auth'),
+                            builder: (_) => const AuthPage(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.login),
+                      label: const Text('Sign In / Register'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+              ],
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -473,7 +893,11 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () {
+                        if (_scaffoldKey.currentState?.isEndDrawerOpen == true) {
+                          Navigator.of(context).pop();
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -792,75 +1216,82 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     bool isDesktop,
     bool isTablet,
   ) {
-    final activeWidget = provider.layout == CompetitionsLayout.map
-        ? const WorldMapView()
-        : _buildCompetitionsListGrid(
-            context,
-            provider,
-            theme,
-            isDesktop,
-            isTablet,
-          );
+    final activeWidget = provider.searchScope == SearchScope.users
+        ? _buildUsersListGrid(context, provider, theme, isDesktop, isTablet)
+        : (provider.layout == CompetitionsLayout.map
+            ? const WorldMapView()
+            : _buildCompetitionsListGrid(
+                context,
+                provider,
+                theme,
+                isDesktop,
+                isTablet,
+              ));
+
+    final isUsers = provider.searchScope == SearchScope.users;
 
     if (isDesktop) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Left Sidebar (always visible on desktop)
-          Container(
-            width: 300,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              border: Border(
-                right: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.5,
+          // Left Sidebar (always visible on desktop, hidden for users search scope)
+          if (!isUsers)
+            Container(
+              width: 300,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                border: Border(
+                  right: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
+                    width: 1,
                   ),
-                  width: 1,
                 ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 16.0,
-                  ),
-                  child: Text(
-                    'Filters',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 16.0,
+                    ),
+                    child: Text(
+                      'Filters',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                   ),
-                ),
-                Divider(
-                  height: 1,
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.3,
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: _buildFilterContent(
-                      context,
-                      provider,
-                      theme,
-                      isDesktop: true,
+                  Divider(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.3,
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: _buildFilterContent(
+                        context,
+                        provider,
+                        theme,
+                        isDesktop: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
           // Right Content Panel
           Expanded(
             child: Column(
               children: [
-                _buildResultsHeader(context, provider, theme, true),
+                isUsers
+                    ? _buildUsersResultsHeader(context, provider, theme, true)
+                    : _buildResultsHeader(context, provider, theme, true),
                 Expanded(child: activeWidget),
               ],
             ),
@@ -876,17 +1307,114 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           if (velocity > 200) {
             _scaffoldKey.currentState?.openDrawer();
           } else if (velocity < -200) {
-            _scaffoldKey.currentState?.openEndDrawer();
+            if (!isUsers) {
+              _scaffoldKey.currentState?.openEndDrawer();
+            }
           }
         },
         child: Column(
           children: [
-            _buildResultsHeader(context, provider, theme, false),
+            isUsers
+                ? _buildUsersResultsHeader(context, provider, theme, false)
+                : _buildResultsHeader(context, provider, theme, false),
             Expanded(child: activeWidget),
           ],
         ),
       );
     }
+  }
+
+  Widget _buildUsersResultsHeader(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Left side: Title and Count
+          Expanded(
+            child: Text(
+              '${provider.searchedUsers.length} Users',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+
+          // Right side: Layout Options
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PopupMenuButton<bool>(
+                tooltip: 'Select layout',
+                onSelected: (bool isCompact) {
+                  setState(() {
+                    _userIsCompactLayout = isCompact;
+                  });
+                },
+                itemBuilder: (BuildContext context) => [
+                  PopupMenuItem<bool>(
+                    value: false,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.grid_view,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Grid Layout',
+                          style: TextStyle(
+                            fontWeight: !_userIsCompactLayout
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<bool>(
+                    value: true,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.view_list,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Compact Layout',
+                          style: TextStyle(
+                            fontWeight: _userIsCompactLayout
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(
+                    !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildResultsHeader(
@@ -1346,6 +1874,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
+                        settings: RouteSettings(name: '/competitions/${comp.id}'),
                         builder: (_) =>
                             CompetitionDetailPage(competition: comp),
                       ),
@@ -1374,6 +1903,96 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                 final comp = provider.competitions[index];
                 return CompetitionCard(competition: comp);
               }, childCount: provider.competitions.length),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildUsersListGrid(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+    bool isTablet,
+  ) {
+    if (provider.isLoadingUsers) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (provider.errorMessage != null) {
+      return Center(
+        child: Text(
+          provider.errorMessage!,
+          style: TextStyle(color: theme.colorScheme.error),
+        ),
+      );
+    }
+
+    if (provider.searchedUsers.isEmpty) {
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.person_off_outlined,
+                size: 64,
+                color: theme.colorScheme.outline,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No users found',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Try refining your search query.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      slivers: [
+        if (_userIsCompactLayout)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final user = provider.searchedUsers[index];
+                return UserCompactRow(profile: user);
+              }, childCount: provider.searchedUsers.length),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.only(
+              left: 24,
+              right: 24,
+              bottom: 40,
+              top: 12,
+            ),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isDesktop ? 3 : (isTablet ? 2 : 1),
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+                mainAxisExtent: 150,
+              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final user = provider.searchedUsers[index];
+                return ProfileCard(profile: user);
+              }, childCount: provider.searchedUsers.length),
             ),
           ),
       ],
@@ -1463,12 +2082,20 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
   final LayerLink _layerLink = LayerLink();
   final TextEditingController _controller = TextEditingController();
   OverlayEntry? _overlayEntry;
+  late SearchScope _tempSearchScope;
+  SearchScope? _lastProviderScope;
+  String? _lastProviderQuery;
 
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(_onFocusChange);
     _controller.addListener(_onTextChanged);
+
+    final provider = Provider.of<CompetitionProvider>(context, listen: false);
+    _tempSearchScope = provider.searchScope;
+    _lastProviderScope = provider.searchScope;
+    _lastProviderQuery = provider.query;
   }
 
   @override
@@ -1496,6 +2123,10 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
   void _onTextChanged() {
     if (_controller.text.isNotEmpty && _focusNode.hasFocus) {
       _showOverlay();
+      final provider = Provider.of<CompetitionProvider>(context, listen: false);
+      if (_tempSearchScope == SearchScope.users) {
+        provider.searchUsers(_controller.text);
+      }
     } else {
       _hideOverlay();
     }
@@ -1527,59 +2158,130 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
           showWhenUnlinked: false,
           offset: Offset(0, size.height + 6.0),
           child: Material(
+            color: Theme.of(context).colorScheme.surface,
             elevation: 8,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: Consumer<CompetitionProvider>(
               builder: (context, provider, child) {
+                final theme = Theme.of(context);
                 final query = _controller.text.trim().toLowerCase();
-                final suggestions = provider.allCompetitions.where((c) {
-                  return c.title.toLowerCase().contains(query) ||
-                      c.location.toLowerCase().contains(query) ||
-                      (c.city != null &&
-                          c.city!.toLowerCase().contains(query)) ||
-                      (c.country != null &&
-                          c.country!.toLowerCase().contains(query));
-                }).toList();
 
-                if (suggestions.isEmpty) {
+                if (_tempSearchScope == SearchScope.users) {
+                  final suggestions = provider.searchedUsers;
+
+                  if (suggestions.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      child: const Text('No users found'),
+                    );
+                  }
+
                   return Container(
-                    color: Theme.of(context).colorScheme.surface,
-                    padding: const EdgeInsets.all(16),
-                    child: const Text('No competitions found'),
+                    constraints: const BoxConstraints(maxHeight: 250),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: suggestions.length,
+                      itemBuilder: (context, index) {
+                        final user = suggestions[index];
+                        final initials = user.fullName.isNotEmpty
+                            ? user.fullName
+                                .trim()
+                                .split(' ')
+                                .map((e) => e.isEmpty ? '' : e[0])
+                                .take(2)
+                                .join()
+                                .toUpperCase()
+                            : user.username.isNotEmpty
+                                ? user.username[0].toUpperCase()
+                                : '?';
+                        return ListTile(
+                          dense: true,
+                          leading: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: theme.colorScheme.primaryContainer,
+                            backgroundImage: user.profilePictureUrl != null
+                                ? NetworkImage(user.profilePictureUrl!)
+                                : null,
+                            child: user.profilePictureUrl == null
+                                ? Text(
+                                    initials,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onPrimaryContainer,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          title: Text(
+                            user.fullName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text('@${user.username}'),
+                          onTap: () {
+                            _hideOverlay();
+                            _focusNode.unfocus();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                settings: RouteSettings(name: '/users/${user.username}'),
+                                builder: (_) => ProfilePage(userId: user.id),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  );
+                } else {
+                  final suggestions = provider.allCompetitions.where((c) {
+                    return c.title.toLowerCase().contains(query) ||
+                        c.location.toLowerCase().contains(query) ||
+                        (c.city != null &&
+                            c.city!.toLowerCase().contains(query)) ||
+                        (c.country != null &&
+                            c.country!.toLowerCase().contains(query));
+                  }).toList();
+
+                  if (suggestions.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      child: const Text('No competitions found'),
+                    );
+                  }
+
+                  return Container(
+                    constraints: const BoxConstraints(maxHeight: 250),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: suggestions.length,
+                      itemBuilder: (context, index) {
+                        final comp = suggestions[index];
+                        return ListTile(
+                          dense: true,
+                          title: Text(
+                            comp.title,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(comp.location),
+                          onTap: () {
+                            _hideOverlay();
+                            _focusNode.unfocus();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                settings: RouteSettings(name: '/competitions/${comp.id}'),
+                                builder: (_) =>
+                                    CompetitionDetailPage(competition: comp),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
                   );
                 }
-
-                return Container(
-                  color: Theme.of(context).colorScheme.surface,
-                  constraints: const BoxConstraints(maxHeight: 250),
-                  child: ListView.builder(
-                    padding: EdgeInsets.zero,
-                    shrinkWrap: true,
-                    itemCount: suggestions.length,
-                    itemBuilder: (context, index) {
-                      final comp = suggestions[index];
-                      return ListTile(
-                        dense: true,
-                        title: Text(
-                          comp.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(comp.location),
-                        onTap: () {
-                          _hideOverlay();
-                          _focusNode.unfocus();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  CompetitionDetailPage(competition: comp),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                );
               },
             ),
           ),
@@ -1593,10 +2295,22 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
     final theme = Theme.of(context);
     final provider = Provider.of<CompetitionProvider>(context);
 
-    // Keep text field in sync when provider query is cleared
-    if (provider.query.isEmpty && _controller.text.isNotEmpty) {
+    // Sync state if provider's values changed from outside
+    if (provider.searchScope != _lastProviderScope) {
+      _tempSearchScope = provider.searchScope;
+      _lastProviderScope = provider.searchScope;
+    }
+    if (provider.query != _lastProviderQuery) {
+      _lastProviderQuery = provider.query;
+      if (!_focusNode.hasFocus) {
+        _controller.text = provider.query;
+      }
+    }
+    if (provider.query.isEmpty && _controller.text.isNotEmpty && !_focusNode.hasFocus) {
       _controller.clear();
     }
+
+    final isUsers = _tempSearchScope == SearchScope.users;
 
     return CompositedTransformTarget(
       link: _layerLink,
@@ -1610,11 +2324,56 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
             horizontal: 16,
             vertical: 10,
           ),
-          hintText: 'Search competitions globally...',
-          prefixIcon: Icon(
-            Icons.search,
-            size: 20,
-            color: theme.colorScheme.primary,
+          hintText: isUsers ? 'Search users...' : 'Search competitions',
+          prefixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(width: 12),
+              DropdownButton<SearchScope>(
+                value: _tempSearchScope,
+                underline: const SizedBox.shrink(),
+                icon: const Icon(Icons.arrow_drop_down, size: 18),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+                dropdownColor: theme.colorScheme.surface,
+                items: const [
+                  DropdownMenuItem(
+                    value: SearchScope.competitions,
+                    child: Text('Comps'),
+                  ),
+                  DropdownMenuItem(
+                    value: SearchScope.users,
+                    child: Text('Users'),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _tempSearchScope = val;
+                    });
+                    _onTextChanged();
+                  }
+                },
+              ),
+              const SizedBox(width: 4),
+              Container(
+                height: 20,
+                width: 1,
+                color: theme.colorScheme.outlineVariant,
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.search,
+                size: 20,
+                color: theme.colorScheme.primary,
+              ),
+            ],
+          ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 0,
+            minHeight: 0,
           ),
           suffixIcon: _controller.text.isNotEmpty
               ? GestureDetector(
@@ -1636,7 +2395,7 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
           ),
         ),
         onSubmitted: (val) {
-          provider.setQuery(val);
+          provider.setSearchScopeAndQuery(_tempSearchScope, val);
           provider.setLayout(CompetitionsLayout.grid); // Show grid view
           _hideOverlay();
           _focusNode.unfocus();

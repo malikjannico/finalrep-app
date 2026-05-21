@@ -57,4 +57,20 @@ class CompetitionRepository {
       return [];
     }
   }
+
+  Future<Competition?> getCompetitionById(String id) async {
+    try {
+      final response = await _client
+          .from('competitions')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return Competition.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('Error getting competition by ID ($id): $e');
+      return null;
+    }
+  }
 }

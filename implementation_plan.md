@@ -1,22 +1,19 @@
-# Implementation Plan - Competition Filtering and Header Redesign
+# Implementation Plan - User Authentication and Profile System
 
-We will enhance the FinalRep Sport Platform by updating the header layout, accelerating theme switching, adding navigation, moving the search bar to the header, replacing page titles, implementing cascading multi-select location filters (Area -> Country -> City), adding a calendar date-range filter, and supporting optional title images for each competition.
+This plan details the design and implementation steps for introducing user authentication, profiles, basic login methods (email/username + password), default color modes, profile searching, and deep linking.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Database Alterations:**
-> We will add the following columns to the `public.competitions` table in Supabase:
-> - `area` (text, nullable)
-> - `country` (text, nullable)
-> - `city` (text, nullable)
-> - `title_image_url` (text, nullable)
->
-> We will also insert two new mock competitions (one in New York, USA, and one in Tokyo, Japan) to demonstrate the cascading Area -> Country -> City filter behavior.
+> **Database Migrations:**
+> We will create a `public.profiles` table in Supabase. To automate profile creation for email registrations, we will add a PostgreSQL function `public.handle_new_user()` and a database trigger `on_auth_user_created` on the `auth.users` table.
 
-> [!TIP]
-> **Cascading Filter UX:**
-> Selecting an Area will limit the available Country options. Selecting a Country will limit the available City options. If a previously selected Country or City becomes invalid due to changing the parent selection, it will be automatically removed from the active selections to ensure a consistent filtering state.
+## Open Questions
+
+> [!NOTE]
+> No critical open questions remain. We will proceed with establishing the database schemas and the Flutter views using the specifications below.
+
+---
 
 ## Proposed Changes
 
@@ -24,17 +21,16 @@ We will enhance the FinalRep Sport Platform by updating the header layout, accel
 
 ---
 
-#### [MODIFY] Supabase Database Schema
-We will run a SQL script via the Supabase MCP tool to:
-1. Alter the `public.competitions` table, adding `area`, `country`, `city`, and `title_image_url` columns.
-2. Update the existing 5 competition rows to populate correct location details and sample title image paths/URLs.
-3. Insert two new mock competitions:
-   - `FinalRep USA Qualifier 2026` (Area: North America, Country: United States, City: New York)
-   - `FinalRep Tokyo Streetlifting Cup 2026` (Area: Asia, Country: Japan, City: Tokyo)
+#### [NEW] Supabase Database Migration
+We will run a SQL script via the Supabase MCP tool (`execute_sql`) to:
+1. Create the `public.profiles` table linked to `auth.users(id)` containing `username`, `full_name`, `email`, `gender`, `country`, `profile_picture_url`, `description`, and `color_mode`.
+2. Define a database trigger on `auth.users` to automatically create a profile record upon user sign-up.
+3. Enable Row Level Security (RLS) on `public.profiles` (public select, owner-restricted update).
+4. Insert mock profiles to allow immediate profile searching.
 
-#### [MODIFY] [competition.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/models/competition.dart)
-- Add nullable properties: `final String? area;`, `final String? country;`, `final String? city;`, and `final String? titleImageUrl;`.
-- Update the constructor, `fromJson`, and `toJson` methods to parse and map these new fields.
+#### [NEW] [profile.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/models/profile.dart)
+- Model representing user profiles, including constructor, `fromJson`, and `toJson` methods.
+- Includes properties for: `id`, `username`, `fullName`, `email`, `gender`, `country`, `profilePictureUrl`, `description`, and `colorMode`.
 
 ---
 
@@ -42,91 +38,105 @@ We will run a SQL script via the Supabase MCP tool to:
 
 ---
 
-#### [MODIFY] [competition_provider.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/providers/competition_provider.dart)
-- Add state properties:
-  - `Set<String> _selectedAreas = {}`
-  - `Set<String> _selectedCountries = {}`
-  - `Set<String> _selectedCities = {}`
-  - `DateTimeRange? _selectedDateRange`
-- Implement getters and setters for the new filters.
-- Update `clearFilters` to reset location and date range filters.
-- Update `fetchCompetitions()` to fetch the upcoming competitions, then apply all filters client-side to dynamically generate the:
-  - `availableAreas` (all unique areas from all upcoming competitions)
-  - `availableCountries` (reduced based on `selectedAreas`)
-  - `availableCities` (reduced based on `selectedAreas` and `selectedCountries`)
-  - `filteredCompetitions` (the list of competitions displayed in the UI, filtered by subtype, group, search query, areas, countries, cities, and date range).
+#### [NEW] [profile_repository.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/repositories/profile_repository.dart)
+- Create a repository class interacting with the Supabase client to fetch, update, and search profiles.
+- Methods:
+  - `getProfile(String id)`: Fetches a single profile by user ID.
+  - `getProfileByUsername(String username)`: Fetches a profile by username (for deep links).
+  - `updateProfile(Profile profile)`: Updates profile details.
+  - `searchProfiles(String query)`: Searches profiles by username or full name.
+
+#### [NEW] [auth_provider.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/providers/auth_provider.dart)
+- Create a state notifier that listens to Supabase auth state changes (`onAuthStateChange`).
+- Holds current user details (`Profile? _currentProfile`) and authentication status.
+- Implements:
+  - `register(username, fullName, email, password, gender, country, profilePicture)`
+  - `loginWithPassword(emailOrUsername, password)`
+  - `logout()`
+  - `updateProfileDetails(fullName, email, gender, country, description)`
+  - `updateColorMode(colorMode)`
+
+#### [MODIFY] [competition_provider.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/providers/competition_provider.dart)
+- Add user search state:
+  - `String _searchScope = 'competitions'` ('competitions' or 'users')
+  - `List<Profile> _searchedUsers = []`
+  - Getters/setters for `searchScope` and `searchedUsers`.
+- Update `setQuery` and `clearFilters` to handle profile querying when `searchScope == 'users'`.
 
 ---
 
-### UI Components
+### UI Components & Navigation
 
 ---
 
-#### [MODIFY] [main.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/main.dart)
-- Set `themeAnimationDuration: Duration.zero` on the `MaterialApp` widget to make the light/dark mode transition instantaneous without fade animations.
+#### [MODIFY] [main.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/main.dart)
+- Register `AuthProvider` alongside `CompetitionProvider` in the `MultiProvider` block.
+- Read `AuthProvider.currentProfile.colorMode` to set the theme mode of the application dynamically (System, Light, or Dark) when the user is logged in.
 
-#### [MODIFY] [search_feed_page.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/views/search_feed_page.dart)
-- **Header Redesign**:
-  - Remove the double logo + icon setup. Use only the logo (`assets/finalrep_logo.svg`) and color it with `#E94E1B` using a ColorFilter.
-  - Move the search bar `TextField` into the header.
-  - Add a Navigation Bar next to the logo/search bar with "Competitions" as an active navigation element.
-  - Remove the Hero section with "FinaRep Sport Platform" title.
-  - Add the page title "Competitions" in the main body where the results are listed.
-- **Cascading Multi-Select Filters**:
-  - Add multi-select dropdown chips or a beautiful expansion filter panel for **Area**, **Country**, and **City**.
-  - Show checkbox menus or multi-select option overlays for each.
-- **Calendar Date Filter**:
-  - Add a button that shows a calendar icon and the selected date range (or "All Dates").
-  - Trigger Flutter's native `showDateRangePicker` when clicked to select the start and end dates.
-  - Show a clear button ("x") to reset the date filter.
+#### [NEW] [auth_page.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/views/auth_page.dart)
+- Add a beautiful authentication view:
+  - Smooth toggling between **Login** and **Register** panels.
+  - Form support for Login methods: Email + Password and Username + Password.
+  - Register fields: Username, Full Name, Email, Gender (dropdown), Country (dropdown), Profile Picture (mock uploader with option to pick pre-designed avatars).
 
-#### [MODIFY] [competition_card.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/lib/widgets/competition_card.dart)
-- Check if `competition.titleImageUrl` is set.
-- If set, render the image at the top of the card (height ~140px, rounded corners).
-- If not set, show a beautiful premium gradient (seed color/primary container gradient) as a fallback.
-- Overlay the Modern/Classic badge and Group name badge on top of the image/gradient.
-- Position description, location, date, and disciplines details neatly below the image section.
+#### [NEW] [profile_page.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/views/profile_page.dart)
+- Add a premium user profile view:
+  - Renders user avatar, full name, username, bio, and country flag.
+  - Edit Profile modal: edit full name, email, gender, country, and bio description.
+  - Preferences: define default Color Mode (System, Light, Dark).
+  - Manage Login Methods: links to manage/add alternative password login methods.
+  - Share Profile button: copies profile URL to clipboard and triggers a toast notification.
+  - Logout action.
 
----
+#### [MODIFY] [search_feed_page.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/views/search_feed_page.dart)
+- **Search Bar Updates**:
+  - Add a dropdown toggle inside the search input to select between "Competitions" and "Users".
+  - If "Users" is active, render user cards instead of competition cards, and call the user search API.
+- **Header Updates (Desktop)**:
+  - Add a circular profile avatar shortcut on the right side of the header. If guest, displays "Login / Register".
+- **Drawer Updates (Mobile)**:
+  - Include a user header inside the navigation drawer linking to "Profile" if authenticated, or a "Sign In" CTA.
+- **Bottom Navigation (Mobile)**:
+  - Add a persistent bottom navigation bar on mobile scaffolds with items: "Competitions" and "Profile".
+- **Deep Linking for Profiles**:
+  - Add logic in `_checkSharedLink` to detect profile URL sharing (`/users/{username}` or `/profiles/{username}`) and route users directly to the Profile Page of the searched user.
 
-### Assets
-
----
-
-#### [NEW] Streetlifting Competition Images
-- Generate 4-5 premium Streetlifting images using the `generate_image` tool and place them in `assets/images/`.
-- Add the directory to `pubspec.yaml` assets so they can be loaded locally or referenced as fallback paths, or use public image URLs.
-
----
-
-### Tests
+#### [NEW] [profile_card.dart](file:///Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/implement-user-authentication-system/lib/widgets/profile_card.dart)
+- A modern card displaying other users' avatars, username, full name, country, and bio details in the search list when search scope is set to "Users".
 
 ---
 
-#### [MODIFY] [competition_model_test.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/test/competition_model_test.dart)
-- Update JSON payloads to include the new location fields (`area`, `country`, `city`) and `title_image_url`.
-- Add test assertions verifying correct parsing of the new fields.
-
-#### [MODIFY] [competition_provider_test.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/test/competition_provider_test.dart)
-- Update mock competitions list in `MockCompetitionRepository` with the new fields.
-- Add unit tests for cascading location filter behavior (Area -> Country -> City reduction).
-- Add unit tests for the date range calendar filter.
-
-#### [MODIFY] [widget_test.dart](file:///Users/malikjannico/Desktop/Development/finalrep-app/test/widget_test.dart)
-- Update expectation to look for the "Competitions" page title instead of "FinalRep Sport Platform".
-- Update widget interaction assertions to match the new header layout.
-
-## Verification Plan
+### Verification Plan
 
 ### Automated Tests
-- Run `flutter test` to ensure all unit and widget tests pass.
+- Create unit tests for parsing profiles in `profile_model_test.dart`.
+- Create unit tests for state updates (register, login, theme mode setting) in `auth_provider_test.dart`.
+- Run `flutter test` to ensure all tests pass.
 
 ### Manual Verification
-- Launch the application locally: `flutter run -d macos` or `flutter run -d chrome`.
-- Click the theme toggle button to verify instant light/dark mode switching.
-- Type in the header search bar and verify filtering works.
-- Click the calendar filter, select date ranges, and verify competitions filter correctly.
-- Test the Area, Country, City cascading multi-select filters:
-  - Select "North America" and verify only "United States" and "New York" show up as options.
-  - Select "Europe" and verify "Germany" and "Austria" are the country options, and their respective cities are the city options.
-- Inspect the competition card layout to verify the title images display properly and fallback gracefully.
+- Deploy schema changes to Supabase database.
+- Launch the application locally and perform:
+  - User registration with optional profile picture, using email or username password login options.
+  - Verify theme change overrides when logged-in users modify their default color mode preference.
+  - Verify mobile view: check bottom navigation, left drawer link, and bottom nav item.
+  - Search for users via search bar toggles.
+  - Copy and verify the shared profile URLs route directly on reload.
+
+---
+
+## Implementation Status
+- **Supabase Database Migration**: [x] Completed and deployed.
+- **Profile Model**: [x] Completed (`lib/models/profile.dart`).
+- **Profile Repository**: [x] Completed (`lib/repositories/profile_repository.dart`).
+- **Auth Provider**: [x] Completed (`lib/providers/auth_provider.dart`).
+- **Competition Provider**: [x] Completed search scope modifications.
+- **UI Components**:
+  - [x] Provider registration & themeMode in `lib/main.dart`.
+  - [x] Authentication Page (`lib/views/auth_page.dart`).
+  - [x] Profile Page (`lib/views/profile_page.dart`).
+  - [x] Profile Card widget (`lib/widgets/profile_card.dart`).
+  - [x] Search feed page scope toggle, user search layout, bottom navigation, and profile drawer shortcut.
+- **URL Syncing & Deep Links**:
+  - [x] Added `WebUrlObserver` and configured `initialRoute: '/'`.
+  - [x] Implemented route checking and hash extraction on startup in `search_feed_page.dart`.
+

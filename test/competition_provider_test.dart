@@ -1,8 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finalrep_app/models/competition.dart';
+import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
+import 'package:finalrep_app/repositories/profile_repository.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:flutter/material.dart';
+
+class MockProfileRepository implements ProfileRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<List<Profile>> searchProfiles(String query) async {
+    return [];
+  }
+}
 
 // A mock implementation of the repository
 class MockCompetitionRepository implements CompetitionRepository {
@@ -108,7 +120,7 @@ void main() {
 
     setUp(() async {
       repository = MockCompetitionRepository();
-      provider = CompetitionProvider(repository);
+      provider = CompetitionProvider(repository, MockProfileRepository());
       // Wait for the initial load to complete
       await Future.delayed(Duration.zero);
     });
