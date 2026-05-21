@@ -89,4 +89,40 @@ class Competition {
   bool get isModern => sportSubtype.toLowerCase() == 'modern';
   bool get isClassic => sportSubtype.toLowerCase() == 'classic';
   bool get isPartOfGroup => compGroupName != null && compGroupName!.trim().isNotEmpty;
+
+  double get latitude {
+    final c = city?.toLowerCase() ?? '';
+    if (c.contains('hamburg')) return 53.5511;
+    if (c.contains('berlin')) return 52.5200;
+    if (c.contains('vienna')) return 48.2082;
+    if (c.contains('new york')) return 40.7128;
+    if (c.contains('tokyo')) return 35.6762;
+    if (c.contains('frankfurt')) return 50.1109;
+    if (c.contains('munich')) return 48.1351;
+    
+    final loc = location.toLowerCase();
+    if (loc.contains('germany')) return 51.1657;
+    if (loc.contains('austria')) return 47.5162;
+    if (loc.contains('japan')) return 36.2048;
+    if (loc.contains('usa') || loc.contains('united states')) return 37.0902;
+    return 0.0;
+  }
+
+  double get longitude {
+    final c = city?.toLowerCase() ?? '';
+    if (c.contains('hamburg')) return 9.9937;
+    if (c.contains('berlin')) return 13.4050;
+    if (c.contains('vienna')) return 16.3738;
+    if (c.contains('new york')) return -74.0060;
+    if (c.contains('tokyo')) return 139.6503;
+    if (c.contains('frankfurt')) return 8.6821;
+    if (c.contains('munich')) return 11.5820;
+    
+    final loc = location.toLowerCase();
+    if (loc.contains('germany')) return 10.4515;
+    if (loc.contains('austria')) return 14.5501;
+    if (loc.contains('japan')) return 138.2529;
+    if (loc.contains('usa') || loc.contains('united states')) return -95.7129;
+    return 0.0;
+  }
 }

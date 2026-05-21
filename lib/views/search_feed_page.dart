@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/competition_provider.dart';
 import '../widgets/competition_card.dart';
+import '../widgets/competition_compact_row.dart';
+import 'competition_detail_page.dart';
+import 'mobile_search_page.dart';
+import 'world_map_view.dart';
 
 class SearchFeedPage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -20,459 +24,62 @@ class SearchFeedPage extends StatefulWidget {
 }
 
 class _SearchFeedPageState extends State<SearchFeedPage> {
-  final TextEditingController _searchController = TextEditingController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final TextEditingController _startDateController = TextEditingController();
+  final TextEditingController _endDateController = TextEditingController();
+  final FocusNode _startFocusNode = FocusNode();
+  final FocusNode _endFocusNode = FocusNode();
+  String _drawerType = 'navigation'; // 'navigation' or 'filters'
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    // Sync initial date range from provider if it exists
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final provider = Provider.of<CompetitionProvider>(context, listen: false);
+        _syncDateControllers(provider.selectedDateRange);
+      }
+    });
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final provider = Provider.of<CompetitionProvider>(context);
-    final size = MediaQuery.of(context).size;
-    final isDesktop = size.width >= 900;
-    final isTablet = size.width >= 600 && size.width < 900;
+  void dispose() {
+    _startDateController.dispose();
+    _endDateController.dispose();
+    _startFocusNode.dispose();
+    _endFocusNode.dispose();
+    super.dispose();
+  }
 
-    // Keep search text box in sync when filters are cleared
-    if (provider.query.isEmpty && _searchController.text.isNotEmpty) {
-      _searchController.clear();
+  void _syncDateControllers(DateTimeRange? range) {
+    if (range == null) {
+      _startDateController.clear();
+      _endDateController.clear();
+    } else {
+      _startDateController.text = DateFormat('yyyy-MM-dd').format(range.start);
+      _endDateController.text = DateFormat('yyyy-MM-dd').format(range.end);
+    }
+  }
+
+  void _updateDateRangeFromText(CompetitionProvider provider) {
+    final startText = _startDateController.text.trim();
+    final endText = _endDateController.text.trim();
+
+    if (startText.isEmpty && endText.isEmpty) {
+      provider.clearDateRange();
+      return;
     }
 
-    final hasActiveFilters = provider.query.isNotEmpty ||
-        provider.selectedSubtype != 'All' ||
-        provider.selectedGroup != 'All' ||
-        provider.selectedAreas.isNotEmpty ||
-        provider.selectedCountries.isNotEmpty ||
-        provider.selectedCities.isNotEmpty ||
-        provider.selectedDateRange != null;
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Nav Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Logo colored with #E94E1B
-                  SvgPicture.asset(
-                    'assets/finalrep_logo.svg',
-                    height: 24,
-                    colorFilter: const ColorFilter.mode(
-                      Color(0xFFE94E1B),
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  
-                  if (isDesktop || isTablet) ...[
-                    const SizedBox(width: 32),
-                    // Navigation bar
-                    TextButton(
-                      onPressed: () {},
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'Competitions',
-                            style: TextStyle(
-                              color: Color(0xFFE94E1B),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            height: 2,
-                            width: 36,
-                            color: const Color(0xFFE94E1B),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _showAboutDialog(context, theme),
-                      child: Text(
-                        'Rules',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ],
-                  
-                  const Spacer(),
-                  
-                  // Search Bar in the Header
-                  SizedBox(
-                    width: isDesktop ? 300 : (isTablet ? 200 : 150),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: provider.setQuery,
-                      style: const TextStyle(fontSize: 14),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        hintText: 'Search...',
-                        prefixIcon: Icon(Icons.search, size: 18, color: theme.colorScheme.primary),
-                        suffixIcon: provider.query.isNotEmpty
-                            ? GestureDetector(
-                                onTap: () {
-                                  _searchController.clear();
-                                  provider.setQuery('');
-                                },
-                                child: const Icon(Icons.clear, size: 16),
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 12),
-                  
-                  // Theme Toggle Button
-                  IconButton(
-                    icon: Icon(
-                      widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    onPressed: widget.onToggleTheme,
-                    tooltip: 'Toggle Theme',
-                  ),
-                ],
-              ),
-            ),
-
-            // Main Feed Area
-            Expanded(
-              child: CustomScrollView(
-                slivers: [
-                  // Page Title & Header Count
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Competitions',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: theme.colorScheme.onSurface,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          Text(
-                            '${provider.competitions.length} events',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Horizontal Filter Bar
-                  SliverToBoxAdapter(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                      child: Row(
-                        children: [
-                          // Calendar filter chip
-                          FilterChip(
-                            avatar: Icon(
-                              Icons.calendar_month,
-                              size: 16,
-                              color: provider.selectedDateRange != null
-                                  ? theme.colorScheme.onPrimaryContainer
-                                  : theme.colorScheme.primary,
-                            ),
-                            label: Text(provider.selectedDateRange == null
-                                ? 'Date Range'
-                                : '${DateFormat('MMM dd').format(provider.selectedDateRange!.start)} - ${DateFormat('MMM dd').format(provider.selectedDateRange!.end)}'),
-                            selected: provider.selectedDateRange != null,
-                            onSelected: (_) => _selectDateRange(context, provider),
-                            onDeleted: provider.selectedDateRange != null
-                                ? () => provider.clearDateRange()
-                                : null,
-                            selectedColor: theme.colorScheme.primaryContainer,
-                            labelStyle: TextStyle(
-                              color: provider.selectedDateRange != null
-                                  ? theme.colorScheme.onPrimaryContainer
-                                  : theme.colorScheme.onSurface,
-                              fontWeight: provider.selectedDateRange != null ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Area filter chip
-                          FilterChip(
-                            label: Text(provider.selectedAreas.isEmpty
-                                ? 'Area'
-                                : 'Area (${provider.selectedAreas.length})'),
-                            selected: provider.selectedAreas.isNotEmpty,
-                            onSelected: (_) {
-                              _showMultiSelectFilter(
-                                context: context,
-                                title: 'Area',
-                                allOptions: provider.availableAreas,
-                                selectedOptions: provider.selectedAreas,
-                                onToggle: provider.toggleArea,
-                                onClear: () {
-                                  provider.selectedAreas.clear();
-                                  provider.clearFilters(); // refresh everything
-                                },
-                              );
-                            },
-                            selectedColor: theme.colorScheme.primaryContainer,
-                            labelStyle: TextStyle(
-                              color: provider.selectedAreas.isNotEmpty
-                                  ? theme.colorScheme.onPrimaryContainer
-                                  : theme.colorScheme.onSurface,
-                              fontWeight: provider.selectedAreas.isNotEmpty ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Country filter chip
-                          FilterChip(
-                            label: Text(provider.selectedCountries.isEmpty
-                                ? 'Country'
-                                : 'Country (${provider.selectedCountries.length})'),
-                            selected: provider.selectedCountries.isNotEmpty,
-                            onSelected: (_) {
-                              _showMultiSelectFilter(
-                                context: context,
-                                title: 'Country',
-                                allOptions: provider.availableCountries,
-                                selectedOptions: provider.selectedCountries,
-                                onToggle: provider.toggleCountry,
-                                onClear: () => provider.selectedCountries.clear(),
-                              );
-                            },
-                            selectedColor: theme.colorScheme.primaryContainer,
-                            labelStyle: TextStyle(
-                              color: provider.selectedCountries.isNotEmpty
-                                  ? theme.colorScheme.onPrimaryContainer
-                                  : theme.colorScheme.onSurface,
-                              fontWeight: provider.selectedCountries.isNotEmpty ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // City filter chip
-                          FilterChip(
-                            label: Text(provider.selectedCities.isEmpty
-                                ? 'City'
-                                : 'City (${provider.selectedCities.length})'),
-                            selected: provider.selectedCities.isNotEmpty,
-                            onSelected: (_) {
-                              _showMultiSelectFilter(
-                                context: context,
-                                title: 'City',
-                                allOptions: provider.availableCities,
-                                selectedOptions: provider.selectedCities,
-                                onToggle: provider.toggleCity,
-                                onClear: () => provider.selectedCities.clear(),
-                              );
-                            },
-                            selectedColor: theme.colorScheme.primaryContainer,
-                            labelStyle: TextStyle(
-                              color: provider.selectedCities.isNotEmpty
-                                  ? theme.colorScheme.onPrimaryContainer
-                                  : theme.colorScheme.onSurface,
-                              fontWeight: provider.selectedCities.isNotEmpty ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Format (Subtype) Dropdown Chip
-                          PopupMenuButton<String>(
-                            tooltip: 'Select Subtype',
-                            onSelected: provider.setSelectedSubtype,
-                            itemBuilder: (context) => ['All', 'Modern', 'Classic']
-                                .map((s) => PopupMenuItem(
-                                      value: s,
-                                      child: Text(s),
-                                    ))
-                                .toList(),
-                            child: RawChip(
-                              label: Text(provider.selectedSubtype == 'All'
-                                  ? 'Format'
-                                  : 'Format: ${provider.selectedSubtype}'),
-                              avatar: Icon(
-                                Icons.fitness_center,
-                                size: 16,
-                                color: provider.selectedSubtype != 'All'
-                                    ? theme.colorScheme.onTertiaryContainer
-                                    : theme.colorScheme.primary,
-                              ),
-                              selected: provider.selectedSubtype != 'All',
-                              selectedColor: theme.colorScheme.tertiaryContainer,
-                              labelStyle: TextStyle(
-                                color: provider.selectedSubtype != 'All'
-                                    ? theme.colorScheme.onTertiaryContainer
-                                    : theme.colorScheme.onSurface,
-                                fontWeight: provider.selectedSubtype != 'All' ? FontWeight.bold : FontWeight.normal,
-                              ),
-                              showCheckmark: false,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Group Dropdown Chip
-                          PopupMenuButton<String>(
-                            tooltip: 'Select Competition Group',
-                            onSelected: provider.setSelectedGroup,
-                            itemBuilder: (context) => [
-                              'All',
-                              'FinalRep Underground',
-                              'FinalRep Qualifier',
-                              'FinalRep Final',
-                              'Individual'
-                            ]
-                                .map((g) => PopupMenuItem(
-                                      value: g,
-                                      child: Text(g),
-                                    ))
-                                .toList(),
-                            child: RawChip(
-                              label: Text(provider.selectedGroup == 'All'
-                                  ? 'Group'
-                                  : 'Group: ${provider.selectedGroup}'),
-                              avatar: Icon(
-                                Icons.stars_outlined,
-                                size: 16,
-                                color: provider.selectedGroup != 'All'
-                                    ? theme.colorScheme.onTertiaryContainer
-                                    : theme.colorScheme.primary,
-                              ),
-                              selected: provider.selectedGroup != 'All',
-                              selectedColor: theme.colorScheme.tertiaryContainer,
-                              labelStyle: TextStyle(
-                                color: provider.selectedGroup != 'All'
-                                    ? theme.colorScheme.onTertiaryContainer
-                                    : theme.colorScheme.onSurface,
-                                fontWeight: provider.selectedGroup != 'All' ? FontWeight.bold : FontWeight.normal,
-                              ),
-                              showCheckmark: false,
-                            ),
-                          ),
-
-                          if (hasActiveFilters) ...[
-                            const SizedBox(width: 12),
-                            TextButton.icon(
-                              onPressed: provider.clearFilters,
-                              icon: const Icon(Icons.refresh, size: 16),
-                              label: const Text('Reset', style: TextStyle(fontSize: 13)),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                foregroundColor: theme.colorScheme.error,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
-
-                  // Results Grid/List
-                  if (provider.isLoading)
-                    const SliverFillRemaining(
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else if (provider.errorMessage != null)
-                    SliverFillRemaining(
-                      child: Center(
-                        child: Text(
-                          provider.errorMessage!,
-                          style: TextStyle(color: theme.colorScheme.error),
-                        ),
-                      ),
-                    )
-                  else if (provider.competitions.isEmpty)
-                    SliverFillRemaining(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.search_off_outlined,
-                                  size: 64, color: theme.colorScheme.outline),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No competitions found',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Try refining your search query or reset filters.',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 16),
-                              TextButton.icon(
-                                onPressed: provider.clearFilters,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Reset All Filters'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.only(left: 24, right: 24, bottom: 40),
-                      sliver: SliverGrid(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: isDesktop ? 3 : (isTablet ? 2 : 1),
-                          crossAxisSpacing: 20,
-                          mainAxisSpacing: 20,
-                          mainAxisExtent: 380, // Extended extent to accommodate the image
-                        ),
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final comp = provider.competitions[index];
-                            return CompetitionCard(competition: comp);
-                          },
-                          childCount: provider.competitions.length,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    if (startText.length == 10 && endText.length == 10) {
+      final start = DateTime.tryParse(startText);
+      final end = DateTime.tryParse(endText);
+      if (start != null && end != null) {
+        if (start.isBefore(end) || start.isAtSameMomentAs(end)) {
+          provider.setDateRange(DateTimeRange(start: start, end: end));
+        }
+      }
+    }
   }
 
   void _selectDateRange(BuildContext context, CompetitionProvider provider) async {
@@ -498,171 +105,1318 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     );
     if (picked != null) {
       provider.setDateRange(picked);
+      _syncDateControllers(picked);
     }
   }
 
-  void _showMultiSelectFilter({
-    required BuildContext context,
-    required String title,
-    required Set<String> allOptions,
-    required Set<String> selectedOptions,
-    required Function(String) onToggle,
-    required VoidCallback onClear,
-  }) {
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: theme.colorScheme.surface,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    final provider = Provider.of<CompetitionProvider>(context);
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width >= 900;
+    final isTablet = size.width >= 600 && size.width < 900;
+
+    // Keep date controllers in sync when date range is cleared/changed externally
+    final currentRange = provider.selectedDateRange;
+    if (currentRange == null) {
+      if (_startDateController.text.isNotEmpty || _endDateController.text.isNotEmpty) {
+        _startDateController.clear();
+        _endDateController.clear();
+      }
+    } else {
+      final startStr = DateFormat('yyyy-MM-dd').format(currentRange.start);
+      final endStr = DateFormat('yyyy-MM-dd').format(currentRange.end);
+      if (_startDateController.text != startStr && !_startFocusNode.hasFocus) {
+        _startDateController.text = startStr;
+      }
+      if (_endDateController.text != endStr && !_endFocusNode.hasFocus) {
+        _endDateController.text = endStr;
+      }
+    }
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: theme.colorScheme.background,
+      drawer: _buildDrawer(context, provider, theme),
+      bottomNavigationBar: !isDesktop
+          ? BottomNavigationBar(
+              currentIndex: provider.activeTab,
+              onTap: provider.setActiveTab,
+              selectedItemColor: const Color(0xFFE94E1B),
+              unselectedItemColor: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.explore),
+                  label: 'Feed',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.map),
+                  label: 'Map',
+                ),
+              ],
+            )
+          : null,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Responsive Top Header
+            _buildTopHeader(context, provider, theme, isDesktop, isTablet),
+            
+            // Sub-navigation bar for desktop view
+            if (isDesktop) _buildDesktopSubNavBar(provider, theme),
+
+            // Main View Content
+            Expanded(
+              child: provider.activeTab == 1
+                  ? const WorldMapView()
+                  : _buildCompetitionsFeed(context, provider, theme, isDesktop, isTablet),
+            ),
+          ],
+        ),
       ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Filter by $title',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      if (selectedOptions.isNotEmpty)
-                        TextButton(
-                          onPressed: () {
-                            onClear();
-                            setModalState(() {});
-                          },
-                          child: const Text('Clear All'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (allOptions.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: Text(
-                          'No options available based on current filters.',
-                          style: TextStyle(color: theme.colorScheme.outline),
-                        ),
-                      ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView(
-                        shrinkWrap: true,
-                        children: allOptions.map((option) {
-                          final isChecked = selectedOptions.contains(option);
-                          return CheckboxListTile(
-                            title: Text(option),
-                            value: isChecked,
-                            activeColor: theme.colorScheme.primary,
-                            onChanged: (bool? val) {
-                              onToggle(option);
-                              setModalState(() {});
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('Apply'),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
-  void _showAboutDialog(BuildContext context, ThemeData theme) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Row(
+  Widget _buildTopHeader(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+    bool isTablet,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (!isDesktop) ...[
+            // Hamburger menu on mobile left
+            IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () {
+                setState(() {
+                  _drawerType = 'navigation';
+                });
+                _scaffoldKey.currentState?.openDrawer();
+              },
+            ),
+            const Spacer(),
+          ],
+          
+          // Brand Icon
+          SvgPicture.asset(
+            'assets/finalrep_icon.svg',
+            height: 28,
+            colorFilter: const ColorFilter.mode(
+              Color(0xFFE94E1B),
+              BlendMode.srcIn,
+            ),
+          ),
+
+          if (!isDesktop) const Spacer(),
+
+          // Centered Search bar in desktop
+          if (isDesktop) ...[
+            const Spacer(),
+            SizedBox(
+              width: 400,
+              child: const DesktopSearchBar(),
+            ),
+            const Spacer(),
+          ],
+
+          if (!isDesktop) ...[
+            // Mobile search icon on right
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MobileSearchPage()),
+                );
+              },
+            ),
+          ] else ...[
+            // Theme toggle on desktop right
+            IconButton(
+              icon: Icon(
+                widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: theme.colorScheme.onSurface,
+              ),
+              onPressed: widget.onToggleTheme,
+              tooltip: 'Toggle Theme',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopSubNavBar(CompetitionProvider provider, ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          _buildSubNavButton(
+            label: 'Competitions Feed',
+            isActive: provider.activeTab == 0,
+            onPressed: () => provider.setActiveTab(0),
+            theme: theme,
+          ),
+          const SizedBox(width: 16),
+          _buildSubNavButton(
+            label: 'World Map',
+            isActive: provider.activeTab == 1,
+            onPressed: () => provider.setActiveTab(1),
+            theme: theme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubNavButton({
+    required String label,
+    required bool isActive,
+    required VoidCallback onPressed,
+    required ThemeData theme,
+  }) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: isActive ? const Color(0xFFE94E1B) : theme.colorScheme.onSurfaceVariant,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            height: 2,
+            width: 40,
+            color: isActive ? const Color(0xFFE94E1B) : Colors.transparent,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context, CompetitionProvider provider, ThemeData theme) {
+    if (_drawerType == 'filters') {
+      return Drawer(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SvgPicture.asset('assets/finalrep_icon.svg', height: 28, colorFilter: const ColorFilter.mode(Color(0xFFE94E1B), BlendMode.srcIn)),
-              const SizedBox(width: 12),
-              const Text('Streetlifting Rules'),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Filters',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: _buildFilterContent(context, provider, theme, isDesktop: false),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          provider.clearFilters();
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Reset All'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onPrimary,
+                        ),
+                        child: const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
+        ),
+      );
+    } else {
+      // Navigation drawer
+      return Drawer(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: SvgPicture.asset(
+                  'assets/finalrep_icon.svg',
+                  height: 32,
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xFFE94E1B),
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(Icons.explore, color: provider.activeTab == 0 ? const Color(0xFFE94E1B) : null),
+                title: Text(
+                  'Feed',
+                  style: TextStyle(
+                    fontWeight: provider.activeTab == 0 ? FontWeight.bold : FontWeight.normal,
+                    color: provider.activeTab == 0 ? const Color(0xFFE94E1B) : null,
+                  ),
+                ),
+                onTap: () {
+                  provider.setActiveTab(0);
+                  Navigator.of(context).pop();
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.map, color: provider.activeTab == 1 ? const Color(0xFFE94E1B) : null),
+                title: Text(
+                  'World Map',
+                  style: TextStyle(
+                    fontWeight: provider.activeTab == 1 ? FontWeight.bold : FontWeight.normal,
+                    color: provider.activeTab == 1 ? const Color(0xFFE94E1B) : null,
+                  ),
+                ),
+                onTap: () {
+                  provider.setActiveTab(1);
+                  Navigator.of(context).pop();
+                },
+              ),
+              const Spacer(),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Theme Mode'),
+                    IconButton(
+                      icon: Icon(
+                        theme.brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode,
+                      ),
+                      onPressed: () {
+                        widget.onToggleTheme();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildFilterContent(BuildContext context, CompetitionProvider provider, ThemeData theme, {bool isDesktop = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Sport Section
+        CollapsibleFilterSection(
+          title: 'Sport',
+          child: Column(
+            children: [
+              _buildFilterCheckboxRow(
+                'Streetlifting',
+                provider.selectedSports.contains('Streetlifting'),
+                provider.getSportCount('Streetlifting'),
+                (val) => provider.toggleSport('Streetlifting'),
+                theme,
+              ),
+            ],
+          ),
+        ),
+
+        // Format Section
+        CollapsibleFilterSection(
+          title: 'Format',
+          child: Column(
+            children: [
+              _buildFilterCheckboxRow(
+                'Modern',
+                provider.selectedSubtype == 'Modern',
+                provider.getSubtypeCount('Modern'),
+                (val) {
+                  provider.setSelectedSubtype(val == true ? 'Modern' : 'All');
+                },
+                theme,
+              ),
+              _buildFilterCheckboxRow(
+                'Classic',
+                provider.selectedSubtype == 'Classic',
+                provider.getSubtypeCount('Classic'),
+                (val) {
+                  provider.setSelectedSubtype(val == true ? 'Classic' : 'All');
+                },
+                theme,
+              ),
+            ],
+          ),
+        ),
+
+        // Group Section
+        CollapsibleFilterSection(
+          title: 'Group',
+          child: Column(
+            children: [
+              _buildFilterCheckboxRow(
+                'FinalRep Qualifier',
+                provider.selectedGroup == 'FinalRep Qualifier',
+                provider.getGroupCount('FinalRep Qualifier'),
+                (val) {
+                  provider.setSelectedGroup(val == true ? 'FinalRep Qualifier' : 'All');
+                },
+                theme,
+              ),
+              _buildFilterCheckboxRow(
+                'FinalRep Underground',
+                provider.selectedGroup == 'FinalRep Underground',
+                provider.getGroupCount('FinalRep Underground'),
+                (val) {
+                  provider.setSelectedGroup(val == true ? 'FinalRep Underground' : 'All');
+                },
+                theme,
+              ),
+              _buildFilterCheckboxRow(
+                'FinalRep Final',
+                provider.selectedGroup == 'FinalRep Final',
+                provider.getGroupCount('FinalRep Final'),
+                (val) {
+                  provider.setSelectedGroup(val == true ? 'FinalRep Final' : 'All');
+                },
+                theme,
+              ),
+              _buildFilterCheckboxRow(
+                'Individual',
+                provider.selectedGroup == 'Individual',
+                provider.getGroupCount('Individual'),
+                (val) {
+                  provider.setSelectedGroup(val == true ? 'Individual' : 'All');
+                },
+                theme,
+              ),
+            ],
+          ),
+        ),
+
+        // Location Section
+        CollapsibleFilterSection(
+          title: 'Location',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (provider.availableAreas.isNotEmpty) ...[
                 Text(
-                  'Format: One-Rep-Max (1RM)',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  'AREAS',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                  ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Athletes perform 3 attempts per discipline with maximum weight. Highest valid attempt weights are summed to compute the final total.',
-                ),
-                const SizedBox(height: 16),
+                ...provider.availableAreas.map((area) {
+                  return _buildFilterCheckboxRow(
+                    area,
+                    provider.selectedAreas.contains(area),
+                    provider.getAreaCount(area),
+                    (val) => provider.toggleArea(area),
+                    theme,
+                  );
+                }).toList(),
+                const SizedBox(height: 8),
+              ],
+              if (provider.availableCountries.isNotEmpty) ...[
                 Text(
-                  'Streetlifting Modern (4 disciplines):',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  'COUNTRIES',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                  ),
                 ),
-                const Text('• Muscle Up\n• Pull Up\n• Dip\n• Squat'),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
+                ...provider.availableCountries.map((country) {
+                  return _buildFilterCheckboxRow(
+                    country,
+                    provider.selectedCountries.contains(country),
+                    provider.getCountryCount(country),
+                    (val) => provider.toggleCountry(country),
+                    theme,
+                  );
+                }).toList(),
+                const SizedBox(height: 8),
+              ],
+              if (provider.availableCities.isNotEmpty) ...[
                 Text(
-                  'Streetlifting Classic (2 disciplines):',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  'CITIES',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                  ),
                 ),
-                const Text('• Pull Up\n• Dip'),
-                const SizedBox(height: 16),
-                Text(
-                  'Official Weight Classes:',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                const SizedBox(height: 4),
+                ...provider.availableCities.map((city) {
+                  return _buildFilterCheckboxRow(
+                    city,
+                    provider.selectedCities.contains(city),
+                    provider.getCityCount(city),
+                    (val) => provider.toggleCity(city),
+                    theme,
+                  );
+                }).toList(),
+              ],
+            ],
+          ),
+        ),
+
+        // Date Range Section
+        CollapsibleFilterSection(
+          title: 'Date Range',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _startDateController,
+                      focusNode: _startFocusNode,
+                      decoration: InputDecoration(
+                        labelText: 'Start',
+                        hintText: 'YYYY-MM-DD',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      style: const TextStyle(fontSize: 12),
+                      keyboardType: TextInputType.datetime,
+                      onChanged: (_) => _updateDateRangeFromText(provider),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _endDateController,
+                      focusNode: _endFocusNode,
+                      decoration: InputDecoration(
+                        labelText: 'End',
+                        hintText: 'YYYY-MM-DD',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      style: const TextStyle(fontSize: 12),
+                      keyboardType: TextInputType.datetime,
+                      onChanged: (_) => _updateDateRangeFromText(provider),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_month, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _selectDateRange(context, provider),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterCheckboxRow(
+    String label,
+    bool value,
+    int count,
+    ValueChanged<bool?> onChanged,
+    ThemeData theme,
+  ) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: value,
+                onChanged: (val) => onChanged(val),
+                activeColor: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: value ? FontWeight.bold : FontWeight.normal,
                 ),
-                const Text(
-                  'Men: -66 kg, -73 kg, -80 kg, -87 kg, -101 kg, +101 kg\n'
-                  'Women: -52 kg, -57 kg, -63 kg, -70 kg, +70 kg',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '($count)',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompetitionsFeed(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+    bool isTablet,
+  ) {
+    if (isDesktop) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left Sidebar (always visible on desktop)
+          Container(
+            width: 300,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              border: Border(
+                right: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: SingleChildScrollView(
+              child: _buildFilterContent(context, provider, theme, isDesktop: true),
+            ),
+          ),
+
+          // Right Content Panel
+          Expanded(
+            child: Column(
+              children: [
+                _buildResultsHeader(context, provider, theme, true),
+                _buildActiveFilterChips(context, provider, theme),
+                Expanded(
+                  child: _buildCompetitionsListGrid(context, provider, theme, isDesktop, isTablet),
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('CLOSE'),
+        ],
+      );
+    } else {
+      // Mobile / Tablet Feed View
+      return Column(
+        children: [
+          _buildResultsHeader(context, provider, theme, false),
+          _buildActiveFilterChips(context, provider, theme),
+          Expanded(
+            child: _buildCompetitionsListGrid(context, provider, theme, isDesktop, isTablet),
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildResultsHeader(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Left side: Title and Count
+          Expanded(
+            child: Text(
+              isDesktop
+                  ? '${provider.competitions.length} Upcoming Competitions'
+                  : '${provider.competitions.length} events',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
-          ],
-        );
-      },
+          ),
+          
+          // Right side: Filter Icon (Mobile only), Sort, Layout Toggle
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isDesktop) ...[
+                // Filter Drawer toggle on mobile
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  tooltip: 'Filters',
+                  onPressed: () {
+                    setState(() {
+                      _drawerType = 'filters';
+                    });
+                    _scaffoldKey.currentState?.openDrawer();
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
+
+              // Sorting Dropdown
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.brightness == Brightness.dark
+                      ? const Color(0xFF1E1715)
+                      : const Color(0xFFF3EDEB),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: provider.sortOrder,
+                    icon: const Icon(Icons.arrow_drop_down, size: 16),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'date_asc',
+                        child: Text('Date: Asc'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'date_desc',
+                        child: Text('Date: Desc'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'name_asc',
+                        child: Text('Name: A-Z'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'name_desc',
+                        child: Text('Name: Z-A'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        provider.setSortOrder(val);
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Layout Toggle (Card vs Compact)
+              IconButton(
+                icon: Icon(
+                  provider.isCompactLayout ? Icons.grid_view : Icons.view_list,
+                  size: 20,
+                ),
+                tooltip: provider.isCompactLayout ? 'Card Layout' : 'Compact Layout',
+                onPressed: () => provider.setIsCompactLayout(!provider.isCompactLayout),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveFilterChips(BuildContext context, CompetitionProvider provider, ThemeData theme) {
+    final List<Widget> chips = [];
+
+    // Query
+    if (provider.query.isNotEmpty) {
+      chips.add(
+        RawChip(
+          label: Text('Search: "${provider.query}"'),
+          onDeleted: () {
+            provider.setQuery('');
+          },
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    // Sport (if not empty and is default, but let's show all active selected sports)
+    // Toggling off the default might clear all, but let's allow it
+    for (final sport in provider.selectedSports) {
+      chips.add(
+        RawChip(
+          label: Text('Sport: $sport'),
+          onDeleted: () => provider.toggleSport(sport),
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    // Format (Subtype)
+    if (provider.selectedSubtype != 'All') {
+      chips.add(
+        RawChip(
+          label: Text('Format: ${provider.selectedSubtype}'),
+          onDeleted: () => provider.setSelectedSubtype('All'),
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    // Group
+    if (provider.selectedGroup != 'All') {
+      chips.add(
+        RawChip(
+          label: Text('Group: ${provider.selectedGroup}'),
+          onDeleted: () => provider.setSelectedGroup('All'),
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    // Areas
+    for (final area in provider.selectedAreas) {
+      chips.add(
+        RawChip(
+          label: Text('Area: $area'),
+          onDeleted: () => provider.toggleArea(area),
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    // Countries
+    for (final country in provider.selectedCountries) {
+      chips.add(
+        RawChip(
+          label: Text('Country: $country'),
+          onDeleted: () => provider.toggleCountry(country),
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    // Cities
+    for (final city in provider.selectedCities) {
+      chips.add(
+        RawChip(
+          label: Text('City: $city'),
+          onDeleted: () => provider.toggleCity(city),
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    // Date Range
+    if (provider.selectedDateRange != null) {
+      final startStr = DateFormat('yyyy-MM-dd').format(provider.selectedDateRange!.start);
+      final endStr = DateFormat('yyyy-MM-dd').format(provider.selectedDateRange!.end);
+      chips.add(
+        RawChip(
+          label: Text('Date: $startStr to $endStr'),
+          onDeleted: () => provider.clearDateRange(),
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ...chips,
+          TextButton(
+            onPressed: provider.clearFilters,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              foregroundColor: theme.colorScheme.error,
+            ),
+            child: const Text('Reset All', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompetitionsListGrid(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+    bool isTablet,
+  ) {
+    if (provider.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (provider.errorMessage != null) {
+      return Center(
+        child: Text(
+          provider.errorMessage!,
+          style: TextStyle(color: theme.colorScheme.error),
+        ),
+      );
+    }
+
+    if (provider.competitions.isEmpty) {
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search_off_outlined,
+                  size: 64, color: theme.colorScheme.outline),
+              const SizedBox(height: 16),
+              Text(
+                'No competitions found',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Try refining your search query or reset filters.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: provider.clearFilters,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reset All Filters'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      slivers: [
+        if (provider.isCompactLayout)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final comp = provider.competitions[index];
+                  return CompetitionCompactRow(
+                    competition: comp,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => CompetitionDetailPage(competition: comp),
+                        ),
+                      );
+                    },
+                  );
+                },
+                childCount: provider.competitions.length,
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.only(left: 24, right: 24, bottom: 40, top: 12),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isDesktop ? 3 : (isTablet ? 2 : 1),
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+                mainAxisExtent: 380,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final comp = provider.competitions[index];
+                  return CompetitionCard(competition: comp);
+                },
+                childCount: provider.competitions.length,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class CollapsibleFilterSection extends StatefulWidget {
+  final String title;
+  final Widget child;
+  final bool isInitiallyExpanded;
+
+  const CollapsibleFilterSection({
+    Key? key,
+    required this.title,
+    required this.child,
+    this.isInitiallyExpanded = true,
+  }) : super(key: key);
+
+  @override
+  State<CollapsibleFilterSection> createState() => _CollapsibleFilterSectionState();
+}
+
+class _CollapsibleFilterSectionState extends State<CollapsibleFilterSection> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.isInitiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.title.toUpperCase(),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Icon(
+                  _isExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_isExpanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+            child: widget.child,
+          ),
+        Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.3)),
+      ],
+    );
+  }
+}
+
+class DesktopSearchBar extends StatefulWidget {
+  const DesktopSearchBar({Key? key}) : super(key: key);
+
+  @override
+  State<DesktopSearchBar> createState() => _DesktopSearchBarState();
+}
+
+class _DesktopSearchBarState extends State<DesktopSearchBar> {
+  final FocusNode _focusNode = FocusNode();
+  final LayerLink _layerLink = LayerLink();
+  final TextEditingController _controller = TextEditingController();
+  OverlayEntry? _overlayEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+    _controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    _hideOverlay();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus && _controller.text.isNotEmpty) {
+      _showOverlay();
+    } else {
+      // Delay slightly to let a tap on the suggestion list tiles process first
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted && !_focusNode.hasFocus) {
+          _hideOverlay();
+        }
+      });
+    }
+  }
+
+  void _onTextChanged() {
+    if (_controller.text.isNotEmpty && _focusNode.hasFocus) {
+      _showOverlay();
+    } else {
+      _hideOverlay();
+    }
+  }
+
+  void _showOverlay() {
+    if (_overlayEntry == null) {
+      _overlayEntry = _createOverlayEntry();
+      Overlay.of(context).insert(_overlayEntry!);
+    } else {
+      _overlayEntry?.markNeedsBuild();
+    }
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    RenderBox renderBox = context.findRenderObject() as RenderBox;
+    var size = renderBox.size;
+
+    return OverlayEntry(
+      builder: (context) => Positioned(
+        width: size.width,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, size.height + 6.0),
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: Consumer<CompetitionProvider>(
+              builder: (context, provider, child) {
+                final query = _controller.text.trim().toLowerCase();
+                final suggestions = provider.allCompetitions.where((c) {
+                  return c.title.toLowerCase().contains(query) ||
+                      c.location.toLowerCase().contains(query) ||
+                      (c.city != null && c.city!.toLowerCase().contains(query)) ||
+                      (c.country != null && c.country!.toLowerCase().contains(query));
+                }).toList();
+
+                if (suggestions.isEmpty) {
+                  return Container(
+                    color: Theme.of(context).colorScheme.surface,
+                    padding: const EdgeInsets.all(16),
+                    child: const Text('No competitions found'),
+                  );
+                }
+
+                return Container(
+                  color: Theme.of(context).colorScheme.surface,
+                  constraints: const BoxConstraints(maxHeight: 250),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: suggestions.length,
+                    itemBuilder: (context, index) {
+                      final comp = suggestions[index];
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          comp.title,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(comp.location),
+                        onTap: () {
+                          _hideOverlay();
+                          _focusNode.unfocus();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CompetitionDetailPage(competition: comp),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<CompetitionProvider>(context);
+
+    // Keep text field in sync when provider query is cleared
+    if (provider.query.isEmpty && _controller.text.isNotEmpty) {
+      _controller.clear();
+    }
+
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        style: const TextStyle(fontSize: 14),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          hintText: 'Search meets globally...',
+          prefixIcon: Icon(Icons.search, size: 20, color: theme.colorScheme.primary),
+          suffixIcon: _controller.text.isNotEmpty
+              ? GestureDetector(
+                  onTap: () {
+                    _controller.clear();
+                    provider.setQuery('');
+                    _hideOverlay();
+                  },
+                  child: const Icon(Icons.clear, size: 18),
+                )
+              : null,
+          filled: true,
+          fillColor: theme.brightness == Brightness.dark
+              ? const Color(0xFF1E1715)
+              : const Color(0xFFF3EDEB),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        onSubmitted: (val) {
+          provider.setQuery(val);
+          provider.setActiveTab(0); // Show feed view
+          _hideOverlay();
+          _focusNode.unfocus();
+        },
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/competition.dart';
+import '../views/competition_detail_page.dart';
 
 class CompetitionCard extends StatefulWidget {
   final Competition competition;
@@ -30,7 +31,15 @@ class _CompetitionCardState extends State<CompetitionCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
+      child: GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => CompetitionDetailPage(competition: widget.competition),
+            ),
+          );
+        },
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
         transform: _isHovered 
@@ -97,58 +106,70 @@ class _CompetitionCardState extends State<CompetitionCard> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           // Subtype Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: widget.competition.isModern
-                                  ? theme.colorScheme.primaryContainer
-                                  : theme.colorScheme.tertiaryContainer,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              widget.competition.sportSubtype.toUpperCase(),
-                              style: theme.textTheme.labelSmall?.copyWith(
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
                                 color: widget.competition.isModern
-                                    ? theme.colorScheme.onPrimaryContainer
-                                    : theme.colorScheme.onTertiaryContainer,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.1,
+                                    ? theme.colorScheme.primaryContainer
+                                    : theme.colorScheme.tertiaryContainer,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                widget.competition.sportSubtype.toUpperCase(),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: widget.competition.isModern
+                                      ? theme.colorScheme.onPrimaryContainer
+                                      : theme.colorScheme.onTertiaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.1,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                           ),
-                          
+                          const SizedBox(width: 4),
                           // Group Name Pill
                           if (widget.competition.isPartOfGroup)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondaryContainer.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: theme.colorScheme.secondary.withOpacity(0.3),
-                                  width: 1,
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondaryContainer.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: theme.colorScheme.secondary.withOpacity(0.3),
+                                    width: 1,
+                                  ),
                                 ),
-                              ),
-                              child: Text(
-                                widget.competition.compGroupName!,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSecondaryContainer,
-                                  fontWeight: FontWeight.w600,
+                                child: Text(
+                                  widget.competition.compGroupName!,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSecondaryContainer,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               ),
                             )
                           else
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'INDIVIDUAL',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'INDIVIDUAL',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               ),
                             ),
@@ -282,6 +303,7 @@ class _CompetitionCardState extends State<CompetitionCard> {
           ],
         ),
       ),
+    ),
     );
   }
 

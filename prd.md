@@ -16,31 +16,20 @@ The platform is designed to promote Streetlifting from grassroots local meets up
 ---
 
 ## 3. Core Features (MVP)
-- **Responsive Search Feed & Header**:
-  - A premium dashboard that scales dynamically across Desktop (3-column grid), Tablet (2-column grid), and Mobile (1-column list).
-  - Main page title "Competitions" displayed directly above the search results feed.
-- **Top Header Bar**:
-  - Contains the official FinalRep logo or icon, styled in brand color `#E94E1B`.
-  - Integrates the global search bar directly in the header.
-  - Features a Navigation Bar with "Competitions" as an active navigation element.
-  - Zero-animation fast theme toggle (light/dark mode switch operates immediately without animation transitions).
-- **Guest Access**: All upcoming competitions must be searchable and viewable without user login or authentication.
-- **Dynamic Search & Filtering**:
-  - Full-text search matching competition title or location (real-time in header).
-  - Filter by Streetlifting Subtype: **Modern** or **Classic** (via format dropdown).
-  - Filter by Competition Group: **FinalRep Underground**, **FinalRep Qualifier**, **FinalRep Final**, or **Individual** (independent meets).
-- **Cascading Location Filters**:
-  - Multi-select filters for **Area**, **Country**, and **City**.
-  - Cascading rules: Selecting an Area filters available Country and City options. Selecting a Country filters available City options.
-  - Auto-pruning: If an Area or Country is deselected, any selected Country or City that no longer matches the available options is automatically pruned from the active filters.
-- **Calendar Date Filter**:
-  - Filter competitions by date range (start and end date overlap).
-  - Opens a native date-range calendar picker.
-- **Event Detail & Card Layout**:
-  - Optional title image shown edge-to-edge at the top of each card.
-  - Fallback to a premium gradient if no image is provided.
-  - Clear floating badges for disciplines (MU, PU, DP, SQ) and the associated Competition Group.
-  - Smooth hover scale and glow visual feedback.
+- **Responsive Header & Navigation**:
+  - **Desktop**: Main header features a centered search bar (with real-time dropdown results), left-aligned FinalRep Icon in brand color `#E94E1B`, and right-aligned zero-animation theme toggle. A dedicated navigation bar is positioned below the header, displaying tabs for "Competitions Feed" and "World Map".
+  - **Mobile**: Top header has a centered FinalRep Icon, a hamburger menu icon (left) that opens a navigation/app drawer, and a search icon (right) that opens a full-screen mobile search view. A bottom navigation bar with icons and labels switches between the "Feed" and "World Map" views.
+- **Dynamic Search & Filtering (Competitions View)**:
+  - **Desktop Sidebar**: Left-aligned, always-visible filter panel with collapsible sections for Sport, Format, Group, Location, and Date. Options are displayed as checkboxes with the count of matches next to them. The date filter uses a docked input selector.
+  - **Mobile Filter Drawer**: A slide-in left drawer triggered by a filter icon in the competitions view, mirroring the collapsible checkbox layout.
+  - **Filter Chips**: All applied filters are displayed as chips categorized by type under the results header, with an easy remove `[x]` functionality.
+  - **Sorting & Layouts**: Dropdowns to sort by Date (ascending/descending) and Title (A-Z/Z-A), and a toggle to switch between a visual Card grid layout and a high-density Compact list row layout.
+- **Single Competition Detail View**:
+  - A premium detail page for individual competitions containing a hero banner, Floating Group/Individual badge, location address, date, disciplines explanation list, and registration status.
+- **Interactive World Map View**:
+  - An interactive vector-dot world map showing upcoming competition markers with pulsing radar rings. Clicking a marker reveals a popup card linking to that competition's detail view.
+- **Guest Access**: All upcoming competitions, map pins, and details must be searchable and viewable without user login or authentication.
+
 
 ---
 

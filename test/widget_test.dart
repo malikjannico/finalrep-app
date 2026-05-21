@@ -63,6 +63,14 @@ class FakeCompetitionRepository implements CompetitionRepository {
 
 void main() {
   testWidgets('SearchFeedPage Renders and Filters Competitions', (WidgetTester tester) async {
+    // Set screen size to desktop width so sidebar filters are visible
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     final repo = FakeCompetitionRepository();
     final provider = CompetitionProvider(repo);
 
@@ -85,8 +93,11 @@ void main() {
     await tester.pump(Duration.zero); // Wait for provider fetch complete
 
     // Verify title and header logo elements exist
-    expect(find.text('Competitions'), findsAtLeast(1));
-    expect(find.byType(TextField), findsOneWidget);
+    expect(find.textContaining('Competitions'), findsAtLeast(1));
+    expect(
+      find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == 'Search meets globally...'),
+      findsOneWidget,
+    );
 
     // Verify both mock competitions exist on feed
     expect(find.text('Hamburg Streetlifting Meet'), findsOneWidget);
@@ -97,17 +108,11 @@ void main() {
     expect(find.text('CLASSIC'), findsOneWidget);
 
     // Filter by Modern subtype
-    // Tap on the Format dropdown chip
-    final formatChip = find.text('Format');
-    expect(formatChip, findsOneWidget);
-    await tester.tap(formatChip);
-    await tester.pumpAndSettle(); // Settle popup menu open animation
-
-    // Tap on 'Modern' in the menu
-    final modernMenuItem = find.text('Modern');
-    expect(modernMenuItem, findsAtLeast(1));
-    await tester.tap(modernMenuItem.last);
-    await tester.pumpAndSettle(); // Settle popup menu close animation
+    // Tap on the 'Modern' checkbox filter in the sidebar
+    final modernFilter = find.text('Modern');
+    expect(modernFilter, findsOneWidget);
+    await tester.tap(modernFilter);
+    await tester.pumpAndSettle();
 
     // Verify Classic competition is now filtered out
     expect(find.text('Hamburg Streetlifting Meet'), findsOneWidget);

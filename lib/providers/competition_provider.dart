@@ -17,6 +17,12 @@ class CompetitionProvider extends ChangeNotifier {
   // Date range filter
   DateTimeRange? _selectedDateRange;
 
+  // New features
+  int _activeTab = 0; // 0 = Feed, 1 = Map
+  bool _isCompactLayout = false;
+  String _sortOrder = 'date_asc'; // 'date_asc', 'date_desc', 'name_asc', 'name_desc'
+  final Set<String> _selectedSports = {'Streetlifting'};
+
   bool _isLoading = false;
   List<Competition> _allCompetitions = [];
   List<Competition> _filteredCompetitions = [];
@@ -39,6 +45,71 @@ class CompetitionProvider extends ChangeNotifier {
   Set<String> get selectedCountries => _selectedCountries;
   Set<String> get selectedCities => _selectedCities;
   DateTimeRange? get selectedDateRange => _selectedDateRange;
+
+  int get activeTab => _activeTab;
+  bool get isCompactLayout => _isCompactLayout;
+  String get sortOrder => _sortOrder;
+  Set<String> get selectedSports => _selectedSports;
+
+  void setActiveTab(int tab) {
+    if (_activeTab != tab) {
+      _activeTab = tab;
+      notifyListeners();
+    }
+  }
+
+  void setIsCompactLayout(bool val) {
+    if (_isCompactLayout != val) {
+      _isCompactLayout = val;
+      notifyListeners();
+    }
+  }
+
+  void setSortOrder(String order) {
+    if (_sortOrder != order) {
+      _sortOrder = order;
+      _applyFilters();
+      notifyListeners();
+    }
+  }
+
+  void toggleSport(String sport) {
+    if (_selectedSports.contains(sport)) {
+      _selectedSports.remove(sport);
+    } else {
+      _selectedSports.add(sport);
+    }
+    _applyFilters();
+    notifyListeners();
+  }
+
+  // Get counts for filters
+  int getSportCount(String sport) {
+    return _allCompetitions.where((c) => c.sportType.toLowerCase() == sport.toLowerCase()).length;
+  }
+
+  int getSubtypeCount(String subtype) {
+    return _allCompetitions.where((c) => c.sportSubtype.toLowerCase() == subtype.toLowerCase()).length;
+  }
+
+  int getGroupCount(String group) {
+    if (group == 'Individual') {
+      return _allCompetitions.where((c) => !c.isPartOfGroup).length;
+    }
+    return _allCompetitions.where((c) => c.compGroupName == group).length;
+  }
+
+  int getAreaCount(String area) {
+    return _allCompetitions.where((c) => c.area != null && c.area!.toLowerCase() == area.toLowerCase()).length;
+  }
+
+  int getCountryCount(String country) {
+    return _allCompetitions.where((c) => c.country != null && c.country!.toLowerCase() == country.toLowerCase()).length;
+  }
+
+  int getCityCount(String city) {
+    return _allCompetitions.where((c) => c.city != null && c.city!.toLowerCase() == city.toLowerCase()).length;
+  }
 
   // Setters and action handlers
   void setQuery(String newQuery) {
@@ -233,6 +304,20 @@ class CompetitionProvider extends ChangeNotifier {
       }).toList();
     }
 
+    // 8. Sport Filter
+    temp = temp.where((c) => _selectedSports.contains(c.sportType)).toList();
+
+    // 9. Sorting
+    if (_sortOrder == 'date_asc') {
+      temp.sort((a, b) => a.startDate.compareTo(b.startDate));
+    } else if (_sortOrder == 'date_desc') {
+      temp.sort((a, b) => b.startDate.compareTo(a.startDate));
+    } else if (_sortOrder == 'name_asc') {
+      temp.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    } else if (_sortOrder == 'name_desc') {
+      temp.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+    }
+
     _filteredCompetitions = temp;
   }
 
@@ -244,6 +329,9 @@ class CompetitionProvider extends ChangeNotifier {
     _selectedCountries.clear();
     _selectedCities.clear();
     _selectedDateRange = null;
+    _selectedSports.clear();
+    _selectedSports.add('Streetlifting');
+    _sortOrder = 'date_asc';
     _applyFilters();
     notifyListeners();
   }
