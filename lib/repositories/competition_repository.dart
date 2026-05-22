@@ -67,7 +67,7 @@ class CompetitionRepository {
           .maybeSingle();
 
       if (response == null) return null;
-      return Competition.fromJson(response as Map<String, dynamic>);
+      return Competition.fromJson(response);
     } catch (e) {
       debugPrint('Error getting competition by ID ($id): $e');
       return null;

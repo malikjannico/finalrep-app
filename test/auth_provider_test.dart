@@ -78,6 +78,9 @@ class MockGoTrueClient implements GoTrueClient {
       if (updateUserError != null) throw updateUserError!;
       return Future.value(updateUserResult ?? MockUserResponse());
     }
+    if (name == #resetPasswordForEmail) {
+      return Future.value(null);
+    }
     return super.noSuchMethod(invocation);
   }
 }
@@ -105,6 +108,16 @@ class MockProfileRepository implements ProfileRepository {
   Future<Profile?> getProfileByUsername(String username) async {
     for (final profile in profiles.values) {
       if (profile.username == username) {
+        return profile;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<Profile?> getProfileByEmail(String email) async {
+    for (final profile in profiles.values) {
+      if (profile.email == email) {
         return profile;
       }
     }

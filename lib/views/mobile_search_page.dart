@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../models/competition.dart';
 import '../providers/competition_provider.dart';
 import '../widgets/profile_card.dart';
 import '../widgets/user_compact_row.dart';
+import '../widgets/competition_card.dart';
+import '../widgets/competition_compact_row.dart';
 import 'competition_detail_page.dart';
 
 class MobileSearchPage extends StatefulWidget {
@@ -19,6 +20,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
   List<Competition> _suggestions = [];
   SearchScope _selectedScope = SearchScope.competitions;
   bool _userIsCompactLayout = false;
+  bool _compIsCompactLayout = false;
 
   @override
   void initState() {
@@ -233,34 +235,120 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _suggestions.length,
-      itemBuilder: (context, index) {
-        final comp = _suggestions[index];
-        return ListTile(
-          leading: Icon(
-            Icons.fitness_center,
-            color: theme.colorScheme.primary,
-          ),
-          title: Text(
-            comp.title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Text(
-            '${comp.location} • ${DateFormat('MMM dd, yyyy').format(comp.startDate)}',
-          ),
-          trailing: const Icon(Icons.chevron_right, size: 16),
-          onTap: () {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                settings: RouteSettings(name: '/competitions/${comp.id}'),
-                builder: (_) => CompetitionDetailPage(competition: comp),
+    return Column(
+      children: [
+        // Result Indicator and Layout Switcher
+        Padding(
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_suggestions.length} Competitions',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
-            );
-          },
-        );
-      },
+              PopupMenuButton<bool>(
+                tooltip: 'Select layout',
+                onSelected: (bool isCompact) {
+                  setState(() {
+                    _compIsCompactLayout = isCompact;
+                  });
+                },
+                itemBuilder: (BuildContext context) => [
+                  PopupMenuItem<bool>(
+                    value: false,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.grid_view,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Grid Layout',
+                          style: TextStyle(
+                            fontWeight: !_compIsCompactLayout
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<bool>(
+                    value: true,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.view_list,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Compact Layout',
+                          style: TextStyle(
+                            fontWeight: _compIsCompactLayout
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(
+                    !_compIsCompactLayout ? Icons.grid_view : Icons.view_list,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _compIsCompactLayout
+              ? ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemCount: _suggestions.length,
+                  itemBuilder: (context, index) {
+                    final comp = _suggestions[index];
+                    return CompetitionCompactRow(
+                      competition: comp,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            settings: RouteSettings(name: '/competitions/${comp.id}'),
+                            builder: (_) => CompetitionDetailPage(competition: comp),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                )
+              : GridView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 1, // On mobile, grid crossAxisCount is 1
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    mainAxisExtent: 380, // Standard mainAxisExtent for CompetitionCard
+                  ),
+                  itemCount: _suggestions.length,
+                  itemBuilder: (context, index) {
+                    final comp = _suggestions[index];
+                    return CompetitionCard(competition: comp);
+                  },
+                ),
+        ),
+      ],
     );
   }
 

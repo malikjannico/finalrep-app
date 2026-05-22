@@ -17,6 +17,7 @@ import 'world_map_view.dart';
 import 'login_page.dart';
 import 'register_page.dart';
 import 'profile_page.dart';
+import 'settings_page.dart';
 
 class SearchFeedPage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -42,6 +43,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
   bool _hasCheckedSharedLink = false;
   int _currentMobileTabIndex = 0;
   bool _userIsCompactLayout = false;
+  bool _desktopProfileActive = false;
 
   // Stored startup URL info to avoid address-bar overwrite race conditions
   String? _initialPath;
@@ -97,6 +99,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
   void _onProviderChanged() {
     if (!mounted) return;
+
+    if (_provider.query.isNotEmpty) {
+      _desktopProfileActive = false;
+    }
 
     // Safely update the text controllers out of the build phase
     final currentRange = _provider.selectedDateRange;
@@ -181,6 +187,22 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       return;
     }
 
+    // Check `/settings`
+    if (path == '/settings') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _hasCheckedSharedLink = true;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              settings: const RouteSettings(name: '/settings'),
+              builder: (_) => const SettingsPage(),
+            ),
+          );
+        }
+      });
+      return;
+    }
+
     // 1. Check `/profile`
     if (path == '/profile') {
       final isDesktop = MediaQuery.of(context).size.width >= 900;
@@ -188,12 +210,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
         if (mounted) {
           _hasCheckedSharedLink = true;
           if (isDesktop) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                settings: const RouteSettings(name: '/profile'),
-                builder: (_) => const ProfilePage(),
-              ),
-            );
+            setState(() {
+              _desktopProfileActive = true;
+            });
           } else {
             setState(() {
               _currentMobileTabIndex = 1;
@@ -290,14 +309,15 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       }
       debugPrint('[DeepLink] foundComp in memory: $foundComp');
       if (foundComp != null) {
+        final comp = foundComp;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _hasCheckedSharedLink = true;
-            debugPrint('[DeepLink] navigating to foundComp: ${foundComp!.id}');
+            debugPrint('[DeepLink] navigating to foundComp: ${comp.id}');
             Navigator.of(context).push(
               MaterialPageRoute(
-                settings: RouteSettings(name: '/competitions/${foundComp!.id}'),
-                builder: (_) => CompetitionDetailPage(competition: foundComp!),
+                settings: RouteSettings(name: '/competitions/${comp.id}'),
+                builder: (_) => CompetitionDetailPage(competition: comp),
               ),
             );
           }
@@ -387,6 +407,284 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     }
   }
 
+  void _showResetPasswordDialog(BuildContext context, AuthProvider authProvider) {
+    final theme = Theme.of(context);
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool dialogLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final pass = newPasswordController.text;
+            final hasMinLength = pass.length >= 8;
+            final hasUppercase = pass.contains(RegExp(r'[A-Z]'));
+            final hasLowercase = pass.contains(RegExp(r'[a-z]'));
+            final hasDigits = pass.contains(RegExp(r'[0-9]'));
+            final hasSpecialChar = pass.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:\x27",./<>?]'));
+
+            final isPasswordValid =
+                hasMinLength &&
+                hasUppercase &&
+                hasLowercase &&
+                hasDigits &&
+                hasSpecialChar;
+
+            int rulesMet = 0;
+            if (hasMinLength) rulesMet++;
+            if (hasUppercase) rulesMet++;
+            if (hasLowercase) rulesMet++;
+            if (hasDigits) rulesMet++;
+            if (hasSpecialChar) rulesMet++;
+
+            Color barColor;
+            String strengthText;
+            int segmentsFilled;
+
+            if (rulesMet == 0) {
+              barColor = theme.colorScheme.outlineVariant.withAlpha(76);
+              strengthText = 'None';
+              segmentsFilled = 0;
+            } else if (rulesMet <= 2) {
+              barColor = const Color(0xFFEF5350);
+              strengthText = 'Weak';
+              segmentsFilled = 1;
+            } else if (rulesMet <= 4) {
+              barColor = const Color(0xFFFFB300);
+              strengthText = 'Medium';
+              segmentsFilled = 2;
+            } else {
+              barColor = const Color(0xFF4CAF50);
+              strengthText = 'Strong';
+              segmentsFilled = 3;
+            }
+
+            Widget buildRuleRow(String text, bool met) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  children: [
+                    Icon(
+                      met ? Icons.check_circle : Icons.radio_button_unchecked,
+                      color: met ? const Color(0xFF4CAF50) : theme.colorScheme.onSurfaceVariant.withAlpha(128),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        text,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: met ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant.withAlpha(178),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('Reset Your Password'),
+              content: dialogLoading
+                  ? const SizedBox(
+                      height: 100,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : SingleChildScrollView(
+                      child: Form(
+                        key: formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Please enter a new secure password for your account.',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              key: const Key('reset_password_new_field'),
+                              controller: newPasswordController,
+                              decoration: InputDecoration(
+                                labelText: 'New Password',
+                                prefixIcon: const Icon(Icons.lock_reset_outlined),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  ),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      obscureNew = !obscureNew;
+                                    });
+                                  },
+                                ),
+                              ),
+                              obscureText: obscureNew,
+                              onChanged: (_) {
+                                setDialogState(() {});
+                              },
+                              validator: (val) {
+                                if (val == null || val.isEmpty) {
+                                  return 'Please enter a new password';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              key: const Key('reset_password_confirm_field'),
+                              controller: confirmPasswordController,
+                              decoration: InputDecoration(
+                                labelText: 'Confirm New Password',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  ),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      obscureConfirm = !obscureConfirm;
+                                    });
+                                  },
+                                ),
+                              ),
+                              obscureText: obscureConfirm,
+                              validator: (val) {
+                                if (val == null || val.isEmpty) {
+                                  return 'Please confirm your password';
+                                }
+                                if (val != newPasswordController.text) {
+                                  return 'Passwords do not match';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                            Text(
+                              'Security Requirements:',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            buildRuleRow('At least 8 characters', hasMinLength),
+                            buildRuleRow('At least 1 uppercase letter (A-Z)', hasUppercase),
+                            buildRuleRow('At least 1 lowercase letter (a-z)', hasLowercase),
+                            buildRuleRow('At least 1 number (0-9)', hasDigits),
+                            buildRuleRow('At least 1 special character (e.g. !@#\$%^&*)', hasSpecialChar),
+                            const SizedBox(height: 20),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Password Strength:',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    Text(
+                                      strengthText,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: barColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: List.generate(3, (index) {
+                                    final isFilled = index < segmentsFilled;
+                                    return Expanded(
+                                      child: Container(
+                                        height: 6,
+                                        margin: EdgeInsets.only(
+                                          right: index < 2 ? 6.0 : 0.0,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isFilled ? barColor : theme.colorScheme.outlineVariant.withAlpha(50),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+              actions: [
+                TextButton(
+                  onPressed: dialogLoading ? null : () => Navigator.of(context).pop(),
+                  child: const Text('CANCEL'),
+                ),
+                ElevatedButton(
+                  onPressed: dialogLoading
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          if (!isPasswordValid) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Password does not meet all security rules.'),
+                                backgroundColor: theme.colorScheme.error,
+                              ),
+                            );
+                            return;
+                          }
+                          setDialogState(() {
+                            dialogLoading = true;
+                          });
+                          try {
+                            await authProvider.changePassword(newPasswordController.text);
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Password updated successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Failed to update password: $e'),
+                                  backgroundColor: theme.colorScheme.error,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (context.mounted) {
+                              setDialogState(() {
+                                dialogLoading = false;
+                              });
+                            }
+                          }
+                        },
+                  child: const Text('UPDATE PASSWORD'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -394,8 +692,20 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     final authProvider = Provider.of<AuthProvider>(context);
 
     // Automatically switch back to competitions tab if user logs out
-    if (!authProvider.isAuthenticated && _currentMobileTabIndex == 1) {
-      _currentMobileTabIndex = 0;
+    if (!authProvider.isAuthenticated) {
+      if (_currentMobileTabIndex == 1) {
+        _currentMobileTabIndex = 0;
+      }
+      _desktopProfileActive = false;
+    }
+
+    if (authProvider.isPasswordRecoveryActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          authProvider.clearPasswordRecovery();
+          _showResetPasswordDialog(context, authProvider);
+        }
+      });
     }
 
     final size = MediaQuery.of(context).size;
@@ -420,17 +730,19 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
             // Main View Content
             Expanded(
-              child: showProfileTab
-                  ? (authProvider.isAuthenticated
-                      ? const ProfilePage(isInline: true)
-                      : const LoginPage(isInline: true))
-                  : _buildMainContent(
-                      context,
-                      provider,
-                      theme,
-                      isDesktop,
-                      isTablet,
-                    ),
+              child: (isDesktop && _desktopProfileActive && authProvider.isAuthenticated)
+                  ? const ProfilePage(isInline: true)
+                  : showProfileTab
+                      ? (authProvider.isAuthenticated
+                          ? const ProfilePage(isInline: true)
+                          : const LoginPage(isInline: true))
+                      : _buildMainContent(
+                          context,
+                          provider,
+                          theme,
+                          isDesktop,
+                          isTablet,
+                        ),
             ),
           ],
         ),
@@ -455,7 +767,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person),
-                  label: 'Profile',
+                  label: 'My Profile',
                 ),
               ],
             )
@@ -470,6 +782,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     bool isDesktop,
     bool isTablet,
   ) {
+    final authProvider = Provider.of<AuthProvider>(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
@@ -517,15 +830,17 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: Icon(
-                          widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                          color: theme.colorScheme.onSurface,
+                      if (!authProvider.isAuthenticated) ...[
+                        IconButton(
+                          icon: Icon(
+                            widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          onPressed: widget.onToggleTheme,
+                          tooltip: 'Toggle Theme',
                         ),
-                        onPressed: widget.onToggleTheme,
-                        tooltip: 'Toggle Theme',
-                      ),
-                      const SizedBox(width: 12),
+                        const SizedBox(width: 12),
+                      ],
                       _buildProfileHeaderButton(context, theme),
                     ],
                   ),
@@ -587,15 +902,97 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           : user?.username.isNotEmpty == true
               ? user!.username[0].toUpperCase()
               : '?';
-      return GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              settings: const RouteSettings(name: '/profile'),
-              builder: (_) => const ProfilePage(),
-            ),
-          );
+      return PopupMenuButton<String>(
+        onSelected: (value) async {
+          if (value == 'profile') {
+            final isDesktop = MediaQuery.of(context).size.width >= 900;
+            if (isDesktop) {
+              setState(() {
+                _desktopProfileActive = true;
+              });
+            } else {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  settings: const RouteSettings(name: '/profile'),
+                  builder: (_) => const ProfilePage(),
+                ),
+              );
+            }
+          } else if (value == 'settings') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                settings: const RouteSettings(name: '/settings'),
+                builder: (_) => const SettingsPage(),
+              ),
+            );
+          } else if (value == 'logout') {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Log Out?'),
+                content: const Text('Are you sure you want to log out of your session?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('CANCEL'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('LOG OUT'),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirm == true) {
+              await authProvider.logout();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Logged out successfully.')),
+                );
+              }
+            }
+          }
         },
+        offset: const Offset(0, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+          PopupMenuItem<String>(
+            value: 'profile',
+            child: Row(
+              children: [
+                Icon(Icons.person_outline, size: 20, color: theme.colorScheme.onSurface),
+                const SizedBox(width: 12),
+                const Text('My Profile'),
+              ],
+            ),
+          ),
+          PopupMenuItem<String>(
+            value: 'settings',
+            child: Row(
+              children: [
+                Icon(Icons.settings_outlined, size: 20, color: theme.colorScheme.onSurface),
+                const SizedBox(width: 12),
+                const Text('Settings'),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+          PopupMenuItem<String>(
+            value: 'logout',
+            child: Row(
+              children: [
+                const Icon(Icons.logout, size: 20, color: Colors.redAccent),
+                const SizedBox(width: 12),
+                const Text('Log Out', style: TextStyle(color: Colors.redAccent)),
+              ],
+            ),
+          ),
+        ],
         child: CircleAvatar(
           radius: 18,
           backgroundColor: theme.colorScheme.primaryContainer,
@@ -659,6 +1056,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
   }
 
   Widget _buildDesktopSubNavBar(CompetitionProvider provider, ThemeData theme) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -675,12 +1073,28 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
         children: [
           _buildSubNavButton(
             label: 'Competitions',
-            isActive: provider.searchScope == SearchScope.competitions,
+            isActive: provider.searchScope == SearchScope.competitions && !_desktopProfileActive,
             onPressed: () {
+              setState(() {
+                _desktopProfileActive = false;
+              });
               provider.setSearchScopeAndQuery(SearchScope.competitions, '');
             },
             theme: theme,
           ),
+          if (authProvider.isAuthenticated) ...[
+            const SizedBox(width: 8),
+            _buildSubNavButton(
+              label: 'My Profile',
+              isActive: _desktopProfileActive,
+              onPressed: () {
+                setState(() {
+                  _desktopProfileActive = true;
+                });
+              },
+              theme: theme,
+            ),
+          ],
         ],
       ),
     );
@@ -745,55 +1159,85 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (authProvider.isAuthenticated && user != null) ...[
-                UserAccountsDrawerHeader(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  currentAccountPicture: CircleAvatar(
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    backgroundImage: user.profilePictureUrl != null
-                        ? NetworkImage(user.profilePictureUrl!)
-                        : null,
-                    child: user.profilePictureUrl == null
-                        ? Text(
-                            initials,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          )
-                        : null,
-                  ),
-                  accountName: Text(
-                    user.fullName,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  accountEmail: Text(
-                    '@${user.username}',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  onDetailsPressed: () {
+                GestureDetector(
+                  onTap: () {
                     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-                      Navigator.of(context).pop(); // close drawer
+                      Navigator.of(context).pop();
                     }
-                     Navigator.of(context).push(
+                    Navigator.of(context).push(
                       MaterialPageRoute(
                         settings: const RouteSettings(name: '/profile'),
                         builder: (_) => const ProfilePage(),
                       ),
                     );
                   },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          backgroundImage: user.profilePictureUrl != null
+                              ? NetworkImage(user.profilePictureUrl!)
+                              : null,
+                          child: user.profilePictureUrl == null
+                              ? Text(
+                                  initials,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                user.fullName,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '@${user.username}',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontSize: 14,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ] else ...[
                 Padding(
@@ -827,10 +1271,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   }
                 },
               ),
-              if (authProvider.isAuthenticated)
+              if (authProvider.isAuthenticated) ...[
                 ListTile(
                   leading: const Icon(Icons.person),
-                  title: const Text('Profile'),
+                  title: const Text('My Profile'),
                   onTap: () {
                     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
                       Navigator.of(context).pop();
@@ -843,7 +1287,64 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     );
                   },
                 ),
+                ListTile(
+                  leading: const Icon(Icons.settings),
+                  title: const Text('Settings'),
+                  onTap: () {
+                    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                      Navigator.of(context).pop();
+                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: '/settings'),
+                        builder: (_) => const SettingsPage(),
+                      ),
+                    );
+                  },
+                ),
+              ],
               const Spacer(),
+              if (authProvider.isAuthenticated) ...[
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.redAccent),
+                  title: const Text(
+                    'Log Out',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Log Out?'),
+                        content: const Text('Are you sure you want to log out of your session?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('CANCEL'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('LOG OUT'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      await authProvider.logout();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Logged out successfully.')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
               if (!authProvider.isAuthenticated) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -905,25 +1406,26 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                 ),
                 const Divider(height: 1),
               ],
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Color Mode'),
-                    IconButton(
-                      icon: Icon(
-                        theme.brightness == Brightness.dark
-                            ? Icons.light_mode
-                            : Icons.dark_mode,
+              if (!authProvider.isAuthenticated)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Color Mode'),
+                      IconButton(
+                        icon: Icon(
+                          theme.brightness == Brightness.dark
+                              ? Icons.light_mode
+                              : Icons.dark_mode,
+                        ),
+                        onPressed: () {
+                          widget.onToggleTheme();
+                        },
                       ),
-                      onPressed: () {
-                        widget.onToggleTheme();
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),

@@ -17,6 +17,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   StreamSubscription<AuthState>? _authSubscription;
+  bool _isPasswordRecoveryActive = false;
 
   AuthProvider(this._client, this._profileRepository) {
     _init();
@@ -29,12 +30,49 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   Session? get session => _session;
+  bool get isPasswordRecoveryActive => _isPasswordRecoveryActive;
+
+  void clearPasswordRecovery() {
+    _isPasswordRecoveryActive = false;
+    notifyListeners();
+  }
+
+  Future<bool> isUsernameTaken(String username) async {
+    final profile = await _profileRepository.getProfileByUsername(username);
+    return profile != null;
+  }
+
+  Future<bool> isEmailTaken(String email) async {
+    final profile = await _profileRepository.getProfileByEmail(email);
+    return profile != null;
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _client.auth.resetPasswordForEmail(email);
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
   void _init() {
     _isLoading = true;
     _authSubscription = _client.auth.onAuthStateChange.listen((data) async {
       _session = data.session;
       final user = data.session?.user;
+
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        _isPasswordRecoveryActive = true;
+      }
 
       if (user != null) {
         _status = AuthStatus.authenticating;
@@ -101,9 +139,9 @@ class AuthProvider extends ChangeNotifier {
         data: {
           'username': username,
           'full_name': fullName,
-          if (gender != null) 'gender': gender,
-          if (country != null) 'country': country,
-          if (profilePictureUrl != null) 'profile_picture_url': profilePictureUrl,
+          'gender':? gender,
+          'country':? country,
+          'profile_picture_url':? profilePictureUrl,
         },
       );
 

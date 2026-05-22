@@ -17,7 +17,7 @@ class ProfileRepository {
           .maybeSingle();
 
       if (response == null) return null;
-      return Profile.fromJson(response as Map<String, dynamic>);
+      return Profile.fromJson(response);
     } catch (e) {
       debugPrint('Error getting profile by ID ($id): $e');
       return null;
@@ -34,9 +34,26 @@ class ProfileRepository {
           .maybeSingle();
 
       if (response == null) return null;
-      return Profile.fromJson(response as Map<String, dynamic>);
+      return Profile.fromJson(response);
     } catch (e) {
       debugPrint('Error getting profile by username ($username): $e');
+      return null;
+    }
+  }
+
+  /// Fetch a user profile by their email.
+  Future<Profile?> getProfileByEmail(String email) async {
+    try {
+      final response = await _client
+          .from('profiles')
+          .select()
+          .eq('email', email)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return Profile.fromJson(response);
+    } catch (e) {
+      debugPrint('Error getting profile by email ($email): $e');
       return null;
     }
   }
@@ -86,7 +103,7 @@ class ProfileRepository {
           .select()
           .single();
 
-      return Profile.fromJson(response as Map<String, dynamic>);
+      return Profile.fromJson(response);
     } catch (e) {
       debugPrint('Error updating profile (${profile.id}): $e');
       rethrow;

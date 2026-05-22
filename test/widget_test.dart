@@ -17,6 +17,10 @@ import 'package:finalrep_app/widgets/competition_compact_row.dart';
 import 'package:finalrep_app/views/world_map_view.dart';
 import 'package:finalrep_app/views/login_page.dart';
 import 'package:finalrep_app/views/register_page.dart';
+import 'package:finalrep_app/views/profile_page.dart';
+import 'package:finalrep_app/views/settings_page.dart';
+import 'package:finalrep_app/views/appearance_settings_page.dart';
+import 'package:finalrep_app/views/change_password_page.dart';
 
 class MockProfileRepository implements ProfileRepository {
   @override
@@ -32,11 +36,15 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   final bool _isAuthenticated;
   final Profile? _currentUserProfile;
   final AuthStatus _status;
+  final bool Function(String)? onIsUsernameTaken;
+  final bool Function(String)? onIsEmailTaken;
 
   MockAuthProvider({
     bool isAuthenticated = false,
     Profile? currentUserProfile,
     AuthStatus status = AuthStatus.unauthenticated,
+    this.onIsUsernameTaken,
+    this.onIsEmailTaken,
   })  : _isAuthenticated = isAuthenticated,
         _currentUserProfile = currentUserProfile,
         _status = status;
@@ -54,6 +62,44 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   bool get isLoading => false;
   @override
   String? get errorMessage => null;
+
+  @override
+  bool get isPasswordRecoveryActive => false;
+
+  @override
+  void clearPasswordRecovery() {}
+
+  @override
+  Future<bool> isUsernameTaken(String username) async {
+    return onIsUsernameTaken?.call(username) ?? false;
+  }
+
+  @override
+  Future<bool> isEmailTaken(String email) async {
+    return onIsEmailTaken?.call(email) ?? false;
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {}
+
+  @override
+  Future<void> loginWithEmailAndPassword({required String email, required String password}) async {}
+
+  @override
+  Future<void> changePassword(String newPassword) async {}
+
+  @override
+  Future<void> updateProfile({
+    required String fullName,
+    required String email,
+    String? gender,
+    String? country,
+    String? description,
+    required String colorMode,
+  }) async {}
+
+  @override
+  Future<void> logout() async {}
 }
 
 class MockFilePicker extends FilePicker {
@@ -496,6 +542,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
+      final originalProvider = debugNetworkImageHttpClientProvider;
       debugNetworkImageHttpClientProvider = () => MockHttpClient();
       try {
         final authProvider = MockAuthProvider(isAuthenticated: false);
@@ -614,7 +661,7 @@ void main() {
         // Tap BACK to return to Step 2 (if we were to click BACK)
         // Since we are mocking register, the tester is in step 3
       } finally {
-        debugNetworkImageHttpClientProvider = null;
+        debugNetworkImageHttpClientProvider = originalProvider;
       }
     },
   );
@@ -657,6 +704,293 @@ void main() {
       // Verify separate buttons exist in drawer
       expect(find.byKey(const Key('drawer_signin_button')), findsOneWidget);
       expect(find.byKey(const Key('drawer_register_button')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'ProfilePage refactoring renders settings icon, compact description, and edit button below description',
+    (WidgetTester tester) async {
+      final profile = Profile(
+        id: 'user-123',
+        username: 'johndoe',
+        fullName: 'John Doe',
+        email: 'john@example.com',
+        description: 'Passionate lifter description.',
+        colorMode: 'dark',
+      );
+      final authProvider = MockAuthProvider(
+        isAuthenticated: true,
+        currentUserProfile: profile,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: authProvider,
+          child: const MaterialApp(
+            home: ProfilePage(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      // Verify that settings icon next to the username exists
+      expect(find.byIcon(Icons.settings), findsOneWidget);
+
+      // Verify "About Me" title does NOT exist
+      expect(find.text('About Me'), findsNothing);
+
+      // Verify compact description exists
+      expect(find.text('Passionate lifter description.'), findsOneWidget);
+
+      // Verify "EDIT PROFILE" button exists below description
+      expect(find.text('EDIT PROFILE'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'SettingsPage renders details, subpages navigation, and logout',
+    (WidgetTester tester) async {
+      final profile = Profile(
+        id: 'user-123',
+        username: 'johndoe',
+        fullName: 'John Doe',
+        email: 'john@example.com',
+        description: 'Passionate lifter description.',
+        colorMode: 'dark',
+      );
+      final authProvider = MockAuthProvider(
+        isAuthenticated: true,
+        currentUserProfile: profile,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: authProvider,
+          child: const MaterialApp(
+            home: SettingsPage(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      // Verify settings title
+      expect(find.text('Settings'), findsOneWidget);
+
+      // Verify profile details rendered directly on background
+      expect(find.text('John Doe'), findsOneWidget);
+      expect(find.text('@johndoe'), findsOneWidget);
+
+      // Verify subpage tiles exist
+      expect(find.text('Appearance'), findsOneWidget);
+      expect(find.text('Change Password'), findsOneWidget);
+
+      // Verify logout button
+      expect(find.text('Log Out'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'AppearanceSettingsPage renders Default Color Mode preference',
+    (WidgetTester tester) async {
+      final profile = Profile(
+        id: 'user-123',
+        username: 'johndoe',
+        fullName: 'John Doe',
+        email: 'john@example.com',
+        description: 'Passionate lifter description.',
+        colorMode: 'dark',
+      );
+      final authProvider = MockAuthProvider(
+        isAuthenticated: true,
+        currentUserProfile: profile,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: authProvider,
+          child: const MaterialApp(
+            home: AppearanceSettingsPage(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(find.text('Appearance'), findsOneWidget);
+      expect(find.text('Theme Settings'), findsOneWidget);
+      expect(find.text('Default Color Mode'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'ChangePasswordPage renders password rules, strength bar, and forms',
+    (WidgetTester tester) async {
+      final profile = Profile(
+        id: 'user-123',
+        username: 'johndoe',
+        fullName: 'John Doe',
+        email: 'john@example.com',
+        description: 'Passionate lifter description.',
+        colorMode: 'dark',
+      );
+      final authProvider = MockAuthProvider(
+        isAuthenticated: true,
+        currentUserProfile: profile,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: authProvider,
+          child: const MaterialApp(
+            home: ChangePasswordPage(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      // Verify Change Password page components
+      expect(find.text('Change Password'), findsOneWidget);
+      expect(find.text('Update Security Credentials'), findsOneWidget);
+      expect(find.text('Current Password'), findsOneWidget);
+      expect(find.text('New Password'), findsOneWidget);
+      expect(find.text('Confirm New Password'), findsOneWidget);
+
+      // Verify checklist
+      expect(find.text('Security Requirements:'), findsOneWidget);
+      expect(find.text('At least 8 characters'), findsOneWidget);
+      expect(find.text('At least 1 uppercase letter (A-Z)'), findsOneWidget);
+      expect(find.text('At least 1 lowercase letter (a-z)'), findsOneWidget);
+      expect(find.text('At least 1 number (0-9)'), findsOneWidget);
+      expect(find.text('At least 1 special character (e.g. !@#\$%^&*)'), findsOneWidget);
+
+      // Verify "Forgot Password?" link on Change Password page
+      expect(find.text('Forgot Password?'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'RegisterPage username and email availability checks block transition and display snackbar',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final originalProvider = debugNetworkImageHttpClientProvider;
+      debugNetworkImageHttpClientProvider = () => MockHttpClient();
+      try {
+        // Case A: Username taken
+        final authProviderUsernameTaken = MockAuthProvider(
+          isAuthenticated: false,
+          onIsUsernameTaken: (username) => true,
+          onIsEmailTaken: (email) => false,
+        );
+
+        await tester.pumpWidget(
+          ChangeNotifierProvider<AuthProvider>.value(
+            value: authProviderUsernameTaken,
+            child: const MaterialApp(
+              home: RegisterPage(),
+            ),
+          ),
+        );
+
+        // Fill in Step 1
+        await tester.enterText(find.byKey(const Key('register_username_field')), 'takenuser');
+        await tester.enterText(find.byKey(const Key('register_email_field')), 'test@email.com');
+        await tester.enterText(find.byKey(const Key('register_password_field')), 'Password123!');
+        await tester.pumpAndSettle();
+
+        // Click NEXT
+        await tester.tap(find.text('NEXT'));
+        await tester.pump(); // Start async check
+        await tester.pump(const Duration(milliseconds: 100)); // allow async to resolve
+        await tester.pumpAndSettle();
+
+        // Should show Snackbar and remain on Step 1
+        expect(find.text('Username is already taken'), findsOneWidget);
+        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+
+        // Case B: Email taken
+        final authProviderEmailTaken = MockAuthProvider(
+          isAuthenticated: false,
+          onIsUsernameTaken: (username) => false,
+          onIsEmailTaken: (email) => true,
+        );
+
+        await tester.pumpWidget(
+          ChangeNotifierProvider<AuthProvider>.value(
+            value: authProviderEmailTaken,
+            child: const MaterialApp(
+              home: RegisterPage(),
+            ),
+          ),
+        );
+
+        // Fill in Step 1
+        await tester.enterText(find.byKey(const Key('register_username_field')), 'freeuser');
+        await tester.enterText(find.byKey(const Key('register_email_field')), 'taken@email.com');
+        await tester.enterText(find.byKey(const Key('register_password_field')), 'Password123!');
+        await tester.pumpAndSettle();
+
+        // Click NEXT
+        await tester.tap(find.text('NEXT'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+
+        // Should show Snackbar and remain on Step 1
+        expect(find.text('Email is already taken'), findsOneWidget);
+        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+      } finally {
+        debugNetworkImageHttpClientProvider = originalProvider;
+      }
+    },
+  );
+
+  testWidgets(
+    'LoginPage forgot password dialog opens, inputs email, and cancels',
+    (WidgetTester tester) async {
+      final authProvider = MockAuthProvider(isAuthenticated: false);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: authProvider,
+          child: const MaterialApp(
+            home: LoginPage(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify Forgot Password? button is present
+      final forgotPasswordButton = find.text('Forgot Password?');
+      expect(forgotPasswordButton, findsOneWidget);
+
+      // Tap Forgot Password?
+      await tester.tap(forgotPasswordButton);
+      await tester.pumpAndSettle();
+
+      // Dialog should be open
+      expect(find.text('Reset Password'), findsOneWidget);
+      expect(find.byKey(const Key('forgot_password_email_field')), findsOneWidget);
+
+      // Enter email
+      await tester.enterText(find.byKey(const Key('forgot_password_email_field')), 'reset@example.com');
+      await tester.pumpAndSettle();
+
+      // Tap CANCEL
+      await tester.tap(find.text('CANCEL'));
+      await tester.pumpAndSettle();
+
+      // Dialog should be closed
+      expect(find.text('Reset Password'), findsNothing);
     },
   );
 }

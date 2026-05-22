@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:file_picker/file_picker.dart';
@@ -17,6 +17,7 @@ class RegisterPage extends StatefulWidget {
 class _RegisterPageState extends State<RegisterPage> {
   int _currentStep = 0; // 0 = Account, 1 = Details, 2 = Avatar
   final int _totalSteps = 3;
+  bool _isCheckingAvailability = false;
 
   // Form Keys for individual step validation
   final _step1FormKey = GlobalKey<FormState>();
@@ -32,7 +33,6 @@ class _RegisterPageState extends State<RegisterPage> {
   // Selected values
   String? _selectedGender = 'Male';
   String? _selectedCountry = 'Germany';
-  String? _selectedProfilePicUrl;
 
   // Custom avatar upload variables
   Uint8List? _customAvatarBytes;
@@ -53,14 +53,7 @@ class _RegisterPageState extends State<RegisterPage> {
     'Canada',
   ];
 
-  // Preset avatars for profile pictures
-  final List<String> _presetAvatars = [
-    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
-    'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80',
-    'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-  ];
+
 
   @override
   void initState() {
@@ -125,7 +118,6 @@ class _RegisterPageState extends State<RegisterPage> {
             _customAvatarBytes = bytes;
             _customAvatarExtension = extension;
             _customAvatarName = file.name;
-            _selectedProfilePicUrl = null;
           });
         }
       }
@@ -134,9 +126,64 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  void _nextStep() {
+  void _nextStep() async {
     if (_currentStep == 0) {
       if (!_step1FormKey.currentState!.validate()) return;
+      
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final username = _regUsernameController.text.trim().toLowerCase();
+      final email = _regEmailController.text.trim();
+
+      setState(() {
+        _isCheckingAvailability = true;
+      });
+
+      try {
+        final uTaken = await authProvider.isUsernameTaken(username);
+        if (uTaken) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Username is already taken'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+          return;
+        }
+
+        final eTaken = await authProvider.isEmailTaken(email);
+        if (eTaken) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Email is already taken'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+          return;
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error checking availability: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return;
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isCheckingAvailability = false;
+          });
+        }
+      }
     } else if (_currentStep == 1) {
       if (!_step2FormKey.currentState!.validate()) return;
     }
@@ -166,7 +213,7 @@ class _RegisterPageState extends State<RegisterPage> {
         fullName: _regFullNameController.text.trim(),
         gender: _selectedGender,
         country: _selectedCountry,
-        profilePictureUrl: _selectedProfilePicUrl,
+        profilePictureUrl: null,
         customAvatarBytes: _customAvatarBytes,
         customAvatarExtension: _customAvatarExtension,
       );
@@ -416,6 +463,12 @@ class _RegisterPageState extends State<RegisterPage> {
           TextFormField(
             key: const Key('register_username_field'),
             controller: _regUsernameController,
+            maxLength: 15,
+            inputFormatters: [
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                return newValue.copyWith(text: newValue.text.toLowerCase());
+              }),
+            ],
             decoration: const InputDecoration(
               labelText: 'Username',
               prefixIcon: Icon(Icons.alternate_email),
@@ -503,6 +556,7 @@ class _RegisterPageState extends State<RegisterPage> {
           TextFormField(
             key: const Key('register_fullname_field'),
             controller: _regFullNameController,
+            maxLength: 30,
             decoration: const InputDecoration(
               labelText: 'Full Name',
               prefixIcon: Icon(Icons.badge_outlined),
@@ -649,78 +703,32 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           ),
         ] else ...[
-          // Option to pick preset avatar
+          Center(
+            child: Container(
+              width: 112,
+              height: 112,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.colorScheme.surfaceContainerHighest.withAlpha(128),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant,
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                Icons.add_a_photo_outlined,
+                size: 40,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Text(
-            'Select a preset avatar:',
+            'Upload a profile picture to customize your profile (optional)',
+            textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 80,
-            child: Center(
-              child: ListView.separated(
-                shrinkWrap: true,
-                scrollDirection: Axis.horizontal,
-                itemCount: _presetAvatars.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 16),
-                itemBuilder: (context, idx) {
-                  final url = _presetAvatars[idx];
-                  final isSelected = _selectedProfilePicUrl == url;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedProfilePicUrl = isSelected ? null : url;
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected
-                              ? const Color(0xFFE94E1B)
-                              : Colors.transparent,
-                          width: 3,
-                        ),
-                      ),
-                      child: CircleAvatar(
-                        radius: 28,
-                        backgroundImage: NetworkImage(url),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          if (_selectedProfilePicUrl != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Preset avatar selected!',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.green,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              const Expanded(child: Divider()),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'OR',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
-                ),
-              ),
-              const Expanded(child: Divider()),
-            ],
           ),
           const SizedBox(height: 24),
           Center(
@@ -863,7 +871,7 @@ class _RegisterPageState extends State<RegisterPage> {
         if (!isFirstStep) ...[
           Expanded(
             child: OutlinedButton(
-              onPressed: authProvider.isLoading ? null : _prevStep,
+              onPressed: authProvider.isLoading || _isCheckingAvailability ? null : _prevStep,
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -877,7 +885,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ],
         Expanded(
           child: ElevatedButton(
-            onPressed: authProvider.isLoading || (isFirstStep && !_isPasswordValid)
+            onPressed: authProvider.isLoading || _isCheckingAvailability || (isFirstStep && !_isPasswordValid)
                 ? null
                 : (isLastStep ? _handleRegister : _nextStep),
             style: ElevatedButton.styleFrom(
@@ -888,7 +896,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: authProvider.isLoading
+            child: authProvider.isLoading || _isCheckingAvailability
                 ? const SizedBox(
                     height: 20,
                     width: 20,
