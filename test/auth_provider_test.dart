@@ -382,5 +382,36 @@ void main() {
       expect(mockAuth.updateUserCalls.length, 1);
       expect(mockAuth.updateUserCalls.first['password'], 'new-secure-password');
     });
+
+    test('resolveEmailFromUsername trims and lowercases username', () async {
+      final profile = Profile(
+        id: 'user-resolution',
+        username: 'resolveduser',
+        fullName: 'Resolved User',
+        email: 'resolved@example.com',
+      );
+      mockProfileRepository.profiles['user-resolution'] = profile;
+
+      final email = await authProvider.resolveEmailFromUsername('   ResolvedUser   ');
+      expect(email, 'resolved@example.com');
+    });
+
+    test('loginWithUsernameAndPassword trims and lowercases username', () async {
+      final profile = Profile(
+        id: 'user-login-trim',
+        username: 'logintrimuser',
+        fullName: 'Login Trim User',
+        email: 'logintrim@example.com',
+      );
+      mockProfileRepository.profiles['user-login-trim'] = profile;
+
+      await authProvider.loginWithUsernameAndPassword(
+        username: '  LoginTrimUser  ',
+        password: 'password123',
+      );
+
+      expect(mockAuth.signInCalls.length, 1);
+      expect(mockAuth.signInCalls.first['email'], 'logintrim@example.com');
+    });
   });
 }

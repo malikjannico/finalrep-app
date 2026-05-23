@@ -1,0 +1,27 @@
+Resolving dependencies...
+Downloading packages...
+  code_assets 1.0.0 (1.1.0 available)
+  file_picker 8.3.7 (11.0.2 available)
+  hooks 1.0.3 (2.0.0 available)
+  intl 0.19.0 (0.20.2 available)
+  latlong2 0.9.1 (0.10.1 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.18.0 (1.18.2 available)
+  native_toolchain_c 0.17.6 (0.19.0 available)
+  test_api 0.7.11 (0.7.12 available)
+  vector_math 2.2.0 (2.3.0 available)
+  win32 5.15.0 (6.2.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/platform-features-update/test/db_inspect_test.dart
+00:00 +0: /Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/platform-features-update/test/db_inspect_test.dart: (setUpAll)
+00:00 +0: /Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/platform-features-update/test/db_inspect_test.dart: Inspect profiles table schema
+supabase.supabase_flutter: INFO: ***** Supabase init completed ***** 
+DB INSPECT ERROR: PostgrestException(message: , code: 400, details: , hint: null)
+PostgrestException details: , 400, , null
+00:00 +1: /Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/platform-features-update/test/test_db.dart: inspect database schema
+supabase.supabase_flutter: INFO: ***** Supabase init completed ***** 
+DB RESPONSE FOR PROFILE: {id: 00000000-0000-0000-0000-000000000001, username: jack_streetlift, full_name: Jack Peterson, email: jack@finalrep.com, gender: Male, country: United States, profile_picture_url: null, description: , color_mode: system, created_at: 2026-05-21T15:38:14.246681+00:00, updated_at: 2026-05-21T15:38:14.246681+00:00}
+00:01 +2: All tests passed!

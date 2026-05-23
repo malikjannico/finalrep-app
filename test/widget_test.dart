@@ -1,13 +1,18 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/models/profile.dart';
+import 'package:finalrep_app/models/permission_application.dart';
+import 'package:finalrep_app/models/admin_config.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
 import 'package:finalrep_app/repositories/profile_repository.dart';
+import 'package:finalrep_app/repositories/admin_repository.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/providers/auth_provider.dart';
 import 'package:finalrep_app/views/search_feed_page.dart';
@@ -23,11 +28,45 @@ import 'package:finalrep_app/views/appearance_settings_page.dart';
 import 'package:finalrep_app/views/change_password_page.dart';
 
 class MockProfileRepository implements ProfileRepository {
+  final List<Profile> profilesToReturn;
+
+  MockProfileRepository({this.profilesToReturn = const []});
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
   Future<List<Profile>> searchProfiles(String query) async {
+    return profilesToReturn;
+  }
+
+  @override
+  Future<Profile> getProfile(String id) async {
+    return profilesToReturn.firstWhere((p) => p.id == id, orElse: () => throw Exception('Profile not found'));
+  }
+
+  @override
+  Future<Profile> getProfileByUsername(String username) async {
+    return profilesToReturn.firstWhere((p) => p.username.toLowerCase() == username.toLowerCase(), orElse: () => throw Exception('Profile not found'));
+  }
+
+  @override
+  Future<List<Competition>> getUserUpcomingMeets(String userId) async {
+    return [];
+  }
+
+  @override
+  Future<List<Competition>> getUserCompletedMeets(String userId) async {
+    return [];
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getUserHighestRankings(String userId) async {
+    return [];
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getUserPersonalRecords(String userId) async {
     return [];
   }
 }
@@ -36,6 +75,7 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   final bool _isAuthenticated;
   final Profile? _currentUserProfile;
   final AuthStatus _status;
+  final ProfileRepository? _profileRepository;
   final bool Function(String)? onIsUsernameTaken;
   final bool Function(String)? onIsEmailTaken;
 
@@ -43,11 +83,13 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
     bool isAuthenticated = false,
     Profile? currentUserProfile,
     AuthStatus status = AuthStatus.unauthenticated,
+    ProfileRepository? profileRepository,
     this.onIsUsernameTaken,
     this.onIsEmailTaken,
   })  : _isAuthenticated = isAuthenticated,
         _currentUserProfile = currentUserProfile,
-        _status = status;
+        _status = status,
+        _profileRepository = profileRepository;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -56,6 +98,8 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   AuthStatus get status => _status;
   @override
   Profile? get currentUserProfile => _currentUserProfile;
+  @override
+  ProfileRepository get profileRepository => _profileRepository ?? MockProfileRepository();
   @override
   bool get isAuthenticated => _isAuthenticated;
   @override
@@ -96,10 +140,89 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
     String? country,
     String? description,
     required String colorMode,
+    String? profilePictureUrl,
   }) async {}
 
   @override
   Future<void> logout() async {}
+
+  @override
+  bool get isAdmin => _currentUserProfile?.isAdmin ?? false;
+
+  @override
+  bool get isCompetitionCreator => _currentUserProfile?.isCompetitionCreator ?? false;
+
+  @override
+  bool get isAssociationCreator => _currentUserProfile?.isAssociationCreator ?? false;
+
+  @override
+  AdminRepository get adminRepository => AdminRepository(null);
+
+  @override
+  Future<PermissionApplication?> applyForPermissions(String type, String reason) async {
+    return null;
+  }
+
+  @override
+  Future<List<PermissionApplication>> getPermissionApplications() async {
+    return [];
+  }
+
+  @override
+  Future<PermissionApplication?> approvePermissionApplication(String applicationId) async {
+    return null;
+  }
+
+  @override
+  Future<PermissionApplication?> rejectPermissionApplication(String applicationId) async {
+    return null;
+  }
+
+  @override
+  Future<Profile?> promoteToAdmin(String userId) async {
+    return null;
+  }
+
+  @override
+  Future<SportConfig> loadSportsConfig() async {
+    return SportConfig(sports: [], formats: [], disciplines: [], links: []);
+  }
+
+  @override
+  Future<bool> saveSportsConfig(SportConfig config) async {
+    return true;
+  }
+
+  @override
+  Future<void> registerWithEmailAndPassword({
+    required String email,
+    required String password,
+    required String username,
+    required String fullName,
+    String? gender,
+    String? country,
+    String? profilePictureUrl,
+    Uint8List? customAvatarBytes,
+    String? customAvatarExtension,
+  }) async {}
+
+  @override
+  void clearError() {}
+
+  @override
+  Future<void> loginWithUsernameAndPassword({required String username, required String password}) async {}
+
+  @override
+  Future<String> resolveEmailFromUsername(String username) async => '';
+
+  @override
+  SupabaseClient get client => throw UnimplementedError();
+
+  @override
+  Session? get session => null;
+
+  @override
+  bool get hasListeners => false;
 }
 
 class MockFilePicker extends FilePicker {
@@ -991,6 +1114,124 @@ void main() {
 
       // Dialog should be closed
       expect(find.text('Reset Password'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'ProfilePage renders social links and athlete dashboard components',
+    (WidgetTester tester) async {
+      final profile = Profile(
+        id: 'user-123',
+        username: 'johndoe',
+        fullName: 'John Doe',
+        email: 'john@example.com',
+        description: 'Bio description.',
+        colorMode: 'dark',
+        gender: 'Male',
+        country: 'Germany',
+        socialLinks: {
+          'instagram': 'https://instagram.com/johndoe',
+          'youtube': 'https://youtube.com/johndoe',
+        },
+      );
+      final authProvider = MockAuthProvider(
+        isAuthenticated: true,
+        currentUserProfile: profile,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: authProvider,
+          child: const MaterialApp(
+            home: ProfilePage(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Verify gender and country badges
+      expect(find.text('Male'), findsOneWidget);
+      expect(find.text('Germany'), findsOneWidget);
+
+      // Verify social links chips are rendered
+      expect(find.textContaining('instagram'), findsOneWidget);
+      expect(find.textContaining('youtube'), findsOneWidget);
+
+      // Verify Athlete Dashboard sections are rendered
+      expect(find.text('Athlete Dashboard'), findsOneWidget);
+      expect(find.textContaining('Upcoming Meets'), findsOneWidget);
+      expect(find.textContaining('Completed Meets'), findsOneWidget);
+      expect(find.textContaining('Personal Records'), findsOneWidget);
+      expect(find.textContaining('Highest Rankings'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'SearchFeedPage connects taps on ProfileCard and UserCompactRow to set selected profile state in desktop view',
+    (WidgetTester tester) async {
+      // Desktop view
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final repo = FakeCompetitionRepository();
+      
+      final searchedProfiles = [
+        Profile(
+          id: 'athlete-1',
+          username: 'janedoe',
+          fullName: 'Jane Doe',
+          email: 'jane@example.com',
+          colorMode: 'light',
+          description: 'A dedicated lifter.',
+          country: 'Germany',
+        ),
+      ];
+
+      final mockProfileRepo = MockProfileRepository(profilesToReturn: searchedProfiles);
+      final provider = CompetitionProvider(repo, mockProfileRepo);
+      final authProvider = MockAuthProvider(isAuthenticated: true);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<CompetitionProvider>.value(value: provider),
+            ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+          ],
+          child: MaterialApp(
+            home: SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(Duration.zero);
+
+      provider.setSearchScopeAndQuery(SearchScope.users, '');
+      await tester.pumpAndSettle();
+
+      // Verify ProfileCard is displayed
+      expect(find.text('Jane Doe'), findsOneWidget);
+
+      // Tap on the profile card (Jane Doe)
+      await tester.tap(find.text('Jane Doe'));
+      await tester.pumpAndSettle();
+
+      // Verify that ProfilePage is shown inline and the back button is visible
+      expect(find.text('Back to search feed'), findsOneWidget);
+      expect(find.text('A dedicated lifter.'), findsOneWidget);
+
+      // Tap back button
+      await tester.tap(find.text('Back to search feed'));
+      await tester.pumpAndSettle();
+
+      // Back button is gone, we are back on the search feed
+      expect(find.text('Back to search feed'), findsNothing);
     },
   );
 }

@@ -3,72 +3,149 @@
 ## 1. Product Overview
 **FinalRep App** is a responsive, cross-platform sport competition management and search platform designed for **Streetlifting**. It enables organizers to manage meets and allows athletes, coaches, and spectators (both registered and unregistered) to search for upcoming events globally.
 
-The platform is designed to promote Streetlifting from grassroots local meets up to international championships.
+This update introduces modules for Profile customization, System Administration, Association creation and management, rich Competition creation and management (including flights and schedule planning), Streetlifting competition handling (attempt scoring, platform judging, video reviews), Ranking details, and System Notifications.
 
 ---
 
 ## 2. Target Audience
-1. **Athletes:** Search for upcoming meets, view event details, and review formats.
-2. **Spectators & Unregistered Users:** Search and browse upcoming competitions without needing to register or authenticate.
-3. **Coaches & Teams:** Track events for scheduling athlete preparations.
-4. **Organizers (Future):** List events, manage athlete weight registrations, and record attempt results.
+1. **Athletes:** Search meets, register, view personal records, manage attempts, and specify rack/box parameters.
+2. **Spectators & Guest Users:** Browse competitions, view schedules, and track rankings without login.
+3. **Coaches:** Help athletes register and submit attempt weight selections.
+4. **Organizers / Association Managers:** Create associations, manage teams, organize competitions, manage flights/schedules, export data, and judge lifts.
+5. **Administrators:** Grant creation permissions, manage sports, formats, disciplines, and add other admins.
 
 ---
 
-## 3. Core Features (MVP & Enhancements)
-- **Responsive Header & Navigation**:
-  - **Desktop**: Main header features a centered search bar (with real-time dropdown results and search scope selector), left-aligned FinalRep Icon in brand color `#E94E1B`, right-aligned profile page navigation shortcut (avatar/icon) which opens a dropdown with options to go to "My Profile", "Settings", or "Log Out" when logged in (or Login/Register buttons when guest), and a zero-animation Color Mode toggle (visible only to guest users). A dedicated navigation bar is positioned below the header, displaying centered navigation tabs for "Competitions", "World Map", and "My Profile" (visible only when logged in) without active-item underline decoration. Selecting "My Profile" displays the user profile page inline directly under the header and subheader in desktop view, rather than on an individual screen or modal.
-  - **Mobile**: Top header has a centered FinalRep Icon, a hamburger menu icon (left) that opens a navigation/app drawer, and a search icon (right) that opens a full-screen mobile search view. The navigation/app drawer header displays the user's full name and username on the right side of their profile image. In the navigation drawer, the Logout button is positioned at the very bottom. A bottom navigation bar with icons and labels switches between the "Competitions" and "My Profile" views.
-- **Dynamic Search & Filtering (Competitions View)**:
-  - **Desktop Sidebar**: Left-aligned, always-visible filter panel with collapsible sections.
-  - **Mobile Filter Drawer**: Slide-in right drawer triggered by a filter icon.
-  - **Results Indicator**: Displays results count as "[Number of Competitions] Competitions" on both mobile and desktop views.
-  - **Sorting & Layouts**: Popup menu buttons for sorting and layouts.
-- **Search Bar Selection (Competition vs. User)**:
-  - Toggle search scope between "Competitions" and "Users".
-- **Single Competition Detail View**:
-  - Hero banner, disciplines explanation list, and clipboard sharing matching the pattern `/competitions/{id}`.
-- **Interactive World Map View**:
-  - Dot world map with pulsing markers, constrained zoom and camera constraints.
-- **Guest Access**: All upcoming competitions, map pins, and details must be searchable and viewable without user login or authentication.
-- **User Authentication & Profiles**:
-  - **Register & Login**: Dedicated pages (`LoginPage` and `RegisterPage`) with mutual navigation links.
-  - **Forgot Password**: Added forgot password/recovery capabilities at the `LoginPage` and `SettingsPage`/`ChangePasswordPage`. When a password reset link is triggered, users receive an email. Upon clicking the link, the app detects the recovery state and shows a secure password update dialog/overlay enforcing the 5 password safety rules.
-  - **Multi-step Registration Flow**:
-    - **Step 1 (Account)**: Form validation for Username, Email, and Password.
-      - **Availability Checks**: Validates if the username and email are already taken before allowing the user to proceed to Step 2.
-      - **Lowercase Username**: Enforces lowercase-only usernames dynamically on input and saves them in lowercase.
-      - **Character Limits**: Enforces and indicates used vs. max characters for Username (max 15 characters).
-      - **Password Safety Rules**: Enforced by design (min 8 chars, uppercase, lowercase, digit, special character) with a strength indicator.
-    - **Step 2 (Details)**: Form validation for Full Name, Gender, and Country.
-      - **Character Limits**: Enforces and indicates used vs. max characters for Full Name (max 30 characters).
-    - **Step 3 (Avatar)**: Support for custom avatar uploading.
-  - **Profile Page & Customization**:
-    - **Background Rendering**: Shows profile picture, full name, username, gender, country, and description directly on the app background (no cards/containers).
-    - **Profile Banner**: Added a profile banner at the top of the profile page, showing a flat color fallback if no banner is uploaded. Users can upload custom banners in edit mode.
-    - **Settings Icon**: Shows a settings icon next to the user's Full Name instead of username.
-    - **Actions**: Removed the top-right share button. Added a filled "SHARE PROFILE" button right next to the "EDIT PROFILE" button under the bio.
-    - **Button Styling**: Applied the premium update password button design (primary colored, filled, padding 16, border radius 12, bold uppercase text) to both the edit and share profile buttons.
-    - **No Title**: Removed the title "My Profile" at the top of the My Profile page.
-    - **Bio editing**: The description bio field enforces a max length of 150 characters with a live character counter.
-  - **Settings Page**:
-    - **Background Rendering**: Render settings options directly on the app background (no cards/containers).
-    - **Subpages**: Appearance and Change Password options are moved to subpages with navigation buttons on the main Settings page.
-    - **Change Password**: Secured change password flow verifying current credentials and enforcing the 5 safety rules.
-    - **Logout**: The logout button has no subtitle.
-  - **Mobile Search UX Tweaks**:
-    - **User Search - Compact**: Stacks the username vertically under the full name.
-    - **User Search - Grid**: Shows the banner above the profile picture, username, and full name, and removes the trailing chevron/arrow.
-    - **Competition Search**: Added compact/grid layout toggles via a popup menu and a results count indicator. Shows list items as `CompetitionCompactRow` or `CompetitionCard` respectively.
+## 3. Core Features & Functional Requirements
+
+### A. Login & Forgot Password
+- **Login Username Field:** Dynamically convert all characters entered in the username field to lowercase. Verify in lowercase.
+- **Forgot Password:** Allow users to enter either their **username** or their **email** to initiate the recovery flow.
+
+### B. Profile Customization
+- **Social Media Profiles:** Users can add links to social media channels on their profile.
+- **Social Media Display:** Display social media links on the profile page using platform-specific icons alongside channel names.
+- **Settings Icon:** Position the settings icon immediately after the user's Full Name on the "My Profile" page.
+- **Other User Profiles:** Render other user profiles inline under the header and subheader in desktop view, mimicking the "My Profile" desktop integration.
+- **Layout Adjustments:**
+  - In desktop view, the profile banner must touch the subheader with no spacing.
+  - In mobile view, the navigation drawer profile link must navigate to the same profile view as the bottom navigation bar.
+  - In mobile view, the top header must touch the top of the screen at the users page.
+  - In mobile view, if the username under the full name is visible, hide it from the header. Show it in the header in smaller font when the user scrolls and the username in the main body is no longer visible.
+  - Profile picture position: Display half of the profile picture above the header (shifted upwards). Left-align the Full Name, username, gender, and country underneath the profile picture.
+- **Competitions & Achievements:**
+  - Show sections for upcoming and completed competitions.
+  - Show the highest ranking achieved per sport and format.
+  - Show personal records (PRs) for each discipline per sport and format.
+
+### C. System Administration
+- **Permission Access:** Restrict competition creation and association creation to authorized users.
+- **Permissions Application:** Allow users to apply separately with a text reason for competition creation and association creation permissions.
+- **Administration Views:**
+  - **Permissions Lists:** List accepted users (with their current permissions) and applied users (with application date and reason).
+  - **Decision Actions:** Administrators can accept or reject pending permission applications.
+  - **Admin Management:** Administrators can promote other users to administrators.
+- **Configuration Management:**
+  - Add and rename sports (with optional descriptions).
+  - Add and rename sport formats (per sport, with optional descriptions).
+  - Add and rename disciplines (with optional descriptions).
+  - Link disciplines to sport formats.
+
+### D. Associations & Management
+- **Creation Flow:** An optimized multi-step wizard grouping fields:
+  - Name, Profile Picture (optional), Banner (optional).
+  - Scope Selection: Global, Area (e.g. Europe), or National (with country selection).
+  - Sports & Formats: Select one to all supported.
+  - Rulebooks: Add a web link to the rulebook for each selected sport.
+  - Channels: Add website and optional social media links.
+  - Details: Specify description and parent associations (submitting an application with a reason).
+- **Association View:** Display Name, Profile Picture, Banner, Scope, upcoming/completed competitions, Rulebook links, Social Media, Website, Description, list of Sub-Associations, and Team Members.
+- **Management Panel:**
+  - Roles: **Owner** and **Editor**.
+  - Member management: Owners and Editors can add/remove users from roles. Owners or Administrators can transfer ownership.
+  - Metadata: Owner and Editors can update all fields from the creation flow.
+  - Permission Applications: List of applied associations with owner, date, and reason. Administrators can accept or reject applications.
+  - Team members: Add team members and specify their custom team roles.
+  - Competition Groups: Add and activate/deactivate competition groups per sport and format. (Inactive groups cannot be chosen during competition creation).
+  - Athlete Groups: Add and activate/deactivate athlete groups (e.g. weight classes).
+  - Group requirements: Specify if added athlete groups for a competition group are required.
+
+### E. Competition Creation
+- **Registered Users:** Any registered user can initiate competition creation (subject to permission approval).
+- **Creation Flow:** Organized step-by-step wizard capturing:
+  - Name, location (with detail selector: country -> city -> address, with geolocated verification).
+  - Dates: Competition Start/End DateTime and Registration Start/End DateTime (flexible input: text or calendar/clock picker).
+  - Fees: Toggle fee requirement. If enabled, specify fee amount, currency, recipient name, bank, IBAN, BIC, and a generated description code (max 140 chars) per accepted athlete. Specify payment period start/end dates.
+  - Approval Type: Select first-come-first-serve vs. manual approval.
+  - RichText Editor: Description editor supporting H1, H2, Bold, Italic, Underline, and Bullet points.
+  - Links: Social media channels (rendered on detail page with icons), website, and optional ticket shop link.
+  - Sport details: Select Sport, Format, and optionally Association (only those where user is Owner/Manager).
+  - Group details: Select optional Competition Group from selected association (or parent associations). Add Athlete Groups (if no association is selected, or if the association has no required athlete groups. Otherwise, apply required association groups; for non-required ones, let the user choose to apply them).
+  - Limits: Set maximum athlete count type (per competition vs. per athlete group) and specify the limit.
+  - Volunteers: Toggle volunteer needs. If enabled, list positions (default options: judges, spotters, livestream, media, commentators, administration) with name and description, select max volunteers type (per competition vs. per position), specify limits, and define volunteer registration periods.
+  - Waiting List: Toggle waiting list capability if limits are exceeded.
+  - Custom Fields: Add optional text/select fields to capture additional details for athletes and volunteers.
+  - Disclaimers: Add required disclaimers (only text, text with links, or link-only) that must be accepted.
+  - Rulebooks: Add custom rulebook link or inherit from selected association.
+  - Banner: Banner image upload showing recommended sizes and layout safe zones for desktop/mobile crop grids.
+  - Volunteer Application: Volunteers can apply for multiple positions and set a favorite order preference.
+
+### F. Competitions Feed & Details
+- **Detail Layout:** Single competition page matches profile page layout (rendered under header/subheader on desktop).
+- **Mobile Header:** If the user scrolls and the competition name disappears, show a shortened version in the header.
+- **Completed Feeds:** Competitions list can switch between upcoming and completed meets.
+- **Completed Results:** Single completed competition displays a ranking table with filtering capabilities.
+- **Favorites:** Authenticated users can save/favorite competitions.
+
+### G. Competition Management
+- **Access Roles:** **Owner** (full control), **Editor** (updates metadata, records scores), **Viewer** (read-only management access). Transfer ownership can be done by Owner or Admin.
+- **Workflows:**
+  - Publish competition, start registration, auto-start/end payment periods.
+  - Accept athletes & volunteers, manage waiting lists (automatically or individually for sick replacements, defining custom payment periods for runner-ups).
+  - Remove athletes (with text reason) or volunteers.
+  - Publish athlete groups and flights (balanced groups).
+  - Configure platform layouts (number of parallel flights).
+  - Weigh-in toggling: Enable/disable weigh-in requirements.
+  - Schedule: Plan weigh-in slots, flights, awards ceremonies, and staff assignments. Publish separate athlete schedules (public) vs. staff schedules (accepted volunteers only).
+  - Data Exports: CSV exports for athletes by groups, athletes by flights, volunteers by position, and schedules.
+  - Attempt parameters: Add optional metadata fields per athlete per discipline (e.g. rack height, dip width) editable by athletes and managers.
+  - Execution controls: Start/end competition, start weigh-in slots, record weight, mark disqualified status (disqualified athletes can lift but are excluded from rankings), end weigh-ins, start flights, and execute exercises.
+
+### H. Competition Handling (Streetlifting Rules)
+- **Modern Streetlifting Subtype:** Disciplines: Muscle Up, Pull Up, Dip, Squat.
+- **Attempts:** 3 attempts per discipline. Ascending weight order (weight cannot be lowered during an exercise). Smallest increments: 1.25kg (Muscle Up, Pull Up, Dip), 2.5kg (Squat).
+- **Weight Plates:** Pre-calculate weight configurations from standard plates (1.25kg Silver, 2.5kg Black, 5kg White, 10kg Green, 15kg Yellow, 20kg Blue, 25kg Red). Allow managers to add micro-weights (0.25kg, 0.5kg, 0.75kg, 1kg) to attempts.
+- **Attempt Weights Selection:** First attempt entered during weigh-in until flight start (default 0kg if blank). Subsequent attempts must be entered within 3 minutes of previous attempt (otherwise auto-incremented by smallest increment on success, or repeated on failure). After 3 minutes, only Owners/Editors can update weights. Coaches can also submit weights for their defined athletes.
+- **Squats Exception:** During 3rd attempt squats, allow changing attempt weight up to two times before the technical timer starts (must be ascending).
+- **Execution Timer:** Technical judge starts a 1-minute countdown. The athlete must start the lift within 1 minute.
+- **Platform Judging:**
+  - 3 Platform Judges (2 side, 1 front) and 1 Head Judge.
+  - Judging is anonymous.
+  - Platform judges must specify a category/reason on failure:
+    - **Muscle Up:** Red (Chicken Wing), Black (Signal/Equipment), Yellow (Kipping/Loss of Control), Blue (Lockout/Bent Arms/Grip).
+    - **Pull Up:** Red (Invalid Height), Black (Signal/Equipment), Yellow (Kipping), Blue (Downward Motion).
+    - **Dip:** Red (Invalid Depth), Black (Signal/Equipment), Yellow (Kipping/Loss of Control), Blue (Downward Motion/Bent Arms).
+    - **Squat:** Red (Invalid Depth), Black (Signal/Equipment), Yellow (Support/Dropping/Foot Motion), Blue (Downward Motion/Bent Knees/Spotter contact).
+  - **Voting Rules:**
+    - Majority (2:1): Dips (Invalid Depth) and Squats (Bent Knees & Invalid Depth).
+    - Unanimous (3:0): All other failure reasons.
+- **Disqualification:** 0 of 3 valid attempts in any single discipline results in overall competition disqualification.
+- **Video Assisted Referee (VAR):** Athletes/coaches can request 1 VAR per meet after an invalid attempt. Head judge reviews the footage. If overruled, the VAR credit is restored.
+- **Custom Handling Rules:** Associations/organizers can modify handlers/judging configurations to comply with rulebook variations.
+
+### I. Rankings & Notifications
+- **Rankings Feed:** Render rankings by sport/format. Details display overall score and discipline scores. Filters for competition, group, and athlete classes.
+- **Notifications System:** Notify users of registration status, permission outcomes, payment reminders, schedule releases, and flight details. Allow toggling categories in settings.
 
 ---
 
 ## 4. Technical Stack
-- **Frontend**: Flutter.
-- **Backend & Database**: Supabase. Banners are stored client-side deterministically in the public `avatars` bucket at `profiles/{userId}/banner.jpg` to avoid DDL schema changes.
-- **State Management**: Provider.
+- **Frontend:** Flutter.
+- **Backend:** Supabase (mock fallbacks for local/widget tests).
+- **State Management:** Provider.
 
 ---
 
-## 5. Domain Rules (Streetlifting)
-(Unchanged)
+## 5. Notes & Specific Configurations
+- **FinalRep Underground:** The *FinalRep Underground* competition group has been configured to exist **exclusively in the Modern format** (which includes Muscle Up, Pull Up, Dip, and Squat). All classic format representations have been removed.
+

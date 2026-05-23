@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/competition.dart';
+import '../providers/auth_provider.dart';
+import '../providers/competition_provider.dart';
 
 class CompetitionDetailPage extends StatelessWidget {
   final Competition competition;
@@ -338,14 +341,22 @@ class CompetitionDetailPage extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Thank you for your interest! Volunteer applications for ${competition.title} will open soon.',
+                            if (competition.volunteerNeeds) {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                builder: (context) => VolunteerApplicationBottomSheet(competition: competition),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Thank you for your interest! Volunteer applications for ${competition.title} will open soon.',
+                                  ),
+                                  backgroundColor: theme.colorScheme.primary,
                                 ),
-                                backgroundColor: theme.colorScheme.primary,
-                              ),
-                            );
+                              );
+                            }
                           },
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(color: theme.colorScheme.outline),
@@ -509,6 +520,300 @@ class CompetitionDetailPage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class VolunteerApplicationBottomSheet extends StatefulWidget {
+  final Competition competition;
+
+  const VolunteerApplicationBottomSheet({super.key, required this.competition});
+
+  @override
+  State<VolunteerApplicationBottomSheet> createState() => _VolunteerApplicationBottomSheetState();
+}
+
+class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBottomSheet> {
+  final List<String> _selectedRoles = [];
+  final Map<String, List<String>> _shiftAvailability = {}; // role -> list of shifts
+  final Map<String, dynamic> _customFieldAnswers = {};
+  bool _disclaimerAccepted = false;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final positions = widget.competition.volunteerPositions ?? [];
+    for (var pos in positions) {
+      _shiftAvailability[pos] = [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final positions = widget.competition.volunteerPositions ?? [];
+    final hasDisclaimer = widget.competition.disclaimerType != null && widget.competition.disclaimerType != 'none';
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Apply as Volunteer',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            
+            // 1. Roles selection
+            Text('Select Preferred Roles', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            if (positions.isEmpty)
+              const Text('No volunteer roles defined for this competition.')
+            else
+              Wrap(
+                spacing: 8,
+                children: positions.map((pos) {
+                  final isSelected = _selectedRoles.contains(pos);
+                  return FilterChip(
+                    label: Text(pos),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedRoles.add(pos);
+                          if (!_shiftAvailability.containsKey(pos)) {
+                            _shiftAvailability[pos] = [];
+                          }
+                        } else {
+                          _selectedRoles.remove(pos);
+                          _shiftAvailability.remove(pos);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            if (_selectedRoles.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 8.0),
+                child: Text(
+                  'Please select at least one role',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            const SizedBox(height: 16),
+
+            // 2. Reorderable preference list
+            if (_selectedRoles.isNotEmpty) ...[
+              Text('Rank Preference (Drag to Reorder)', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                height: 150,
+                child: ReorderableListView(
+                  onReorderItem: (oldIndex, newIndex) {
+                    setState(() {
+                      final item = _selectedRoles.removeAt(oldIndex);
+                      _selectedRoles.insert(newIndex, item);
+                    });
+                  },
+                  children: _selectedRoles.map((role) {
+                    return ListTile(
+                      key: ValueKey(role),
+                      title: Text(role),
+                      trailing: const Icon(Icons.drag_handle),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 3. Shift Availability per selected role
+              Text('Select Shift Availability', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              ..._selectedRoles.map((role) {
+                final shifts = (widget.competition.volunteerShifts != null && widget.competition.volunteerShifts![role] != null && widget.competition.volunteerShifts![role]!.isNotEmpty)
+                    ? widget.competition.volunteerShifts![role]!
+                    : ['Morning', 'Afternoon'];
+                final selectedShifts = _shiftAvailability[role] ?? [];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(role, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 8,
+                          children: shifts.map((shift) {
+                            final isSel = selectedShifts.contains(shift);
+                            return FilterChip(
+                              label: Text(shift),
+                              selected: isSel,
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _shiftAvailability[role] = [...selectedShifts, shift];
+                                  } else {
+                                    _shiftAvailability[role] = selectedShifts.where((s) => s != shift).toList();
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+            ],
+
+            // 4. Custom fields
+            if (widget.competition.customVolunteerFields != null &&
+                widget.competition.customVolunteerFields!.isNotEmpty) ...[
+              Text('Additional Questions', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              ...widget.competition.customVolunteerFields!.map((f) {
+                final String name = f['name'] ?? '';
+                final String type = f['type'] ?? 'text';
+                
+                if (type == 'boolean') {
+                  final currentVal = _customFieldAnswers[name] as bool? ?? false;
+                  return CheckboxListTile(
+                    title: Text(name),
+                    value: currentVal,
+                    onChanged: (val) {
+                      setState(() {
+                        _customFieldAnswers[name] = val ?? false;
+                      });
+                    },
+                  );
+                } else if (type == 'dropdown') {
+                  final List<String> options = List<String>.from(f['options'] ?? []).toSet().toList();
+                  final currentVal = _customFieldAnswers[name] as String?;
+                  return DropdownButtonFormField<String>(
+                    decoration: InputDecoration(labelText: name),
+                    initialValue: currentVal,
+                    items: options.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _customFieldAnswers[name] = val;
+                      });
+                    },
+                  );
+                } else {
+                  return TextFormField(
+                    decoration: InputDecoration(labelText: name),
+                    keyboardType: type == 'number' ? TextInputType.number : TextInputType.text,
+                    onChanged: (val) {
+                      setState(() {
+                        _customFieldAnswers[name] = val;
+                      });
+                    },
+                  );
+                }
+              }),
+              const SizedBox(height: 16),
+            ],
+
+            // 5. Disclaimer / Terms Checkbox
+            if (hasDisclaimer) ...[
+              Text('Disclaimer / Terms', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              if (widget.competition.disclaimerText != null)
+                Text(widget.competition.disclaimerText!),
+              if (widget.competition.disclaimerUrl != null)
+                Text('Link: ${widget.competition.disclaimerUrl}'),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                key: const Key('comp_disclaimer'),
+                title: const Text('I accept the disclaimer and terms conditions'),
+                value: _disclaimerAccepted,
+                onChanged: (val) {
+                  setState(() {
+                    _disclaimerAccepted = val ?? false;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Submit Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: (_isSubmitting || _selectedRoles.isEmpty || (hasDisclaimer && !_disclaimerAccepted))
+                    ? null
+                    : () async {
+                        setState(() {
+                          _isSubmitting = true;
+                        });
+                        final userId = authProvider.currentUserProfile?.id ?? 'user-123';
+                        final success = await compProvider.submitVolunteerApplication(
+                          competitionId: widget.competition.id,
+                          userId: userId,
+                          preferredRoles: _selectedRoles,
+                          shiftAvailability: _shiftAvailability,
+                          customFieldAnswers: _customFieldAnswers,
+                          disclaimerAccepted: _disclaimerAccepted,
+                        );
+                        if (!context.mounted) return;
+                        setState(() {
+                          _isSubmitting = false;
+                        });
+                        if (success) {
+                          Navigator.of(context).pop(true);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(compProvider.errorMessage ?? 'Submission failed'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Submit Application'),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }

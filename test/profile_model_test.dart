@@ -97,6 +97,7 @@ void main() {
       final updated = profile.copyWith(
         fullName: 'Updated Name',
         colorMode: 'dark',
+        socialLinks: {'instagram': 'test_insta'},
       );
 
       expect(updated.id, 'user-111');
@@ -105,6 +106,146 @@ void main() {
       expect(updated.email, 'original@example.com');
       expect(updated.colorMode, 'dark');
       expect(updated.gender, isNull);
+      expect(updated.socialLinks, {'instagram': 'test_insta'});
+    });
+
+    test('Parse Profile from JSON with socialLinks', () {
+      final json = {
+        'id': 'user-123',
+        'username': 'johndoe',
+        'full_name': 'John Doe',
+        'email': 'john@example.com',
+        'social_links': {
+          'instagram': 'john_insta',
+          'youtube': 'john_yt',
+        },
+      };
+
+      final profile = Profile.fromJson(json);
+
+      expect(profile.socialLinks, isNotNull);
+      expect(profile.socialLinks!['instagram'], 'john_insta');
+      expect(profile.socialLinks!['youtube'], 'john_yt');
+    });
+
+    test('Convert Profile to JSON with socialLinks', () {
+      final profile = Profile(
+        id: 'user-789',
+        username: 'janedoe',
+        fullName: 'Jane Doe',
+        email: 'jane@example.com',
+        socialLinks: {
+          'instagram': 'jane_insta',
+        },
+      );
+
+      final json = profile.toJson();
+
+      expect(json['social_links'], isNotNull);
+      expect(json['social_links']['instagram'], 'jane_insta');
+    });
+
+    test('Parse Profile from JSON with invalid non-map socialLinks (list)', () {
+      final json = {
+        'id': 'user-123',
+        'username': 'johndoe',
+        'full_name': 'John Doe',
+        'email': 'john@example.com',
+        'social_links': ['instagram', 'john_insta'],
+      };
+
+      final profile = Profile.fromJson(json);
+
+      expect(profile.socialLinks, isNull);
+    });
+
+    test('Parse Profile from JSON with invalid non-map socialLinks (string)', () {
+      final json = {
+        'id': 'user-123',
+        'username': 'johndoe',
+        'full_name': 'John Doe',
+        'email': 'john@example.com',
+        'social_links': 'instagram: john_insta',
+      };
+
+      final profile = Profile.fromJson(json);
+
+      expect(profile.socialLinks, isNull);
+    });
+
+    test('Parse Profile from JSON with notificationPreferences', () {
+      final json = {
+        'id': 'user-123',
+        'username': 'johndoe',
+        'full_name': 'John Doe',
+        'email': 'john@example.com',
+        'notification_preferences': {
+          'registration': false,
+          'permissions': true,
+        },
+      };
+
+      final profile = Profile.fromJson(json);
+
+      expect(profile.notificationPreferences, isNotNull);
+      expect(profile.notificationPreferences['registration'], false);
+      expect(profile.notificationPreferences['permissions'], true);
+      expect(profile.notificationPreferences['payments'], true); // default fallback
+    });
+
+    test('Parse Profile from JSON with invalid non-map notificationPreferences', () {
+      final json = {
+        'id': 'user-123',
+        'username': 'johndoe',
+        'full_name': 'John Doe',
+        'email': 'john@example.com',
+        'notification_preferences': 'invalid-string',
+      };
+
+      final profile = Profile.fromJson(json);
+
+      // Should fallback to default map
+      expect(profile.notificationPreferences, isNotNull);
+      expect(profile.notificationPreferences['registration'], true);
+      expect(profile.notificationPreferences['permissions'], true);
+    });
+
+    test('Convert Profile to JSON with notificationPreferences', () {
+      final profile = Profile(
+        id: 'user-789',
+        username: 'janedoe',
+        fullName: 'Jane Doe',
+        email: 'jane@example.com',
+        notificationPreferences: {
+          'registration': false,
+          'payments': false,
+        },
+      );
+
+      final json = profile.toJson();
+
+      expect(json['notification_preferences'], isNotNull);
+      expect(json['notification_preferences']['registration'], false);
+      expect(json['notification_preferences']['payments'], false);
+    });
+
+    test('Profile copyWith updates notificationPreferences', () {
+      final profile = Profile(
+        id: 'user-111',
+        username: 'original',
+        fullName: 'Original Name',
+        email: 'original@example.com',
+      );
+
+      final updated = profile.copyWith(
+        notificationPreferences: {
+          'flights': false,
+          'schedule': false,
+        },
+      );
+
+      expect(updated.notificationPreferences['flights'], false);
+      expect(updated.notificationPreferences['schedule'], false);
     });
   });
 }

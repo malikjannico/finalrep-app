@@ -191,6 +191,19 @@ class _SettingsPageState extends State<SettingsPage> {
                 const Divider(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.verified_user_outlined),
+                  title: const Text('Creator Privileges'),
+                  subtitle: Text(
+                    'Comp creator: ${profile.isCompetitionCreator ? "Yes" : "No"} • Assoc creator: ${profile.isAssociationCreator ? "Yes" : "No"}'
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  onTap: () {
+                    _showApplyPrivilegesDialog(context, authProvider);
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.logout, color: Colors.redAccent),
                   title: const Text(
                     'Log Out',
@@ -237,6 +250,108 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showApplyPrivilegesDialog(BuildContext context, AuthProvider authProvider) {
+    String selectedType = 'create_competition';
+    final reasonController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Apply for Creator Privileges'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: selectedType,
+                      decoration: const InputDecoration(labelText: 'Privilege Type'),
+                      items: const [
+                        DropdownMenuItem(value: 'create_competition', child: Text('Competition Creator')),
+                        DropdownMenuItem(value: 'create_association', child: Text('Association Creator')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            selectedType = val;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: reasonController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Reason',
+                        hintText: 'Explain why you need these privileges...',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.of(context).pop(),
+                  child: const Text('CANCEL'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final reason = reasonController.text.trim();
+                          if (reason.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter a reason.')),
+                            );
+                            return;
+                          }
+                          setState(() {
+                            isSubmitting = true;
+                          });
+                          try {
+                            final success = await authProvider.applyForPermissions(
+                              selectedType,
+                              reason,
+                            );
+                            if (success != null) {
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Application submitted successfully!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                              );
+                            }
+                          } finally {
+                            setState(() {
+                              isSubmitting = false;
+                            });
+                          }
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('SUBMIT'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

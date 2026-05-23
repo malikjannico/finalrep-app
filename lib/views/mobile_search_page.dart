@@ -344,7 +344,10 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                   itemCount: _suggestions.length,
                   itemBuilder: (context, index) {
                     final comp = _suggestions[index];
-                    return CompetitionCard(competition: comp);
+                    return CompetitionCard(
+                      key: Key('comp_card_${comp.id}'),
+                      competition: comp,
+                    );
                   },
                 ),
         ),

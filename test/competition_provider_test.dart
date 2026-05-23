@@ -37,7 +37,7 @@ class MockCompetitionRepository implements CompetitionRepository {
       id: '2',
       title: 'Underground Berlin',
       location: 'Berlin, Germany',
-      sportSubtype: 'Classic',
+      sportSubtype: 'Modern',
       compGroupName: 'FinalRep Underground',
       area: 'Europe',
       country: 'Germany',
@@ -72,6 +72,20 @@ class MockCompetitionRepository implements CompetitionRepository {
       city: 'New York',
       startDate: DateTime(2026, 9, 20),
       endDate: DateTime(2026, 9, 20),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ),
+    Competition(
+      id: '5',
+      title: 'Underground Munich',
+      location: 'Munich, Germany',
+      sportSubtype: 'Modern',
+      compGroupName: 'FinalRep Underground',
+      area: 'Europe',
+      country: 'Germany',
+      city: 'Munich',
+      startDate: DateTime(2026, 10, 5),
+      endDate: DateTime(2026, 10, 5),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     ),
@@ -127,7 +141,7 @@ void main() {
 
     test('Initial State - Loads all competitions', () async {
       expect(provider.isLoading, false);
-      expect(provider.competitions.length, 4);
+      expect(provider.competitions.length, 5);
       expect(provider.query, '');
       expect(provider.selectedSubtype, 'All');
       expect(provider.selectedGroup, 'All');
@@ -139,12 +153,14 @@ void main() {
     test('Filter by Subtype Modern', () {
       provider.setSelectedSubtype('Modern');
       expect(provider.selectedSubtype, 'Modern');
-      expect(provider.competitions.length, 2);
+      expect(provider.competitions.length, 4);
       expect(
         provider.competitions.any((c) => c.title == 'Qualifier Hamburg'),
         true,
       );
       expect(provider.competitions.any((c) => c.title == 'US Qualifier'), true);
+      expect(provider.competitions.any((c) => c.title == 'Underground Munich'), true);
+      expect(provider.competitions.any((c) => c.title == 'Underground Berlin'), true);
     });
 
     test('Filter by Group Individual', () {
@@ -158,7 +174,7 @@ void main() {
       provider.toggleSubtype('Modern');
       provider.toggleSubtype('Classic');
       expect(provider.selectedSubtypes, containsAll(['Modern', 'Classic']));
-      expect(provider.competitions.length, 4);
+      expect(provider.competitions.length, 5);
     });
 
     test('Multi-select Group (Qualifier & Underground)', () {
@@ -168,7 +184,7 @@ void main() {
         provider.selectedGroups,
         containsAll(['FinalRep Qualifier', 'FinalRep Underground']),
       );
-      expect(provider.competitions.length, 3);
+      expect(provider.competitions.length, 4);
       expect(
         provider.competitions.any((c) => c.title == 'Classic Cup Vienna'),
         false,
@@ -238,7 +254,7 @@ void main() {
 
       provider.clearDateRange();
       expect(provider.selectedDateRange, isNull);
-      expect(provider.competitions.length, 4);
+      expect(provider.competitions.length, 5);
     });
   });
 }

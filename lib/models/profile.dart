@@ -10,6 +10,11 @@ class Profile {
   final String colorMode; // 'light', 'dark', 'system'
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final Map<String, String>? socialLinks;
+  final bool isCompetitionCreator;
+  final bool isAssociationCreator;
+  final bool isAdmin;
+  final Map<String, bool> notificationPreferences;
 
   Profile({
     required this.id,
@@ -23,6 +28,17 @@ class Profile {
     this.colorMode = 'system',
     this.createdAt,
     this.updatedAt,
+    this.socialLinks,
+    this.isCompetitionCreator = false,
+    this.isAssociationCreator = false,
+    this.isAdmin = false,
+    this.notificationPreferences = const {
+      'registration': true,
+      'permissions': true,
+      'payments': true,
+      'schedule': true,
+      'flights': true,
+    },
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -42,6 +58,30 @@ class Profile {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String).toLocal()
           : null,
+      socialLinks: json['social_links'] is Map
+          ? (json['social_links'] as Map).map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            )
+          : null,
+      isCompetitionCreator: json['is_competition_creator'] as bool? ?? false,
+      isAssociationCreator: json['is_association_creator'] as bool? ?? false,
+      isAdmin: json['is_admin'] as bool? ?? false,
+      notificationPreferences: (() {
+        final Map<String, bool> defaults = {
+          'registration': true,
+          'permissions': true,
+          'payments': true,
+          'schedule': true,
+          'flights': true,
+        };
+        if (json['notification_preferences'] is Map) {
+          final parsed = (json['notification_preferences'] as Map).map(
+            (k, v) => MapEntry(k.toString(), v is bool ? v : true),
+          );
+          return {...defaults, ...parsed};
+        }
+        return defaults;
+      }()),
     );
   }
 
@@ -58,6 +98,11 @@ class Profile {
       'color_mode': colorMode,
       if (createdAt != null) 'created_at': createdAt!.toUtc().toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toUtc().toIso8601String(),
+      if (socialLinks != null) 'social_links': socialLinks,
+      'is_competition_creator': isCompetitionCreator,
+      'is_association_creator': isAssociationCreator,
+      'is_admin': isAdmin,
+      'notification_preferences': notificationPreferences,
     };
   }
 
@@ -73,6 +118,11 @@ class Profile {
     String? colorMode,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Map<String, String>? socialLinks,
+    bool? isCompetitionCreator,
+    bool? isAssociationCreator,
+    bool? isAdmin,
+    Map<String, bool>? notificationPreferences,
   }) {
     return Profile(
       id: id ?? this.id,
@@ -86,6 +136,11 @@ class Profile {
       colorMode: colorMode ?? this.colorMode,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      socialLinks: socialLinks ?? this.socialLinks,
+      isCompetitionCreator: isCompetitionCreator ?? this.isCompetitionCreator,
+      isAssociationCreator: isAssociationCreator ?? this.isAssociationCreator,
+      isAdmin: isAdmin ?? this.isAdmin,
+      notificationPreferences: notificationPreferences ?? this.notificationPreferences,
     );
   }
 }

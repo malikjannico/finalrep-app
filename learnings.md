@@ -1,6 +1,6 @@
 # Technical Learnings & Best Practices - FinalRep App
 
-During the user profile and password recovery refactoring, several technical challenges were addressed, yielding valuable lessons for Flutter development.
+During the user profile, platform features update, and password recovery refactoring, several technical challenges were addressed, yielding valuable lessons for Flutter development.
 
 ---
 
@@ -33,3 +33,9 @@ During the user profile and password recovery refactoring, several technical cha
 ## 5. Dart Map Null-Aware Element Syntax
 - **Behavior**: Previously, optional parameters in maps were appended using inline `if` blocks (e.g., `if (gender != null) 'gender': gender`), which could trigger linter suggestions.
 - **Solution**: Dart 3.12+ supports null-aware map literal syntax `'key':? value`. This ensures the key-value pair is only included if `value` is non-null, creating much cleaner and more readable initialization blocks.
+
+---
+
+## 6. Remote Database Schema and Local Mock Synchronization
+- **Behavior**: When running a local Flutter environment with mock fallbacks alongside a remote live Supabase database, mismatched format properties can cause subtle filter bugs (e.g., a competition group representing Modern format in the live database but Classic format in mock datasets).
+- **Solution**: Define separate competition groups in both the mock dataset and the remote database for different formats (e.g., separating Classic vs. Modern format groups with unique primary keys), and ensure mock tests cover all valid filter ranges.

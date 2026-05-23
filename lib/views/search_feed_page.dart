@@ -18,6 +18,8 @@ import 'login_page.dart';
 import 'register_page.dart';
 import 'profile_page.dart';
 import 'settings_page.dart';
+import 'admin_dashboard_page.dart';
+import 'association_management_page.dart';
 
 class SearchFeedPage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -44,6 +46,8 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
   int _currentMobileTabIndex = 0;
   bool _userIsCompactLayout = false;
   bool _desktopProfileActive = false;
+  String? _selectedProfileId;
+  String? _selectedProfileUsername;
 
   // Stored startup URL info to avoid address-bar overwrite race conditions
   String? _initialPath;
@@ -102,6 +106,8 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
     if (_provider.query.isNotEmpty) {
       _desktopProfileActive = false;
+      _selectedProfileId = null;
+      _selectedProfileUsername = null;
     }
 
     // Safely update the text controllers out of the build phase
@@ -269,7 +275,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           Navigator.of(context).push(
             MaterialPageRoute(
               settings: RouteSettings(name: '/users/$userSegments'),
-              builder: (_) => ProfilePage(username: userSegments),
+              builder: (_) => ProfilePage(
+                username: userSegments,
+                profileRepository: _provider.profileRepository,
+              ),
             ),
           );
         }
@@ -719,6 +728,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       drawer: showProfileTab ? null : _buildNavigationDrawer(context, provider, theme),
       endDrawer: showProfileTab ? null : _buildFiltersDrawer(context, provider, theme),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             // Responsive Top Header
@@ -730,19 +740,46 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
             // Main View Content
             Expanded(
-              child: (isDesktop && _desktopProfileActive && authProvider.isAuthenticated)
-                  ? const ProfilePage(isInline: true)
-                  : showProfileTab
-                      ? (authProvider.isAuthenticated
-                          ? const ProfilePage(isInline: true)
-                          : const LoginPage(isInline: true))
-                      : _buildMainContent(
-                          context,
-                          provider,
-                          theme,
-                          isDesktop,
-                          isTablet,
+              child: (isDesktop && (_selectedProfileId != null || _selectedProfileUsername != null))
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 24, top: 16),
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.arrow_back),
+                            label: const Text('Back to search feed'),
+                            onPressed: () {
+                              setState(() {
+                                _selectedProfileId = null;
+                                _selectedProfileUsername = null;
+                              });
+                            },
+                          ),
                         ),
+                        Expanded(
+                          child: ProfilePage(
+                            userId: _selectedProfileId,
+                            username: _selectedProfileUsername,
+                            isInline: true,
+                            profileRepository: provider.profileRepository,
+                          ),
+                        ),
+                      ],
+                    )
+                  : (isDesktop && _desktopProfileActive && authProvider.isAuthenticated)
+                      ? const ProfilePage(isInline: true)
+                      : showProfileTab
+                          ? (authProvider.isAuthenticated
+                              ? const ProfilePage(isInline: true)
+                              : const LoginPage(isInline: true))
+                          : _buildMainContent(
+                              context,
+                              provider,
+                              theme,
+                              isDesktop,
+                              isTablet,
+                            ),
             ),
           ],
         ),
@@ -783,8 +820,14 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     bool isTablet,
   ) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final topPadding = MediaQuery.of(context).padding.top;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: EdgeInsets.only(
+        left: isDesktop ? 24.0 : 8.0,
+        right: isDesktop ? 24.0 : 8.0,
+        top: 12.0 + topPadding,
+        bottom: 12.0,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
@@ -1073,10 +1116,12 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
         children: [
           _buildSubNavButton(
             label: 'Competitions',
-            isActive: provider.searchScope == SearchScope.competitions && !_desktopProfileActive,
+            isActive: provider.searchScope == SearchScope.competitions && !_desktopProfileActive && _selectedProfileId == null && _selectedProfileUsername == null,
             onPressed: () {
               setState(() {
                 _desktopProfileActive = false;
+                _selectedProfileId = null;
+                _selectedProfileUsername = null;
               });
               provider.setSearchScopeAndQuery(SearchScope.competitions, '');
             },
@@ -1086,10 +1131,12 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             const SizedBox(width: 8),
             _buildSubNavButton(
               label: 'My Profile',
-              isActive: _desktopProfileActive,
+              isActive: _desktopProfileActive && _selectedProfileId == null && _selectedProfileUsername == null,
               onPressed: () {
                 setState(() {
                   _desktopProfileActive = true;
+                  _selectedProfileId = null;
+                  _selectedProfileUsername = null;
                 });
               },
               theme: theme,
@@ -1276,15 +1323,25 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   leading: const Icon(Icons.person),
                   title: const Text('My Profile'),
                   onTap: () {
-                    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-                      Navigator.of(context).pop();
+                    final isDesktop = MediaQuery.of(context).size.width >= 900;
+                    if (!isDesktop) {
+                      setState(() {
+                        _currentMobileTabIndex = 1;
+                      });
+                      if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                        Navigator.of(context).pop();
+                      }
+                    } else {
+                      if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                        Navigator.of(context).pop();
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: '/profile'),
+                          builder: (_) => const ProfilePage(),
+                        ),
+                      );
                     }
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        settings: const RouteSettings(name: '/profile'),
-                        builder: (_) => const ProfilePage(),
-                      ),
-                    );
                   },
                 ),
                 ListTile(
@@ -1302,6 +1359,38 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     );
                   },
                 ),
+                if (authProvider.isAdmin)
+                  ListTile(
+                    leading: const Icon(Icons.security, color: Colors.blue),
+                    title: const Text('Admin Dashboard'),
+                    onTap: () {
+                      if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                        Navigator.of(context).pop();
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: '/admin_dashboard'),
+                          builder: (_) => const AdminDashboardPage(),
+                        ),
+                      );
+                    },
+                  ),
+                if (authProvider.isAssociationCreator || authProvider.isAdmin || authProvider.currentUserProfile != null)
+                  ListTile(
+                    leading: const Icon(Icons.business, color: Colors.orange),
+                    title: const Text('Associations'),
+                    onTap: () {
+                      if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                        Navigator.of(context).pop();
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: '/associations'),
+                          builder: (_) => const AssociationManagementPage(),
+                        ),
+                      );
+                    },
+                  ),
               ],
               const Spacer(),
               if (authProvider.isAuthenticated) ...[
@@ -2472,7 +2561,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               ),
               delegate: SliverChildBuilderDelegate((context, index) {
                 final comp = provider.competitions[index];
-                return CompetitionCard(competition: comp);
+                return CompetitionCard(
+                  key: Key('comp_card_${comp.id}'),
+                  competition: comp,
+                );
               }, childCount: provider.competitions.length),
             ),
           ),
@@ -2541,7 +2633,17 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 final user = provider.searchedUsers[index];
-                return UserCompactRow(profile: user);
+                return UserCompactRow(
+                  profile: user,
+                  onTap: isDesktop
+                      ? () {
+                          setState(() {
+                            _selectedProfileId = user.id;
+                            _selectedProfileUsername = user.username;
+                          });
+                        }
+                      : null,
+                );
               }, childCount: provider.searchedUsers.length),
             ),
           )
@@ -2562,7 +2664,17 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               ),
               delegate: SliverChildBuilderDelegate((context, index) {
                 final user = provider.searchedUsers[index];
-                return ProfileCard(profile: user);
+                return ProfileCard(
+                  profile: user,
+                  onTap: isDesktop
+                      ? () {
+                          setState(() {
+                            _selectedProfileId = user.id;
+                            _selectedProfileUsername = user.username;
+                          });
+                        }
+                      : null,
+                );
               }, childCount: provider.searchedUsers.length),
             ),
           ),
@@ -2797,7 +2909,10 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 settings: RouteSettings(name: '/users/${user.username}'),
-                                builder: (_) => ProfilePage(userId: user.id),
+                                builder: (_) => ProfilePage(
+                                  userId: user.id,
+                                  profileRepository: provider.profileRepository,
+                                ),
                               ),
                             );
                           },

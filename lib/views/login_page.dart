@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/auth_provider.dart';
@@ -74,7 +75,7 @@ class _LoginPageState extends State<LoginPage> {
     final theme = Theme.of(context);
     final isEmail = !_isUsernameLogin;
     final initialEmail = isEmail ? _loginIdController.text.trim() : '';
-    final dialogEmailController = TextEditingController(text: initialEmail);
+    final dialogInputController = TextEditingController(text: initialEmail);
     final dialogFormKey = GlobalKey<FormState>();
 
     showDialog(
@@ -92,24 +93,25 @@ class _LoginPageState extends State<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Enter your email address and we will send you a password reset link.',
+                      'Enter your username or email address and we will send you a password reset link.',
                       style: theme.textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       key: const Key('forgot_password_email_field'),
-                      controller: dialogEmailController,
-                      keyboardType: TextInputType.emailAddress,
+                      controller: dialogInputController,
+                      keyboardType: TextInputType.text,
                       decoration: const InputDecoration(
-                        labelText: 'Email Address',
-                        prefixIcon: Icon(Icons.email_outlined),
+                        labelText: 'Username or Email Address',
+                        prefixIcon: Icon(Icons.person_outline),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter your email';
+                          return 'Please enter your username or email';
                         }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email address';
+                        final trimmed = value.trim();
+                        if (!trimmed.contains('@') && trimmed.length < 3) {
+                          return 'Username must be at least 3 characters';
                         }
                         return null;
                       },
@@ -132,7 +134,17 @@ class _LoginPageState extends State<LoginPage> {
                           });
                           try {
                             final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                            await authProvider.sendPasswordResetEmail(dialogEmailController.text.trim());
+                            final input = dialogInputController.text.trim();
+                            final String email;
+                            if (input.contains('@')) {
+                              email = input;
+                            } else {
+                              email = await authProvider.resolveEmailFromUsername(input);
+                            }
+                            if (email.trim().isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
+                              throw Exception('Invalid email address format: $email');
+                            }
+                            await authProvider.sendPasswordResetEmail(email);
                             if (context.mounted) {
                               Navigator.of(context).pop();
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -146,7 +158,7 @@ class _LoginPageState extends State<LoginPage> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(e.toString()),
+                                  content: Text(e.toString().replaceAll('Exception: ', '')),
                                   backgroundColor: theme.colorScheme.error,
                                 ),
                               );
@@ -275,6 +287,12 @@ class _LoginPageState extends State<LoginPage> {
                       TextFormField(
                         key: const Key('login_id_field'),
                         controller: _loginIdController,
+                        inputFormatters: [
+                          if (_isUsernameLogin)
+                            TextInputFormatter.withFunction((oldValue, newValue) {
+                              return newValue.copyWith(text: newValue.text.toLowerCase());
+                            }),
+                        ],
                         decoration: InputDecoration(
                           labelText: _isUsernameLogin ? 'Username' : 'Email Address',
                           prefixIcon: Icon(

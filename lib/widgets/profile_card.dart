@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 import '../models/profile.dart';
 import '../views/profile_page.dart';
+import '../providers/competition_provider.dart';
 
 class ProfileCard extends StatefulWidget {
   final Profile profile;
+  final VoidCallback? onTap;
 
-  const ProfileCard({super.key, required this.profile});
+  const ProfileCard({super.key, required this.profile, this.onTap});
 
   @override
   State<ProfileCard> createState() => _ProfileCardState();
@@ -56,11 +59,14 @@ class _ProfileCardState extends State<ProfileCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: () {
+        onTap: widget.onTap ?? () {
           Navigator.of(context).push(
             MaterialPageRoute(
               settings: RouteSettings(name: '/users/${widget.profile.username}'),
-              builder: (_) => ProfilePage(userId: widget.profile.id),
+              builder: (_) => ProfilePage(
+                userId: widget.profile.id,
+                profileRepository: Provider.of<CompetitionProvider>(context, listen: false).profileRepository,
+              ),
             ),
           );
         },

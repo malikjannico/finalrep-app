@@ -26,7 +26,11 @@ class _WorldMapViewState extends State<WorldMapView>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat();
+    );
+    final isTesting = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (!isTesting) {
+      _pulseController.repeat();
+    }
   }
 
   @override

@@ -1,0 +1,161 @@
+diff --git a/lib/views/login_page.dart b/lib/views/login_page.dart
+--- a/lib/views/login_page.dart
++++ b/lib/views/login_page.dart
+@@ -1,4 +1,5 @@
+ import 'package:flutter/material.dart';
++import 'package:flutter/services.dart';
+ import 'package:provider/provider.dart';
+ import 'package:flutter_svg/flutter_svg.dart';
+ import '../providers/auth_provider.dart';
+@@ -74,7 +75,7 @@
+     final theme = Theme.of(context);
+     final isEmail = !_isUsernameLogin;
+     final initialEmail = isEmail ? _loginIdController.text.trim() : '';
+-    final dialogEmailController = TextEditingController(text: initialEmail);
++    final dialogInputController = TextEditingController(text: initialEmail);
+     final dialogFormKey = GlobalKey<FormState>();
+ 
+     showDialog(
+@@ -92,19 +93,19 @@
+                   crossAxisAlignment: CrossAxisAlignment.stretch,
+                   children: [
+                     Text(
+-                      'Enter your email address and we will send you a password reset link.',
++                      'Enter your username or email address and we will send you a password reset link.',
+                       style: theme.textTheme.bodyMedium,
+                     ),
+                     const SizedBox(height: 16),
+                     TextFormField(
+                       key: const Key('forgot_password_email_field'),
+-                      controller: dialogEmailController,
+-                      keyboardType: TextInputType.emailAddress,
++                      controller: dialogInputController,
++                      keyboardType: TextInputType.text,
+                       decoration: const InputDecoration(
+-                        labelText: 'Email Address',
+-                        prefixIcon: Icon(Icons.email_outlined),
++                        labelText: 'Username or Email Address',
++                        prefixIcon: Icon(Icons.person_outline),
+                       ),
+                       validator: (value) {
+                         if (value == null || value.trim().isEmpty) {
+-                          return 'Please enter your email';
++                          return 'Please enter your username or email';
+                         }
+-                        if (!value.contains('@')) {
+-                          return 'Please enter a valid email address';
++                        final trimmed = value.trim();
++                        if (!trimmed.contains('@') && trimmed.length < 3) {
++                          return 'Username must be at least 3 characters';
+                         }
+                         return null;
+                       },
+                     ),
+@@ -132,7 +133,14 @@
+                           });
+                           try {
+                             final authProvider = Provider.of<AuthProvider>(context, listen: false);
+-                            await authProvider.sendPasswordResetEmail(dialogEmailController.text.trim());
++                            final input = dialogInputController.text.trim();
++                            final String email;
++                            if (input.contains('@')) {
++                              email = input;
++                            } else {
++                              email = await authProvider.resolveEmailFromUsername(input);
++                            }
++                            await authProvider.sendPasswordResetEmail(email);
+                             if (context.mounted) {
+                               Navigator.of(context).pop();
+                               ScaffoldMessenger.of(context).showSnackBar(
+@@ -275,6 +283,12 @@
+                       TextFormField(
+                         key: const Key('login_id_field'),
+                         controller: _loginIdController,
++                        inputFormatters: [
++                          if (_isUsernameLogin)
++                            TextInputFormatter.withFunction((oldValue, newValue) {
++                              return newValue.copyWith(text: newValue.text.toLowerCase());
++                            }),
++                        ],
+                         decoration: InputDecoration(
+                           labelText: _isUsernameLogin ? 'Username' : 'Email Address',
+                           prefixIcon: Icon(
+diff --git a/lib/providers/auth_provider.dart b/lib/providers/auth_provider.dart
+--- a/lib/providers/auth_provider.dart
++++ b/lib/providers/auth_provider.dart
+@@ -40,12 +40,18 @@
+   Future<bool> isUsernameTaken(String username) async {
+-    final profile = await _profileRepository.getProfileByUsername(username);
++    final profile = await _profileRepository.getProfileByUsername(username.trim().toLowerCase());
+     return profile != null;
+   }
+ 
+   Future<bool> isEmailTaken(String email) async {
+-    final profile = await _profileRepository.getProfileByEmail(email);
++    final profile = await _profileRepository.getProfileByEmail(email.trim().toLowerCase());
+     return profile != null;
+   }
+ 
++  Future<String> resolveEmailFromUsername(String username) async {
++    final cleanUsername = username.trim().toLowerCase();
++    final profile = await _profileRepository.getProfileByUsername(cleanUsername);
++    if (profile == null) {
++      throw Exception("Username '$username' not found.");
++    }
++    return profile.email;
++  }
++
+   Future<void> sendPasswordResetEmail(String email) async {
+@@ -130,19 +136,20 @@
+       // First, check if username is already taken to give a clean error
+-      final existing = await _profileRepository.getProfileByUsername(username);
++      final cleanUsername = username.trim().toLowerCase();
++      final existing = await _profileRepository.getProfileByUsername(cleanUsername);
+       if (existing != null) {
+         throw Exception("Username '$username' is already taken.");
+       }
+ 
+       final response = await _client.auth.signUp(
+-        email: email,
++        email: email.trim(),
+         password: password,
+         data: {
+-          'username': username,
++          'username': cleanUsername,
+           'full_name': fullName,
+           'gender': gender,
+           'country': country,
+           'profile_picture_url': profilePictureUrl,
+         },
+       );
+@@ -183,11 +190,12 @@
+   Future<void> loginWithEmailAndPassword({
+     required String email,
+     required String password,
+   }) async {
+     _isLoading = true;
+     _errorMessage = null;
+     notifyListeners();
+ 
+     try {
+       await _client.auth.signInWithPassword(
+-        email: email,
++        email: email.trim(),
+         password: password,
+       );
+@@ -205,12 +213,13 @@
+   Future<void> loginWithUsernameAndPassword({
+     required String username,
+     required String password,
+   }) async {
+     _isLoading = true;
+     _errorMessage = null;
+     notifyListeners();
+ 
+     try {
+-      final profile = await _profileRepository.getProfileByUsername(username);
++      final cleanUsername = username.trim().toLowerCase();
++      final profile = await _profileRepository.getProfileByUsername(cleanUsername);
+       if (profile == null) {
+         throw Exception("Username '$username' not found.");
+       }

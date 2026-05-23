@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/profile.dart';
 import '../views/profile_page.dart';
+import '../providers/competition_provider.dart';
 
 class UserCompactRow extends StatefulWidget {
   final Profile profile;
+  final VoidCallback? onTap;
 
-  const UserCompactRow({super.key, required this.profile});
+  const UserCompactRow({super.key, required this.profile, this.onTap});
 
   @override
   State<UserCompactRow> createState() => _UserCompactRowState();
@@ -38,11 +41,14 @@ class _UserCompactRowState extends State<UserCompactRow> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: () {
+        onTap: widget.onTap ?? () {
           Navigator.of(context).push(
             MaterialPageRoute(
               settings: RouteSettings(name: '/users/${widget.profile.username}'),
-              builder: (_) => ProfilePage(userId: widget.profile.id),
+              builder: (_) => ProfilePage(
+                userId: widget.profile.id,
+                profileRepository: Provider.of<CompetitionProvider>(context, listen: false).profileRepository,
+              ),
             ),
           );
         },

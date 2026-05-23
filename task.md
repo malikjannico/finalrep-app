@@ -1,36 +1,41 @@
-# Tasks - Profile Customization & Password Recovery Refactoring
+# Tasks - Platform Features Update
 
-**Status:** Completed ✅ (100% passing tests)
+**Status:** Completed 🎉
 
-- [x] Implement Forgot Password capabilities
-  - [x] Password reset dialog on `LoginPage`
-  - [x] Reset email trigger on `ChangePasswordPage`
-  - [x] Recovery state detection in `SearchFeedPage` via `AuthChangeEvent.passwordRecovery`
-  - [x] 5-rule password dialog with strength indicator and checklist on recovery flow
-- [x] Add Registration Username & Full Name Constraints
-  - [x] Validate username and email availability in Step 1
-  - [x] Enforce lowercase-only username input dynamically and save as lowercase
-  - [x] Used/max character counters for Username (15) and Full Name (30) in Steps 1 and 2
-- [x] Refactor Profile Page Layout (Direct background rendering, no cards)
-  - [x] Remove Card wrappers for profile details
-  - [x] Add user profile banner (150px height) with flat color fallback and upload trigger
-  - [x] Position settings icon next to Full Name instead of username
-  - [x] Remove app bar title ("My Profile" if current user) and top-right share button
-  - [x] Place adjacent "EDIT PROFILE" and "SHARE PROFILE" buttons under bio with primary color & premium styling
-  - [x] Enforce bio description counter (150 max length)
-- [x] Refactor Settings Page Subpages
-  - [x] Split settings into `AppearanceSettingsPage` and `ChangePasswordPage`
-  - [x] Add buttons pointing to subpages on main `SettingsPage`
-  - [x] Render list tiles directly on background (no Cards)
-  - [x] Remove subtitle on the Logout button
-- [x] Adapt Mobile Viewport Layouts
-  - [x] Navigation Drawer: Relocate Logout button to bottom (below Spacer)
-  - [x] User search compact: Stack username vertically under full name
-  - [x] User search grid: Display banner above profile picture/name/username, remove chevron arrow
-  - [x] Competition search: Add compact/grid popup toggle and results count indicator
-- [x] Implement Desktop Inline Profile Page
-  - [x] Render `ProfilePage(isInline: true)` inline under header/subheader when selecting "My Profile"
-  - [x] Hide inline profile when a search query is typed or submitted
-- [x] Verification
-  - [x] Add new automated widget tests for availability checks, layouts, and password recovery
-  - [x] Run test suite and ensure all tests pass successfully
+## Phase 1: Models & Repositories
+- [x] Create models for `Association`, `AssociationMember`, `CompetitionGroup`, `AthleteGroup`, `SportConfig`, `PermissionApplication`, `Attempt`, `Flight`, `ScheduleItem`, `SystemNotification`
+- [x] Implement repositories: `AssociationRepository`, `AdminRepository`, `NotificationRepository` with in-memory fallbacks
+
+## Phase 2: Providers & Business Logic
+- [x] Update `AuthProvider` for lowercase logins, forgot password email/username support, admin permissions, and notifications
+- [x] Update `CompetitionProvider` to include:
+  - [x] Association management, groups, scopes, and team members
+  - [x] Rich competition creation flows (fees calculation, custom inputs, disclaimers)
+  - [x] Flights, planning schedules, and weigh-in details
+  - [x] Streetlifting Modern rules: plates configurations, attempts validation, timer, 3-referee majority (2:1 dips/squats) vs unanimous (3:0) scoring, anonymous voting, VAR request tracking
+  - [x] Sport rankings filters
+
+## Phase 3: Authentication & Profile UI
+- [x] Lowercase username input dynamically and verify on `LoginPage`
+- [x] Add forgot password username/email support in LoginPage dialog
+- [x] Profile Page styling: settings icon placement, half-avatar shifting, details left-aligned under photo, social channel icons, upcoming/completed meets tabs, highest rankings list, PRs display
+
+## Phase 4: Associations & Admin UI
+- [x] Implement `AssociationCreationPage` wizard
+- [x] Implement `AssociationDetailPage` metadata & rules
+- [x] Implement `AssociationManagementPage` roles, sub-associations, team members, competition/athlete classes
+- [x] Implement `AdminDashboardPage` permissions and config toggles
+
+## Phase 5: Competitions & Judging UI
+- [x] Implement `CompetitionCreationWizard` geocoded location, payments, volunteers details
+- [x] Implement `CompetitionManagementPanel` registrations, flights balancing, staff schedule builders, CSV exports
+- [x] Implement `CompetitionHandlingView` timer, Plat Judge red/black/yellow/blue triggers, Head Judge panel, and VAR request
+- [x] Implement `RankingsPage` filters
+- [x] Implement `NotificationsPage` inbox list and category settings toggles
+
+## Phase 6: Verification
+- [x] Write unit/widget tests for lowercase logins, attempts plate calculations, judging majority vote, and permissions
+- [x] Ensure `flutter test` completes successfully (all 153 tests pass cleanly)
+
+## Phase 7: Follow-up & Refinement
+- [x] Configure `FinalRep Underground` to be exclusively in Modern format across repositories, tests, and the remote database.

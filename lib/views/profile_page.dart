@@ -4,20 +4,23 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/profile.dart';
+import '../models/competition.dart';
 import '../providers/auth_provider.dart';
 import '../repositories/profile_repository.dart';
 import 'settings_page.dart';
 
 class ProfilePage extends StatefulWidget {
-  final String? userId; // If null, loads current user's profile
-  final String? username; // Can also look up by username for deep links
-  final bool isInline; // If true, disables Scaffold's appBar back button, and doesn't pop on logout
+  final String? userId;
+  final String? username;
+  final bool isInline;
+  final ProfileRepository? profileRepository;
 
   const ProfilePage({
     super.key,
     this.userId,
     this.username,
     this.isInline = false,
+    this.profileRepository,
   });
 
   @override
@@ -32,6 +35,12 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _errorMsg;
   int _bannerTimestamp = DateTime.now().millisecondsSinceEpoch;
 
+  List<Competition> _upcomingMeets = [];
+  List<Competition> _completedMeets = [];
+  List<Map<String, dynamic>> _highestRankings = [];
+  List<Map<String, dynamic>> _personalRecords = [];
+  bool _isLoadingAthleteData = false;
+
   // Edit fields controllers
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _fullNameController;
@@ -39,6 +48,9 @@ class _ProfilePageState extends State<ProfilePage> {
   late TextEditingController _bioController;
   String? _selectedGender;
   String? _selectedCountry;
+
+  Uint8List? _customAvatarBytes;
+  String? _customAvatarFileName;
 
   final List<String> _genders = ['Male', 'Female', 'Other', 'Prefer not to say'];
   final List<String> _countries = [
@@ -63,6 +75,26 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadProfile();
   }
 
+  Future<void> _pickAvatar() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        setState(() {
+          _customAvatarBytes = file.bytes;
+          _customAvatarFileName = file.name;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking avatar: $e');
+    }
+  }
+
   @override
   void dispose() {
     _fullNameController.dispose();
@@ -73,10 +105,18 @@ class _ProfilePageState extends State<ProfilePage> {
 
   SupabaseClient? _getSupabaseClient() {
     try {
+      if (widget.profileRepository != null) {
+        return widget.profileRepository!.client;
+      }
+    } catch (_) {}
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      return authProvider.profileRepository.client;
+    } catch (_) {}
+    try {
       return Supabase.instance.client;
-    } catch (_) {
-      return null;
-    }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _loadProfile() async {
@@ -98,10 +138,10 @@ class _ProfilePageState extends State<ProfilePage> {
         }
       } else {
         final client = _getSupabaseClient();
-        if (client == null) {
+        final profileRepository = widget.profileRepository ?? (client != null ? ProfileRepository(client) : null);
+        if (profileRepository == null) {
           _errorMsg = 'Supabase client not available.';
         } else {
-          final profileRepository = ProfileRepository(client);
           if (widget.userId != null) {
             // Fetch by ID
             _isCurrentUser = authProvider.isAuthenticated &&
@@ -130,6 +170,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _errorMsg = 'User profile not found.';
       } else if (_profile != null) {
         _syncControllers();
+        _loadAthleteData();
       }
     } catch (e) {
       _errorMsg = 'Error loading profile: $e';
@@ -167,7 +208,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _saveProfileChanges() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState == null) {
+      return;
+    }
+    final isValid = _formKey.currentState!.validate();
+    if (!isValid) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     setState(() {
@@ -175,6 +220,28 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
+      String? uploadedUrl;
+      if (_customAvatarBytes != null) {
+        final client = _getSupabaseClient();
+        if (client == null) {
+          throw Exception('Supabase client not available.');
+        }
+        final ext = _customAvatarFileName?.split('.').last ?? 'png';
+        final filePath = 'profiles/${_profile!.id}/${_customAvatarFileName ?? "avatar.png"}';
+
+        await client.storage.from('avatars').uploadBinary(
+          filePath,
+          _customAvatarBytes!,
+          fileOptions: FileOptions(
+            contentType: 'image/$ext',
+            cacheControl: '3600',
+            upsert: true,
+          ),
+        );
+
+        uploadedUrl = client.storage.from('avatars').getPublicUrl(filePath);
+      }
+
       await authProvider.updateProfile(
         fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim(),
@@ -182,9 +249,12 @@ class _ProfilePageState extends State<ProfilePage> {
         country: _selectedCountry,
         description: _bioController.text.trim(),
         colorMode: _profile?.colorMode ?? 'system',
+        profilePictureUrl: uploadedUrl,
       );
       setState(() {
         _profile = authProvider.currentUserProfile;
+        _customAvatarBytes = null;
+        _customAvatarFileName = null;
         _isEditing = false;
       });
       if (mounted) {
@@ -291,190 +361,458 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
+  Future<void> _loadAthleteData() async {
+    if (_profile == null) return;
+    setState(() {
+      _isLoadingAthleteData = true;
+    });
+    try {
+      final client = _getSupabaseClient();
+      final repo = widget.profileRepository ?? (client != null ? ProfileRepository(client) : null);
+      if (repo != null) {
+        final results = await Future.wait([
+          repo.getUserUpcomingMeets(_profile!.id),
+          repo.getUserCompletedMeets(_profile!.id),
+          repo.getUserHighestRankings(_profile!.id),
+          repo.getUserPersonalRecords(_profile!.id),
+        ]);
+        if (mounted) {
+          setState(() {
+            _upcomingMeets = results[0] as List<Competition>;
+            _completedMeets = results[1] as List<Competition>;
+            _highestRankings = results[2] as List<Map<String, dynamic>>;
+            _personalRecords = results[3] as List<Map<String, dynamic>>;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading athlete data: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingAthleteData = false;
+        });
+      }
+    }
+  }
 
+  Widget _buildSocialLinks(ThemeData theme) {
+    if (_profile == null || _profile!.socialLinks == null || _profile!.socialLinks!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        children: _profile!.socialLinks!.entries.map((entry) {
+          final name = entry.key;
+          final handle = entry.value;
+          IconData iconData;
+          switch (name.toLowerCase()) {
+            case 'instagram':
+              iconData = Icons.camera_alt_outlined;
+              break;
+            case 'twitter':
+            case 'x':
+              iconData = Icons.alternate_email;
+              break;
+            case 'youtube':
+              iconData = Icons.play_circle_outline;
+              break;
+            case 'tiktok':
+              iconData = Icons.music_note;
+              break;
+            default:
+              iconData = Icons.link;
+          }
+          return ActionChip(
+            avatar: Icon(iconData, size: 16),
+            label: Text('$name: $handle'),
+            onPressed: () {
+              // URL helper or web browser launcher link mapping
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildAthleteDashboard(ThemeData theme) {
+    if (_isLoadingAthleteData) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 32),
+        Text(
+          'Athlete Dashboard',
+          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        
+        // Personal Records
+        Text(
+          '🏆 Personal Records',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        if (_personalRecords.isEmpty)
+          Text('No personal records recorded.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 2.2,
+            ),
+            itemCount: _personalRecords.length,
+            itemBuilder: (context, index) {
+              final pr = _personalRecords[index];
+              return Card(
+                elevation: 0,
+                color: theme.colorScheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        pr['lift'] ?? '',
+                        style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        pr['weight'] ?? '',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        const SizedBox(height: 24),
+
+        // Rankings
+        Text(
+          '🥇 Highest Rankings',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        if (_highestRankings.isEmpty)
+          Text('No rankings available.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _highestRankings.length,
+            itemBuilder: (context, index) {
+              final r = _highestRankings[index];
+              return Card(
+                elevation: 0,
+                color: theme.colorScheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.stars, color: Colors.amber),
+                  title: Text(r['discipline'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(r['competition'] ?? ''),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      r['rank'] ?? '',
+                      style: TextStyle(
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        const SizedBox(height: 24),
+
+        // Upcoming Meets
+        Text(
+          '📅 Upcoming Meets',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        if (_upcomingMeets.isEmpty)
+          Text('No upcoming meets registered.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _upcomingMeets.length,
+            itemBuilder: (context, index) {
+              final comp = _upcomingMeets[index];
+              return Card(
+                elevation: 0,
+                color: theme.colorScheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  title: Text(comp.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('${comp.location} • ${comp.startDate.day}.${comp.startDate.month}.${comp.startDate.year}'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
+              );
+            },
+          ),
+        const SizedBox(height: 24),
+
+        // Completed Meets
+        Text(
+          '🏁 Completed Meets',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        if (_completedMeets.isEmpty)
+          Text('No completed meets.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _completedMeets.length,
+            itemBuilder: (context, index) {
+              final comp = _completedMeets[index];
+              return Card(
+                elevation: 0,
+                color: theme.colorScheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  title: Text(comp.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('${comp.location} • ${comp.startDate.day}.${comp.startDate.month}.${comp.startDate.year}'),
+                  trailing: const Icon(Icons.check_circle, color: Colors.green),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
 
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authProvider = Provider.of<AuthProvider>(context);
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final hideAppBar = widget.isInline && isDesktop;
 
     // If viewing current user and auth state changed, update local profile
     if (_isCurrentUser && authProvider.currentUserProfile != null) {
       _profile = authProvider.currentUserProfile;
     }
 
+    if (_isLoadingProfile) {
+      return Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        appBar: hideAppBar
+            ? null
+            : AppBar(
+                automaticallyImplyLeading: !widget.isInline,
+                title: Text(widget.username ?? 'Profile'),
+              ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMsg != null) {
+      return Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        appBar: hideAppBar
+            ? null
+            : AppBar(
+                automaticallyImplyLeading: !widget.isInline,
+                title: const Text('Error'),
+              ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: theme.colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _errorMsg!,
+                  style: theme.textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _loadProfile,
+                  child: const Text('RETRY'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_profile == null) {
+      return Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        appBar: hideAppBar
+            ? null
+            : AppBar(
+                automaticallyImplyLeading: !widget.isInline,
+                title: const Text('Profile'),
+              ),
+        body: const Center(child: Text('No profile loaded.')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        automaticallyImplyLeading: !widget.isInline,
-        title: _isCurrentUser
-            ? null
-            : Text(
-                _profile?.username ?? 'Profile',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            if (!hideAppBar)
+              SliverAppBar(
+                floating: true,
+                snap: true,
+                pinned: false,
+                automaticallyImplyLeading: !widget.isInline,
+                backgroundColor: theme.colorScheme.surface,
+                title: Text(
+                  _profile?.username != null && _profile!.username.isNotEmpty
+                      ? '@${_profile!.username}'
+                      : 'Profile',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
-      ),
-      body: _isLoadingProfile
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMsg != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+          ];
+        },
+        body: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildBanner(theme),
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Center(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 600),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: theme.colorScheme.error,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMsg!,
-                          style: theme.textTheme.titleMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _loadProfile,
-                          child: const Text('RETRY'),
-                        ),
+                        const SizedBox(height: 36), // Reserve space for the shifted avatar (which has bottom: -40, so 40px overlap)
+                        if (_customAvatarFileName != null) ...[
+                          Text(
+                            _customAvatarFileName!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        _buildProfileHeader(theme),
+                        _buildSocialLinks(theme),
+                        const SizedBox(height: 8),
+                        _isEditing
+                            ? _buildEditForm(theme, authProvider)
+                            : _buildProfileInfoCard(theme),
+                        if (_isCurrentUser && !_isEditing) ...[
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  key: const Key('edit_profile_button'),
+                                  onPressed: () {
+                                    setState(() {
+                                      _isEditing = true;
+                                    });
+                                  },
+                                  icon: const Icon(Icons.edit, size: 18),
+                                  label: const Text('EDIT PROFILE'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    foregroundColor: theme.colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  key: const Key('share_profile_button'),
+                                  onPressed: _shareProfile,
+                                  icon: const Icon(Icons.share, size: 18),
+                                  label: const Text('SHARE PROFILE'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    foregroundColor: theme.colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        _buildAthleteDashboard(theme),
                       ],
                     ),
                   ),
-                )
-              : _profile == null
-                  ? const Center(child: Text('No profile loaded.'))
-                  : SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildBanner(theme),
-                          Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Center(
-                              child: Container(
-                                constraints: const BoxConstraints(maxWidth: 600),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _buildProfileHeader(theme),
-                                    const SizedBox(height: 24),
-                                    _isEditing
-                                        ? _buildEditForm(theme, authProvider)
-                                        : _buildProfileInfoCard(theme),
-                                    if (_isCurrentUser && !_isEditing) ...[
-                                      const SizedBox(height: 24),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: ElevatedButton.icon(
-                                              key: const Key('edit_profile_button'),
-                                              onPressed: () {
-                                                setState(() {
-                                                  _isEditing = true;
-                                                });
-                                              },
-                                              icon: const Icon(Icons.edit, size: 18),
-                                              label: const Text('EDIT PROFILE'),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: theme.colorScheme.primary,
-                                                foregroundColor: theme.colorScheme.onPrimary,
-                                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: ElevatedButton.icon(
-                                              key: const Key('share_profile_button'),
-                                              onPressed: _shareProfile,
-                                              icon: const Icon(Icons.share, size: 18),
-                                              label: const Text('SHARE PROFILE'),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: theme.colorScheme.primary,
-                                                foregroundColor: theme.colorScheme.onPrimary,
-                                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
 
   Widget _buildBanner(ThemeData theme) {
+    print('DEBUG PROFILE_PAGE _buildBanner: _isEditing=$_isEditing, _isCurrentUser=$_isCurrentUser, profileId=${_profile?.id}');
     final bannerUrl = _getBannerUrl();
-    return Stack(
-      children: [
-        Container(
-          height: 150,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: bannerUrl.isEmpty
-              ? const SizedBox.shrink()
-              : Image.network(
-                  bannerUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const SizedBox.shrink(); // Fallback to gradient background
-                  },
-                ),
-        ),
-        if (_isEditing && _isCurrentUser)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black38,
-              child: InkWell(
-                onTap: _uploadBanner,
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.camera_alt, color: Colors.white, size: 32),
-                    SizedBox(height: 8),
-                    Text(
-                      'Change Banner',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildProfileHeader(ThemeData theme) {
     final initials = _profile!.fullName.isNotEmpty
         ? _profile!.fullName
             .trim()
@@ -487,120 +825,243 @@ class _ProfilePageState extends State<ProfilePage> {
             ? _profile!.username[0].toUpperCase()
             : '?';
 
-    return Row(
-      children: [
-        // Profile Picture or Monogram
-        CircleAvatar(
-          radius: 40,
-          backgroundColor: theme.colorScheme.primaryContainer,
-          backgroundImage: _profile!.profilePictureUrl != null
-              ? NetworkImage(_profile!.profilePictureUrl!)
-              : null,
-          child: _profile!.profilePictureUrl == null
-              ? Text(
-                  initials,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                )
-              : null,
-        ),
-        const SizedBox(width: 20),
-
-        // Profile metadata
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _profile!.fullName,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (_isCurrentUser) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      key: const Key('profile_settings_icon'),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            settings: const RouteSettings(name: '/settings'),
-                            builder: (_) => const SettingsPage(),
-                          ),
-                        );
-                      },
-                      child: Icon(
-                        Icons.settings,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+    return SizedBox(
+      height: 190,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: 150,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
                 ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              Text(
-                '@${_profile!.username}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  if (_profile!.gender != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        _profile!.gender!,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSecondaryContainer,
+            ),
+            child: bannerUrl.isEmpty
+                ? const SizedBox.shrink()
+                : Image.network(
+                    bannerUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const SizedBox.shrink(); // Fallback to gradient background
+                    },
+                  ),
+          ),
+          if (_isEditing && _isCurrentUser)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 150,
+              child: Container(
+                color: Colors.black38,
+                child: InkWell(
+                  onTap: _uploadBanner,
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_alt, color: Colors.white, size: 32),
+                      SizedBox(height: 8),
+                      Text(
+                        'Change Banner',
+                        style: TextStyle(
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  if (_profile!.gender != null && _profile!.country != null)
-                    const SizedBox(width: 8),
-                  if (_profile!.country != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.location_on, size: 12),
-                          const SizedBox(width: 4),
-                          Text(
-                            _profile!.country!,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onTertiaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          Positioned(
+            left: 24,
+            bottom: 0,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: ClipOval(
+                    child: _customAvatarBytes != null
+                        ? Image.memory(
+                            _customAvatarBytes!,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
+                                child: Text(
+                                  initials,
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : (_profile!.profilePictureUrl != null
+                            ? Image.network(
+                                _profile!.profilePictureUrl!,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Center(
+                                    child: Text(
+                                      initials,
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.onPrimaryContainer,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Text(
+                                initials,
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              )),
+                  ),
+                ),
+                if (_isEditing && _isCurrentUser)
+                  Positioned.fill(
+                    child: ClipOval(
+                      child: Container(
+                        color: Colors.black45,
+                        child: InkWell(
+                          onTap: _pickAvatar,
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                              SizedBox(height: 2),
+                              Text(
+                                'CHANGE PHOTO',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                _profile!.fullName,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (_isCurrentUser) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                key: const Key('profile_settings_icon'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      settings: const RouteSettings(name: '/settings'),
+                      builder: (_) => const SettingsPage(),
+                    ),
+                  );
+                },
+                child: Icon(
+                  Icons.settings,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
+          ],
+        ),
+        Text(
+          '@${_profile!.username}',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (_profile!.gender != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _profile!.gender!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSecondaryContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            if (_profile!.gender != null && _profile!.country != null)
+              const SizedBox(width: 8),
+            if (_profile!.country != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on, size: 12),
+                    const SizedBox(width: 4),
+                    Text(
+                      _profile!.country!,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ],
     );

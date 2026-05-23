@@ -6,6 +6,9 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'theme.dart';
 import 'repositories/competition_repository.dart';
 import 'repositories/profile_repository.dart';
+import 'repositories/admin_repository.dart';
+import 'repositories/association_repository.dart';
+import 'repositories/notification_repository.dart';
 import 'providers/competition_provider.dart';
 import 'providers/auth_provider.dart';
 import 'views/search_feed_page.dart';
@@ -81,15 +84,28 @@ void main() async {
   final supabase = Supabase.instance.client;
   final competitionRepository = CompetitionRepository(supabase);
   final profileRepository = ProfileRepository(supabase);
+  final adminRepository = AdminRepository(supabase);
+  final associationRepository = AssociationRepository(supabase);
+  final notificationRepository = NotificationRepository(supabase);
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) => CompetitionProvider(competitionRepository, profileRepository),
+          create: (_) => CompetitionProvider(
+            competitionRepository,
+            profileRepository,
+            associationRepository: associationRepository,
+            notificationRepository: notificationRepository,
+          ),
         ),
         ChangeNotifierProvider(
-          create: (_) => AuthProvider(supabase, profileRepository),
+          create: (_) => AuthProvider(
+            supabase,
+            profileRepository,
+            adminRepository: adminRepository,
+            notificationRepository: notificationRepository,
+          ),
         ),
       ],
       child: const MyApp(),

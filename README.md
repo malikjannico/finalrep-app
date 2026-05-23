@@ -8,27 +8,36 @@ FinalRep is a responsive, cross-platform sport competition management and search
 
 ### 🔐 Authentication & Security
 - **Multi-step Onboarding**: User accounts are registered through a 3-step wizard (Account ➔ Details ➔ Avatar) with built-in state preservation.
-- **Registration Constraints**: Dynamically enforces lowercase-only usernames, used/max character limits (15 for usernames, 30 for full names), and real-time database checks for username/email availability.
-- **Forgot Password**: Password reset triggers on the Login page and a reset request mechanism in security settings.
-- **Deep-Linked Password Recovery**: Intercepts recovery links directly in-app, presenting a 5-rule secure password update wizard (length >= 8, uppercase, lowercase, digits, special characters) with a colored strength bar indicator.
+- **Registration Constraints**: Dynamically enforces lowercase-only usernames, used/max character limits, and real-time database checks.
+- **Forgot Password**: Password reset triggers on the Login page supporting either username or email.
+- **Deep-Linked Password Recovery**: Intercepts recovery links directly in-app, presenting a 5-rule secure password update wizard.
 
 ### 👤 Profile Customization
-- **Modern Layout**: Renders profile information directly on the scaffold background (without wrapping details in Card views) for a premium, clean aesthetic.
-- **Profile Banner**: Slot for user banner images (height 150px) at the top of the profile page, incorporating pick-and-upload options and color gradient fallbacks.
-- **Social Integration**: Premium, adjacent "EDIT PROFILE" and "SHARE PROFILE" buttons under the bio.
-- **Inline Desktop Mode**: Renders the current user's profile inline beneath the header/subheader when selecting "My Profile". Automatically collapses if any search query is entered.
+- **Modern Layout**: Renders profile information directly on the scaffold background for a premium, clean aesthetic.
+- **Profile Banner**: Slot for user banner images at the top of the profile page, incorporating pick-and-upload options.
+- **Competitions & Achievements**: Tabs showing upcoming/completed meets, highest rankings per sport/format, and personal records (PRs) per discipline.
+- **Inline Desktop Mode**: Renders user profiles inline under the header/subheader when selecting "My Profile".
 
-### ⚙️ Settings Subpages
-- **Appearance Settings**: Dedicated configuration page to toggle preferences (System, Light, Dark mode) which are synchronized back to the Supabase database.
-- **Change Password**: Dedicated subpage to change passwords securely by verifying current credentials first.
-- **Minimalist Styling**: Settings items render directly on the background without Card containers, and the Log Out button is presented without subtitles.
+### 👑 System Administration & Configurator
+- **Permissions Access & Applications**: Organizers and federations apply for creation permissions (competition and/or association) with a reason.
+- **Admin Dashboard**: Panel for administrators to accept/reject applications, promote other admins, and configure sports, formats, and disciplines.
 
-### 📱 Responsive Layouts & Search
-- **Mobile Drawer**: Relocates the Log Out button to the bottom of the drawer below a Spacer element.
-- **Adaptive List & Grid Formats**:
-  - Compact lists stack usernames vertically below full names.
-  - Grid rows display profile banners above avatar elements and omit chevron arrows.
-  - Competition searches feature results-count labels and layout toggles.
+### 🏢 Associations & Management
+- **Creation Wizard**: Capture Name, images, scope (Global, Area, National), rules links, and parent association applications.
+- **Association View**: Displays metadata, Rulebook links, sub-associations, and team members.
+- **Management Panel**: Manage user roles (Owner, Editor), athlete weight classes, and active competition groups.
+
+### 🏆 Competition Setup & Streetlifting Rules Engine
+- **Step-by-step Stepper**: Setup names, geocoded addresses, flexible date pickers, registration modes (FCFS vs approval), rich-text description edits, disclaimers, and volunteer shifting plans.
+- **Modern Rules Engine**: Supports Muscle Up, Pull Up, Dip, and Squat lifts under ascending weight orders.
+- **Plate Calculator**: Computes plate loadings (1.25kg to 25kg) and micro-weights.
+- **Judging Panel**: Referees vote on attempts; rules enforce majority (2:1 dips/squats depth) vs unanimous (3:0 other rules) scoring.
+- **Video Assisted Referee (VAR):** Managers and coaches track and resolve 1 video review request per meet.
+- **FinalRep Underground:** This competition group has been configured to exist **exclusively in the Modern format** (Muscle Up, Pull Up, Dip, Squat) in all mock repositories, test suites, and remote Supabase tables.
+
+### 📊 Rankings & Notifications
+- **Rankings Feed**: Filter rankings by sport, format, and weight class, showing overall totals and discipline details.
+- **System Notifications**: Organizers and athletes receive live alerts for payment deadlines, registration approvals, schedule releases, and flight listings.
 
 ---
 
@@ -59,6 +68,7 @@ FinalRep is a responsive, cross-platform sport competition management and search
 ### Running Locally
 To launch the app on your default connected device/emulator:
 ```bash
+```bash
 flutter run
 ```
 
@@ -72,7 +82,7 @@ flutter run -d chrome
 ## 🧪 Running Tests
 The project features a comprehensive widget and unit testing suite verifying authentication, settings, profiles, and registration constraints.
 
-To execute the test suite:
+To execute the test suite (153 tests):
 ```bash
 flutter test
 ```

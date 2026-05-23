@@ -1,0 +1,89 @@
+Resolving dependencies...
+Downloading packages...
+  code_assets 1.0.0 (1.1.0 available)
+  file_picker 8.3.7 (11.0.2 available)
+  hooks 1.0.3 (2.0.0 available)
+  intl 0.19.0 (0.20.2 available)
+  latlong2 0.9.1 (0.10.1 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.18.0 (1.18.2 available)
+  native_toolchain_c 0.17.6 (0.19.0 available)
+  test_api 0.7.11 (0.7.12 available)
+  vector_math 2.2.0 (2.3.0 available)
+  win32 5.15.0 (6.2.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing platform-features-update...                           
+
+   info • The imported package 'flutter_web_plugins' isn't a dependency of the importing package. Try adding a dependency for 'flutter_web_plugins' in the 'pubspec.yaml' file • lib/main.dart:5:8 • depend_on_referenced_packages
+   info • Don't invoke 'print' in production code. Try using a logging framework • lib/providers/auth_provider.dart:95:7 • avoid_print
+   info • Don't invoke 'print' in production code. Try using a logging framework • lib/providers/auth_provider.dart:106:9 • avoid_print
+   info • Don't invoke 'print' in production code. Try using a logging framework • lib/providers/auth_provider.dart:108:9 • avoid_print
+   info • Don't invoke 'print' in production code. Try using a logging framework • lib/providers/auth_provider.dart:128:7 • avoid_print
+   info • Don't invoke 'print' in production code. Try using a logging framework • lib/providers/auth_provider.dart:131:9 • avoid_print
+   info • Don't invoke 'print' in production code. Try using a logging framework • lib/providers/auth_provider.dart:134:7 • avoid_print
+warning • This cast always throws an exception because the expression always evaluates to 'null' • lib/repositories/association_repository.dart:116:88 • cast_from_null_always_fails
+   info • 'dart:html' is deprecated and shouldn't be used. Use package:web and dart:js_interop instead. Try replacing the use of the deprecated member with the replacement • lib/utils/url_helper_web.dart:1:1 • deprecated_member_use
+   info • Don't use web-only libraries outside Flutter web plugins. Try finding a different library for your needs • lib/utils/url_helper_web.dart:1:1 • avoid_web_libraries_in_flutter
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/admin_dashboard_page.dart:58:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/admin_dashboard_page.dart:73:30 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/admin_dashboard_page.dart:79:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/admin_dashboard_page.dart:90:30 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/admin_dashboard_page.dart:96:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/admin_dashboard_page.dart:107:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/admin_dashboard_page.dart:112:28 • use_build_context_synchronously
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/admin_dashboard_page.dart:296:52 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/admin_dashboard_page.dart:354:56 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/admin_dashboard_page.dart:354:86 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/admin_dashboard_page.dart:381:55 • deprecated_member_use
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_creation_page.dart:104:30 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_creation_page.dart:107:22 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_creation_page.dart:112:28 • use_build_context_synchronously
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_creation_page.dart:169:56 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement • lib/views/association_creation_page.dart:265:13 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_creation_page.dart:462:67 • deprecated_member_use
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_detail_page.dart:62:28 • use_build_context_synchronously
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_detail_page.dart:161:61 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_detail_page.dart:236:56 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_detail_page.dart:244:48 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_detail_page.dart:244:100 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_detail_page.dart:280:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_detail_page.dart:280:84 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_detail_page.dart:316:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement • lib/views/association_detail_page.dart:316:84 • deprecated_member_use
+warning • The value of the local variable 'authProvider' isn't used. Try removing the variable or using it • lib/views/association_management_page.dart:83:11 • unused_local_variable
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_management_page.dart:114:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_management_page.dart:138:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_management_page.dart:160:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_management_page.dart:174:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_management_page.dart:186:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_management_page.dart:211:28 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/views/association_management_page.dart:250:28 • use_build_context_synchronously
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement • lib/views/association_management_page.dart:402:15 • deprecated_member_use
+   info • Don't invoke 'print' in production code. Try using a logging framework • lib/views/profile_page.dart:814:5 • avoid_print
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement • lib/views/profile_page.dart:1143:13 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement • lib/views/profile_page.dart:1157:13 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement • lib/views/register_page.dart:583:13 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement • lib/views/register_page.dart:609:13 • deprecated_member_use
+   info • 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement • lib/views/settings_page.dart:273:23 • deprecated_member_use
+warning • Unused import: 'package:provider/provider.dart'. Try removing the import directive • test/competition_creation_wizard_diag_test.dart:3:8 • unused_import
+warning • Unused import: 'package:finalrep_app/models/competition.dart'. Try removing the import directive • test/competition_creation_wizard_diag_test.dart:4:8 • unused_import
+   info • 'setMockMethodCallHandler' is deprecated and shouldn't be used. Use tester.binding.defaultBinaryMessenger.setMockMethodCallHandler or TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler instead. Pass the channel as the first argument. This feature was deprecated after v3.9.0-19.0.pre. Try replacing the use of the deprecated member with the replacement • test/db_inspect_test.dart:10:10 • deprecated_member_use
+   info • Don't invoke 'print' in production code. Try using a logging framework • test/db_inspect_test.dart:28:7 • avoid_print
+   info • Don't invoke 'print' in production code. Try using a logging framework • test/db_inspect_test.dart:30:7 • avoid_print
+   info • Don't invoke 'print' in production code. Try using a logging framework • test/db_inspect_test.dart:32:9 • avoid_print
+warning • Unused import: 'package:finalrep_app/models/permission_application.dart'. Try removing the import directive • test/milestone2_test.dart:5:8 • unused_import
+warning • Unused import: 'package:finalrep_app/models/association_member.dart'. Try removing the import directive • test/milestone2_test.dart:8:8 • unused_import
+warning • The value of the local variable 'competitionProvider' isn't used. Try removing the variable or using it • test/milestone2_test.dart:179:30 • unused_local_variable
+   info • The imported package 'shared_preferences' isn't a dependency of the importing package. Try adding a dependency for 'shared_preferences' in the 'pubspec.yaml' file • test/test_db.dart:3:8 • depend_on_referenced_packages
+   info • Don't invoke 'print' in production code. Try using a logging framework • test/test_db.dart:17:7 • avoid_print
+   info • Don't invoke 'print' in production code. Try using a logging framework • test/test_db.dart:19:7 • avoid_print
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._isAuthenticated') to initialize the field • test/widget_test.dart:89:9 • prefer_initializing_formals
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._currentUserProfile') to initialize the field • test/widget_test.dart:90:9 • prefer_initializing_formals
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._status') to initialize the field • test/widget_test.dart:91:9 • prefer_initializing_formals
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._profileRepository') to initialize the field • test/widget_test.dart:92:9 • prefer_initializing_formals
+warning • The getter doesn't override an inherited getter. Try updating this class to match the superclass, or removing the override annotation • test/widget_test.dart:219:22 • override_on_non_overriding_member
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • test/widget_test.dart:293:11 • curly_braces_in_flow_control_structures
+
