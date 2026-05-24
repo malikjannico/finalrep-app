@@ -33,7 +33,7 @@ FinalRep is a responsive, cross-platform sport competition management and search
 - **Plate Calculator**: Computes plate loadings (1.25kg to 25kg) and micro-weights.
 - **Judging Panel**: Referees vote on attempts; rules enforce majority (2:1 dips/squats depth) vs unanimous (3:0 other rules) scoring.
 - **Video Assisted Referee (VAR):** Managers and coaches track and resolve 1 video review request per meet.
-- **FinalRep Underground:** This competition group has been configured to exist **exclusively in the Modern format** (Muscle Up, Pull Up, Dip, Squat) in all mock repositories, test suites, and remote Supabase tables.
+- **FinalRep Underground:** This competition group has been configured to exist **exclusively in the Modern format** (Muscle Up, Pull Up, Dip, Squat) in all mock repositories, test suites, and remote PostgreSQL tables.
 
 ### 📊 Rankings & Notifications
 - **Rankings Feed**: Filter rankings by sport, format, and weight class, showing overall totals and discipline details.
@@ -43,7 +43,10 @@ FinalRep is a responsive, cross-platform sport competition management and search
 
 ## 🛠️ Tech Stack
 - **Frontend**: Flutter (targeting Web and Mobile)
-- **Backend & Auth**: Supabase (Database, Auth, Storage)
+- **Backend**: Dart Frog (Dart backend server framework)
+- **Database**: Google Cloud SQL (PostgreSQL 15)
+- **Auth**: Google Cloud Identity Platform (Firebase Auth)
+- **Storage**: Google Cloud Storage (GCS)
 - **State Management**: Provider
 
 ---
@@ -66,23 +69,29 @@ FinalRep is a responsive, cross-platform sport competition management and search
    ```
 
 ### Running Locally
-To launch the app on your default connected device/emulator:
+
+#### 1. Start the Backend API
+Navigate to the `backend/` directory, get dependencies, and start the Dart Frog development server:
 ```bash
-```bash
-flutter run
+cd backend
+dart pub get
+dart pub global run dart_frog_cli:dart_frog dev
 ```
 
-To run specifically on the web platform:
+*Note: Ensure the local Cloud SQL proxy or local PostgreSQL database is running on port 5432.*
+
+#### 2. Start the Flutter Web Client
+Launch the Flutter application targeting Chrome, passing the environment configuration file:
 ```bash
-flutter run -d chrome
+flutter run -d chrome --dart-define-from-file=config/env_dev.json
 ```
 
 ---
 
 ## 🧪 Running Tests
-The project features a comprehensive widget and unit testing suite verifying authentication, settings, profiles, and registration constraints.
+The project features a comprehensive widget, unit, and integration testing suite.
 
-To execute the test suite (153 tests):
+To execute the test suite:
 ```bash
 flutter test
 ```
