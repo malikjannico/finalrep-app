@@ -50,3 +50,9 @@ app.*.map.json
 *.txt
 *.csv
 
+# Local credentials and binary files
+.env
+.env.*
+cloud-sql-proxy
+
+

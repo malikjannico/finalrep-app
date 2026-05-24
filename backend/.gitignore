@@ -14,3 +14,7 @@ build/
 
 # Test related files
 coverage/
+
+# Local Environment Variables and Credentials
+.env
+.env.*
