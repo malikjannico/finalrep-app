@@ -1,7 +1,7 @@
 {
   "ENV": "staging",
   "API_BASE_URL": "https://backend-staging-775534547890.europe-west3.run.app",
-  "FIREBASE_API_KEY": "AIzaSyBf5GZ2ResY21x78rB2JFHMVyneF0gNEyM",
+  "FIREBASE_API_KEY": "YOUR_FIREBASE_API_KEY",
   "FIREBASE_AUTH_DOMAIN": "finalrep-app.firebaseapp.com",
   "FIREBASE_PROJECT_ID": "finalrep-app",
   "FIREBASE_STORAGE_BUCKET": "finalrep-app.firebasestorage.app",

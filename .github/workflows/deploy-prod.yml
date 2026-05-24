@@ -69,6 +69,11 @@ jobs:
       - name: Install Flutter Dependencies
         run: flutter pub get
 
+      - name: Create env_prod.json from Secret
+        run: |
+          mkdir -p config
+          echo '${{ secrets.ENV_PROD_JSON }}' > config/env_prod.json
+
       - name: Build Flutter Web for Production
         run: |
           flutter build web --release --dart-define-from-file=config/env_prod.json

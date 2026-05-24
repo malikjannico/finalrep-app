@@ -68,6 +68,11 @@ jobs:
       - name: Install Flutter Dependencies
         run: flutter pub get
 
+      - name: Create env_staging.json from Secret
+        run: |
+          mkdir -p config
+          echo '${{ secrets.ENV_STAGING_JSON }}' > config/env_staging.json
+
       - name: Build Flutter Web for Staging
         run: |
           flutter build web --release --dart-define-from-file=config/env_staging.json

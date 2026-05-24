@@ -1,0 +1,10 @@
+{
+  "ENV": "dev",
+  "API_BASE_URL": "http://localhost:8080",
+  "FIREBASE_API_KEY": "YOUR_FIREBASE_API_KEY",
+  "FIREBASE_AUTH_DOMAIN": "finalrep-app.firebaseapp.com",
+  "FIREBASE_PROJECT_ID": "finalrep-app",
+  "FIREBASE_STORAGE_BUCKET": "finalrep-app.firebasestorage.app",
+  "FIREBASE_MESSAGING_SENDER_ID": "775534547890",
+  "FIREBASE_APP_ID": "1:775534547890:web:6a453a52da462e07e88aab"
+}

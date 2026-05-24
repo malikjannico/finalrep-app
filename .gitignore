@@ -55,4 +55,5 @@ app.*.map.json
 .env.*
 cloud-sql-proxy
 
-
+# Environment specific configuration
+config/env_*.json
