@@ -89,7 +89,9 @@ class MockAdminRepository implements AdminRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
-  Future<PermissionApplication?> approvePermissionApplication(String applicationId) async {
+  Future<PermissionApplication?> approvePermissionApplication(
+    String applicationId,
+  ) async {
     return PermissionApplication(
       id: applicationId,
       userId: 'user-test-perm',
@@ -101,7 +103,9 @@ class MockAdminRepository implements AdminRepository {
   }
 
   @override
-  Future<PermissionApplication?> rejectPermissionApplication(String applicationId) async {
+  Future<PermissionApplication?> rejectPermissionApplication(
+    String applicationId,
+  ) async {
     return PermissionApplication(
       id: applicationId,
       userId: 'user-test-perm',
@@ -123,7 +127,9 @@ class MockCompetitionRepository implements CompetitionRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
-  SupabaseClient get client => MockSupabaseClient(auth: MockGoTrueClient(StreamController<AuthState>.broadcast()));
+  SupabaseClient get client => MockSupabaseClient(
+    auth: MockGoTrueClient(StreamController<AuthState>.broadcast()),
+  );
 
   @override
   Future<Competition?> getCompetitionById(String id) async {
@@ -165,9 +171,16 @@ class MockCompetitionRepository implements CompetitionRepository {
     String? query,
     String? sportSubtype,
     String? compGroupName,
+    String? status = 'upcoming',
   }) async {
     return competitions.values.toList();
   }
+
+  @override
+  String get baseUrl => '';
+
+  @override
+  Future<List<Map<String, dynamic>>> getMeetResults() async => [];
 }
 
 class FakeAssociationRepository implements AssociationRepository {
@@ -201,7 +214,7 @@ class FakeAssociationRepository implements AssociationRepository {
         format: 'Modern',
         gender: 'Mixed',
         isActive: true,
-      )
+      ),
     ];
   }
 }
@@ -210,21 +223,32 @@ class WidgetMockAuthProvider extends ChangeNotifier implements AuthProvider {
   Profile? _currentUserProfile;
   final List<String> updatePrefCalls = [];
 
-  WidgetMockAuthProvider({Profile? currentUserProfile}) : _currentUserProfile = currentUserProfile;
+  WidgetMockAuthProvider({Profile? currentUserProfile})
+    : _currentUserProfile = currentUserProfile;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
+  NotificationRepository get notificationRepository => NotificationRepository(null);
+
+  @override
   Profile? get currentUserProfile => _currentUserProfile;
 
   @override
-  Future<void> updateNotificationPreference(String category, bool enabled) async {
+  Future<void> updateNotificationPreference(
+    String category,
+    bool enabled,
+  ) async {
     updatePrefCalls.add('$category:$enabled');
     if (_currentUserProfile != null) {
-      final updatedPrefs = Map<String, bool>.from(_currentUserProfile!.notificationPreferences);
+      final updatedPrefs = Map<String, bool>.from(
+        _currentUserProfile!.notificationPreferences,
+      );
       updatedPrefs[category] = enabled;
-      _currentUserProfile = _currentUserProfile!.copyWith(notificationPreferences: updatedPrefs);
+      _currentUserProfile = _currentUserProfile!.copyWith(
+        notificationPreferences: updatedPrefs,
+      );
       notifyListeners();
     }
   }
@@ -236,7 +260,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await Supabase.initialize(
       url: 'https://vnseudpajhkicezdcsuj.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZuc2V1ZHBhamhraWNlemRjc3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyOTQ4NjIsImV4cCI6MjA5NDg3MDg2Mn0.qaIyqbVOH_qXvUfz7iCvUvBsywyviFVaIYjt6MG-lsE',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZuc2V1ZHBhamhraWNlemRjc3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyOTQ4NjIsImV4cCI6MjA5NDg3MDg2Mn0.qaIyqbVOH_qXvUfz7iCvUvBsywyviFVaIYjt6MG-lsE',
     );
   });
 
@@ -277,281 +302,339 @@ void main() {
       expect(updatedList.first.isRead, true);
     });
 
-    test('AuthProvider triggers fire correctly on permission status updates', () async {
-      final mockAuthClient = MockGoTrueClient(StreamController<AuthState>.broadcast());
-      final mockSupabaseClient = MockSupabaseClient(auth: mockAuthClient);
-      final mockProfileRepo = MockProfileRepository();
-      final mockAdminRepo = MockAdminRepository();
+    test(
+      'AuthProvider triggers fire correctly on permission status updates',
+      () async {
+        final mockAuthClient = MockGoTrueClient(
+          StreamController<AuthState>.broadcast(),
+        );
+        final mockSupabaseClient = MockSupabaseClient(auth: mockAuthClient);
+        final mockProfileRepo = MockProfileRepository();
+        final mockAdminRepo = MockAdminRepository();
 
-      // Configure a test user profile
-      final testUserId = 'user-test-perm';
-      final userProfile = Profile(
-        id: testUserId,
-        username: 'permuser',
-        fullName: 'Permission User',
-        email: 'perm@test.com',
-      );
-      mockProfileRepo.profiles[testUserId] = userProfile;
+        // Configure a test user profile
+        final testUserId = 'user-test-perm';
+        final userProfile = Profile(
+          id: testUserId,
+          username: 'permuser',
+          fullName: 'Permission User',
+          email: 'perm@test.com',
+        );
+        mockProfileRepo.profiles[testUserId] = userProfile;
 
-      final authProvider = AuthProvider(
-        mockSupabaseClient,
-        mockProfileRepo,
-        adminRepository: mockAdminRepo,
-        notificationRepository: notifRepo,
-      );
+        final authProvider = AuthProvider(
+          mockSupabaseClient,
+          mockProfileRepo,
+          adminRepository: mockAdminRepo,
+          notificationRepository: notifRepo,
+        );
 
-      // Mock user is signed in
-      // Set private field using a mock session or login flow if possible, or trigger action directly
-      // In AuthProvider, approvePermissionApplication can run without user logged in (as it acts as admin)
-      
-      // 1. Approve Permission Application
-      final appApprove = await authProvider.approvePermissionApplication('app-123');
-      expect(appApprove, isNotNull);
-      expect(appApprove!.status, 'approved');
+        // Mock user is signed in
+        // Set private field using a mock session or login flow if possible, or trigger action directly
+        // In AuthProvider, approvePermissionApplication can run without user logged in (as it acts as admin)
 
-      // Verify trigger created a notification
-      final listApprove = await notifRepo.getNotifications(testUserId);
-      expect(listApprove.length, 1);
-      expect(listApprove.first.category, 'permissions');
-      expect(listApprove.first.title, 'Permissions Approved');
-      expect(listApprove.first.message, contains('Competition Creator'));
+        // 1. Approve Permission Application
+        final appApprove = await authProvider.approvePermissionApplication(
+          'app-123',
+        );
+        expect(appApprove, isNotNull);
+        expect(appApprove!.status, 'approved');
 
-      // 2. Reject Permission Application
-      final appReject = await authProvider.rejectPermissionApplication('app-456');
-      expect(appReject, isNotNull);
-      expect(appReject!.status, 'rejected');
+        // Verify trigger created a notification
+        final listApprove = await notifRepo.getNotifications(testUserId);
+        expect(listApprove.length, 1);
+        expect(listApprove.first.category, 'permissions');
+        expect(listApprove.first.title, 'Permissions Approved');
+        expect(listApprove.first.message, contains('Competition Creator'));
 
-      // Verify trigger created a notification
-      final listReject = await notifRepo.getNotifications(testUserId);
-      expect(listReject.length, 2);
-      expect(listReject.any((n) => n.message.contains('rejected')), true);
-    });
+        // 2. Reject Permission Application
+        final appReject = await authProvider.rejectPermissionApplication(
+          'app-456',
+        );
+        expect(appReject, isNotNull);
+        expect(appReject!.status, 'rejected');
 
-    test('CompetitionProvider triggers fire correctly on registration, payments, flights, and schedule', () async {
-      final mockCompRepo = MockCompetitionRepository();
-      final mockProfileRepo = MockProfileRepository();
-      final mockAssocRepo = FakeAssociationRepository();
+        // Verify trigger created a notification
+        final listReject = await notifRepo.getNotifications(testUserId);
+        expect(listReject.length, 2);
+        expect(listReject.any((n) => n.message.contains('rejected')), true);
+      },
+    );
 
-      final provider = CompetitionProvider(
-        mockCompRepo,
-        mockProfileRepo,
-        associationRepository: mockAssocRepo,
-        notificationRepository: notifRepo,
-      );
+    test(
+      'CompetitionProvider triggers fire correctly on registration, payments, flights, and schedule',
+      () async {
+        final mockCompRepo = MockCompetitionRepository();
+        final mockProfileRepo = MockProfileRepository();
+        final mockAssocRepo = FakeAssociationRepository();
 
-      final athlete1 = Profile(id: 'athlete-1', username: 'athlete1', fullName: 'Athlete One', email: 'a1@test.com');
-      final athlete2 = Profile(id: 'athlete-2', username: 'athlete2', fullName: 'Athlete Two', email: 'a2@test.com');
-      mockCompRepo.athletes.addAll([athlete1, athlete2]);
+        final provider = CompetitionProvider(
+          mockCompRepo,
+          mockProfileRepo,
+          associationRepository: mockAssocRepo,
+          notificationRepository: notifRepo,
+        );
 
-      final competition = Competition(
-        id: 'comp-1',
-        title: 'Summer Pull Meet',
-        location: 'Berlin',
-        sportType: 'Streetlifting',
-        sportSubtype: 'Modern',
-        requiresFees: true,
-        feeAmount: 30.0,
-        feeCurrency: 'EUR',
-        registrationEnd: DateTime.now().add(const Duration(days: 5)),
-        startDate: DateTime.now().add(const Duration(days: 10)),
-        endDate: DateTime.now().add(const Duration(days: 10)),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      mockCompRepo.competitions['comp-1'] = competition;
+        final athlete1 = Profile(
+          id: 'athlete-1',
+          username: 'athlete1',
+          fullName: 'Athlete One',
+          email: 'a1@test.com',
+        );
+        final athlete2 = Profile(
+          id: 'athlete-2',
+          username: 'athlete2',
+          fullName: 'Athlete Two',
+          email: 'a2@test.com',
+        );
+        mockCompRepo.athletes.addAll([athlete1, athlete2]);
 
-      // 1. Create Competition trigger (Payments formulation)
-      final createdComp = await provider.createCompetition(competition);
-      expect(createdComp, isNotNull);
-      // Verify payment details formulated trigger fired for the association/creator
-      final creatorNotifs = await notifRepo.getNotifications(''); // associationId is empty in competition
-      expect(creatorNotifs.length, 1);
-      expect(creatorNotifs.first.category, 'payments');
-      expect(creatorNotifs.first.title, 'Payment Details Formulated');
+        final competition = Competition(
+          id: 'comp-1',
+          title: 'Summer Pull Meet',
+          location: 'Berlin',
+          sportType: 'Streetlifting',
+          sportSubtype: 'Modern',
+          requiresFees: true,
+          feeAmount: 30.0,
+          feeCurrency: 'EUR',
+          registrationEnd: DateTime.now().add(const Duration(days: 5)),
+          startDate: DateTime.now().add(const Duration(days: 10)),
+          endDate: DateTime.now().add(const Duration(days: 10)),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        mockCompRepo.competitions['comp-1'] = competition;
 
-      // 2. Register Athlete trigger (Registration confirmed + Payment deadline notification)
-      final regSuccess = await provider.registerAthlete(competitionId: 'comp-1', userId: 'athlete-1');
-      expect(regSuccess, true);
+        // 1. Create Competition trigger (Payments formulation)
+        final createdComp = await provider.createCompetition(competition);
+        expect(createdComp, isNotNull);
+        // Verify payment details formulated trigger fired for the association/creator
+        final creatorNotifs = await notifRepo.getNotifications(
+          '',
+        ); // associationId is empty in competition
+        expect(creatorNotifs.length, 1);
+        expect(creatorNotifs.first.category, 'payments');
+        expect(creatorNotifs.first.title, 'Payment Details Formulated');
 
-      // Verify athlete-1 received registration notification
-      final athlete1Notifs = await notifRepo.getNotifications('athlete-1');
-      expect(athlete1Notifs.any((n) => n.category == 'registration'), true);
-      expect(athlete1Notifs.any((n) => n.title == 'Registration Confirmed'), true);
+        // 2. Register Athlete trigger (Registration confirmed + Payment deadline notification)
+        final regSuccess = await provider.registerAthlete(
+          competitionId: 'comp-1',
+          userId: 'athlete-1',
+        );
+        expect(regSuccess, true);
 
-      // Verify athlete-1 received payment reminder notification (since requiresFees is true)
-      expect(athlete1Notifs.any((n) => n.category == 'payments'), true);
-      expect(athlete1Notifs.any((n) => n.title == 'Payment Action Required'), true);
+        // Verify athlete-1 received registration notification
+        final athlete1Notifs = await notifRepo.getNotifications('athlete-1');
+        expect(athlete1Notifs.any((n) => n.category == 'registration'), true);
+        expect(
+          athlete1Notifs.any((n) => n.title == 'Registration Confirmed'),
+          true,
+        );
 
-      // 3. Balance Flights trigger (Flight assignments updated)
-      await provider.balanceFlights('comp-1');
-      expect(mockCompRepo.createdFlights.length, 1);
-      
-      // Verify flights notification was sent to both athlete-1 and athlete-2
-      final a1NotifsAfterFlight = await notifRepo.getNotifications('athlete-1');
-      expect(a1NotifsAfterFlight.any((n) => n.category == 'flights'), true);
-      expect(a1NotifsAfterFlight.firstWhere((n) => n.category == 'flights').title, 'Flight Assignment Updated');
+        // Verify athlete-1 received payment reminder notification (since requiresFees is true)
+        expect(athlete1Notifs.any((n) => n.category == 'payments'), true);
+        expect(
+          athlete1Notifs.any((n) => n.title == 'Payment Action Required'),
+          true,
+        );
 
-      final a2NotifsAfterFlight = await notifRepo.getNotifications('athlete-2');
-      expect(a2NotifsAfterFlight.any((n) => n.category == 'flights'), true);
+        // 3. Balance Flights trigger (Flight assignments updated)
+        await provider.balanceFlights('comp-1');
+        expect(mockCompRepo.createdFlights.length, 1);
 
-      // 4. Publish Schedule trigger (Meet schedule published)
-      await provider.publishSchedule('comp-1', isPublic: true);
-      
-      // Verify schedule notifications sent to registered athletes
-      final a1NotifsAfterSchedule = await notifRepo.getNotifications('athlete-1');
-      expect(a1NotifsAfterSchedule.any((n) => n.category == 'schedule'), true);
-      expect(a1NotifsAfterSchedule.firstWhere((n) => n.category == 'schedule').title, 'Meet Schedule Published');
-    });
+        // Verify flights notification was sent to both athlete-1 and athlete-2
+        final a1NotifsAfterFlight = await notifRepo.getNotifications(
+          'athlete-1',
+        );
+        expect(a1NotifsAfterFlight.any((n) => n.category == 'flights'), true);
+        expect(
+          a1NotifsAfterFlight.firstWhere((n) => n.category == 'flights').title,
+          'Flight Assignment Updated',
+        );
 
-    test('CompetitionProvider triggers fire correctly on volunteer application submission', () async {
-      final mockCompRepo = MockCompetitionRepository();
-      final mockProfileRepo = MockProfileRepository();
-      final mockAssocRepo = FakeAssociationRepository();
+        final a2NotifsAfterFlight = await notifRepo.getNotifications(
+          'athlete-2',
+        );
+        expect(a2NotifsAfterFlight.any((n) => n.category == 'flights'), true);
 
-      final provider = CompetitionProvider(
-        mockCompRepo,
-        mockProfileRepo,
-        associationRepository: mockAssocRepo,
-        notificationRepository: notifRepo,
-      );
+        // 4. Publish Schedule trigger (Meet schedule published)
+        await provider.publishSchedule('comp-1', isPublic: true);
 
-      final competition = Competition(
-        id: 'comp-vol-1',
-        title: 'Volunteer Meet',
-        location: 'Berlin',
-        sportType: 'Streetlifting',
-        sportSubtype: 'Modern',
-        requiresFees: false,
-        registrationEnd: DateTime.now().add(const Duration(days: 5)),
-        startDate: DateTime.now().add(const Duration(days: 10)),
-        endDate: DateTime.now().add(const Duration(days: 10)),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      mockCompRepo.competitions['comp-vol-1'] = competition;
+        // Verify schedule notifications sent to registered athletes
+        final a1NotifsAfterSchedule = await notifRepo.getNotifications(
+          'athlete-1',
+        );
+        expect(
+          a1NotifsAfterSchedule.any((n) => n.category == 'schedule'),
+          true,
+        );
+        expect(
+          a1NotifsAfterSchedule
+              .firstWhere((n) => n.category == 'schedule')
+              .title,
+          'Meet Schedule Published',
+        );
+      },
+    );
 
-      // Submit volunteer application
-      final success = await provider.submitVolunteerApplication(
-        competitionId: 'comp-vol-1',
-        userId: 'volunteer-1',
-        preferredRoles: const ['Spotter'],
-        shiftAvailability: const {'Morning': ['Spotter']},
-        customFieldAnswers: const {},
-        disclaimerAccepted: true,
-      );
+    test(
+      'CompetitionProvider triggers fire correctly on volunteer application submission',
+      () async {
+        final mockCompRepo = MockCompetitionRepository();
+        final mockProfileRepo = MockProfileRepository();
+        final mockAssocRepo = FakeAssociationRepository();
 
-      expect(success, true);
+        final provider = CompetitionProvider(
+          mockCompRepo,
+          mockProfileRepo,
+          associationRepository: mockAssocRepo,
+          notificationRepository: notifRepo,
+        );
 
-      // Verify volunteer-1 received volunteer confirmation notification
-      final volunteerNotifs = await notifRepo.getNotifications('volunteer-1');
-      expect(volunteerNotifs.length, 1);
-      expect(volunteerNotifs.first.category, 'registration');
-      expect(volunteerNotifs.first.title, 'Volunteer Application Submitted');
-      expect(
-        volunteerNotifs.first.message,
-        'Your application to volunteer for the meet "Volunteer Meet" has been submitted.',
-      );
-    });
+        final competition = Competition(
+          id: 'comp-vol-1',
+          title: 'Volunteer Meet',
+          location: 'Berlin',
+          sportType: 'Streetlifting',
+          sportSubtype: 'Modern',
+          requiresFees: false,
+          registrationEnd: DateTime.now().add(const Duration(days: 5)),
+          startDate: DateTime.now().add(const Duration(days: 10)),
+          endDate: DateTime.now().add(const Duration(days: 10)),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        mockCompRepo.competitions['comp-vol-1'] = competition;
 
-    testWidgets('NotificationsPage renders seed list on empty notifications and filters correctly on toggles and chips', (WidgetTester tester) async {
-      final userProfile = Profile(
-        id: 'user-notif-page-test',
-        username: 'notiftester',
-        fullName: 'Notification Tester',
-        email: 'notif@test.com',
-        notificationPreferences: {
-          'registration': true,
-          'permissions': true,
-          'payments': true,
-          'schedule': true,
-          'flights': true,
-        },
-      );
+        // Submit volunteer application
+        final success = await provider.submitVolunteerApplication(
+          competitionId: 'comp-vol-1',
+          userId: 'volunteer-1',
+          preferredRoles: const ['Spotter'],
+          shiftAvailability: const {
+            'Morning': ['Spotter'],
+          },
+          customFieldAnswers: const {},
+          disclaimerAccepted: true,
+        );
 
-      final authProvider = WidgetMockAuthProvider(currentUserProfile: userProfile);
+        expect(success, true);
 
-      // Seed mock notifications for user-notif-page-test
-      final testUserId = 'user-notif-page-test';
-      final n1 = SystemNotification(
-        id: 'n-reg',
-        userId: testUserId,
-        title: 'Registration Approved',
-        message: 'Application accepted.',
-        category: 'registration',
-        createdAt: DateTime.now(),
-      );
-      final n2 = SystemNotification(
-        id: 'n-pay',
-        userId: testUserId,
-        title: 'Fee Required',
-        message: 'Pay fee.',
-        category: 'payments',
-        createdAt: DateTime.now(),
-      );
+        // Verify volunteer-1 received volunteer confirmation notification
+        final volunteerNotifs = await notifRepo.getNotifications('volunteer-1');
+        expect(volunteerNotifs.length, 1);
+        expect(volunteerNotifs.first.category, 'registration');
+        expect(volunteerNotifs.first.title, 'Volunteer Application Submitted');
+        expect(
+          volunteerNotifs.first.message,
+          'Your application to volunteer for the meet "Volunteer Meet" has been submitted.',
+        );
+      },
+    );
 
-      // Clear static cache for clean page rendering check
-      final listBeforeSeed = await notifRepo.getNotifications(testUserId);
-      for (final n in listBeforeSeed) {
-        // Mock fallback contains elements if run sequentially, but since we query by user-notif-page-test,
-        // it should be empty initially.
-      }
-      
-      // Run with notifications loaded from repository
-      await notifRepo.createNotification(n1);
-      await notifRepo.createNotification(n2);
+    testWidgets(
+      'NotificationsPage renders seed list on empty notifications and filters correctly on toggles and chips',
+      (WidgetTester tester) async {
+        final userProfile = Profile(
+          id: 'user-notif-page-test',
+          username: 'notiftester',
+          fullName: 'Notification Tester',
+          email: 'notif@test.com',
+          notificationPreferences: {
+            'registration': true,
+            'permissions': true,
+            'payments': true,
+            'schedule': true,
+            'flights': true,
+          },
+        );
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: authProvider,
-          child: const MaterialApp(
-            home: NotificationsPage(),
+        final authProvider = WidgetMockAuthProvider(
+          currentUserProfile: userProfile,
+        );
+
+        // Seed mock notifications for user-notif-page-test
+        final testUserId = 'user-notif-page-test';
+        final n1 = SystemNotification(
+          id: 'n-reg',
+          userId: testUserId,
+          title: 'Registration Approved',
+          message: 'Application accepted.',
+          category: 'registration',
+          createdAt: DateTime.now(),
+        );
+        final n2 = SystemNotification(
+          id: 'n-pay',
+          userId: testUserId,
+          title: 'Fee Required',
+          message: 'Pay fee.',
+          category: 'payments',
+          createdAt: DateTime.now(),
+        );
+
+        // Clear static cache for clean page rendering check
+        final listBeforeSeed = await notifRepo.getNotifications(testUserId);
+        for (final n in listBeforeSeed) {
+          // Mock fallback contains elements if run sequentially, but since we query by user-notif-page-test,
+          // it should be empty initially.
+        }
+
+        // Run with notifications loaded from repository
+        await notifRepo.createNotification(n1);
+        await notifRepo.createNotification(n2);
+
+        await tester.pumpWidget(
+          ChangeNotifierProvider<AuthProvider>.value(
+            value: authProvider,
+            child: const MaterialApp(home: NotificationsPage()),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Verify title is rendered
-      expect(find.text('Notifications'), findsOneWidget);
+        // Verify title is rendered
+        expect(find.text('Notifications'), findsOneWidget);
 
-      // Verify seeded notifications are rendered
-      expect(find.text('Registration Approved'), findsOneWidget);
-      expect(find.text('Fee Required'), findsOneWidget);
+        // Verify seeded notifications are rendered
+        expect(find.text('Registration Approved'), findsOneWidget);
+        expect(find.text('Fee Required'), findsOneWidget);
 
-      // 1. Test Filter Chip (Select 'Registration')
-      final regChip = find.byKey(const Key('chip_registration'));
-      expect(regChip, findsOneWidget);
-      await tester.tap(regChip);
-      await tester.pumpAndSettle();
+        // 1. Test Filter Chip (Select 'Registration')
+        final regChip = find.byKey(const Key('chip_registration'));
+        expect(regChip, findsOneWidget);
+        await tester.tap(regChip);
+        await tester.pumpAndSettle();
 
-      // Only 'Registration Approved' should remain, 'Fee Required' is filtered out
-      expect(find.text('Registration Approved'), findsOneWidget);
-      expect(find.text('Fee Required'), findsNothing);
+        // Only 'Registration Approved' should remain, 'Fee Required' is filtered out
+        expect(find.text('Registration Approved'), findsOneWidget);
+        expect(find.text('Fee Required'), findsNothing);
 
-      // Deselect chip
-      await tester.tap(regChip);
-      await tester.pumpAndSettle();
-      expect(find.text('Fee Required'), findsOneWidget);
+        // Deselect chip
+        await tester.tap(regChip);
+        await tester.pumpAndSettle();
+        expect(find.text('Fee Required'), findsOneWidget);
 
-      // 2. Test Settings Toggle (Turn off Payments switch)
-      // Open settings panel
-      final settingsTile = find.byKey(const Key('alert_settings_tile'));
-      expect(settingsTile, findsOneWidget);
-      await tester.tap(settingsTile);
-      await tester.pumpAndSettle();
+        // 2. Test Settings Toggle (Turn off Payments switch)
+        // Open settings panel
+        final settingsTile = find.byKey(const Key('alert_settings_tile'));
+        expect(settingsTile, findsOneWidget);
+        await tester.tap(settingsTile);
+        await tester.pumpAndSettle();
 
-      // Toggle Payments switch off
-      final paymentsSwitch = find.byKey(const Key('switch_payments'));
-      expect(paymentsSwitch, findsOneWidget);
-      await tester.tap(paymentsSwitch);
-      await tester.pumpAndSettle();
+        // Toggle Payments switch off
+        final paymentsSwitch = find.byKey(const Key('switch_payments'));
+        expect(paymentsSwitch, findsOneWidget);
+        await tester.tap(paymentsSwitch);
+        await tester.pumpAndSettle();
 
-      // Verify authProvider updated preference call
-      expect(authProvider.updatePrefCalls, contains('payments:false'));
+        // Verify authProvider updated preference call
+        expect(authProvider.updatePrefCalls, contains('payments:false'));
 
-      // Verify 'Fee Required' notification (payments category) is filtered out
-      expect(find.text('Registration Approved'), findsOneWidget);
-      expect(find.text('Fee Required'), findsNothing);
-    });
+        // Verify 'Fee Required' notification (payments category) is filtered out
+        expect(find.text('Registration Approved'), findsOneWidget);
+        expect(find.text('Fee Required'), findsNothing);
+      },
+    );
   });
 }

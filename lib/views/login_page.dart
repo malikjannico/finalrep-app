@@ -121,7 +121,9 @@ class _LoginPageState extends State<LoginPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: localLoading ? null : () => Navigator.of(context).pop(),
+                  onPressed: localLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text('CANCEL'),
                 ),
                 ElevatedButton(
@@ -133,23 +135,34 @@ class _LoginPageState extends State<LoginPage> {
                             localLoading = true;
                           });
                           try {
-                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            final authProvider = Provider.of<AuthProvider>(
+                              context,
+                              listen: false,
+                            );
                             final input = dialogInputController.text.trim();
                             final String email;
                             if (input.contains('@')) {
                               email = input;
                             } else {
-                              email = await authProvider.resolveEmailFromUsername(input);
+                              email = await authProvider
+                                  .resolveEmailFromUsername(input);
                             }
-                            if (email.trim().isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
-                              throw Exception('Invalid email address format: $email');
+                            if (email.trim().isEmpty ||
+                                !RegExp(
+                                  r'^[^@]+@[^@]+\.[^@]+$',
+                                ).hasMatch(email)) {
+                              throw Exception(
+                                'Invalid email address format: $email',
+                              );
                             }
                             await authProvider.sendPasswordResetEmail(email);
                             if (context.mounted) {
                               Navigator.of(context).pop();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Password reset link sent to your email!'),
+                                  content: Text(
+                                    'Password reset link sent to your email!',
+                                  ),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -158,7 +171,9 @@ class _LoginPageState extends State<LoginPage> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                                  content: Text(
+                                    e.toString().replaceAll('Exception: ', ''),
+                                  ),
                                   backgroundColor: theme.colorScheme.error,
                                 ),
                               );
@@ -177,7 +192,9 @@ class _LoginPageState extends State<LoginPage> {
                           width: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text('SEND RESET LINK'),
@@ -225,7 +242,9 @@ class _LoginPageState extends State<LoginPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
                 side: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
+                  ),
                   width: 1.5,
                 ),
               ),
@@ -277,8 +296,10 @@ class _LoginPageState extends State<LoginPage> {
                         },
                         showSelectedIcon: false,
                         style: SegmentedButton.styleFrom(
-                          selectedBackgroundColor: theme.colorScheme.primaryContainer,
-                          selectedForegroundColor: theme.colorScheme.onPrimaryContainer,
+                          selectedBackgroundColor:
+                              theme.colorScheme.primaryContainer,
+                          selectedForegroundColor:
+                              theme.colorScheme.onPrimaryContainer,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -289,14 +310,23 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _loginIdController,
                         inputFormatters: [
                           if (_isUsernameLogin)
-                            TextInputFormatter.withFunction((oldValue, newValue) {
-                              return newValue.copyWith(text: newValue.text.toLowerCase());
+                            TextInputFormatter.withFunction((
+                              oldValue,
+                              newValue,
+                            ) {
+                              return newValue.copyWith(
+                                text: newValue.text.toLowerCase(),
+                              );
                             }),
                         ],
                         decoration: InputDecoration(
-                          labelText: _isUsernameLogin ? 'Username' : 'Email Address',
+                          labelText: _isUsernameLogin
+                              ? 'Username'
+                              : 'Email Address',
                           prefixIcon: Icon(
-                            _isUsernameLogin ? Icons.person_outline : Icons.email_outlined,
+                            _isUsernameLogin
+                                ? Icons.person_outline
+                                : Icons.email_outlined,
                           ),
                         ),
                         keyboardType: _isUsernameLogin
@@ -377,12 +407,17 @@ class _LoginPageState extends State<LoginPage> {
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                               )
                             : const Text(
                                 'SIGN IN',
-                                style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
                               ),
                       ),
                       const SizedBox(height: 24),
@@ -404,7 +439,9 @@ class _LoginPageState extends State<LoginPage> {
                                 // If inline, push full screen RegisterPage
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    settings: const RouteSettings(name: '/register'),
+                                    settings: const RouteSettings(
+                                      name: '/register',
+                                    ),
                                     builder: (_) => const RegisterPage(),
                                   ),
                                 );
@@ -412,7 +449,9 @@ class _LoginPageState extends State<LoginPage> {
                                 // If already pushing pages, push replacement or push new page
                                 Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(
-                                    settings: const RouteSettings(name: '/register'),
+                                    settings: const RouteSettings(
+                                      name: '/register',
+                                    ),
                                     builder: (_) => const RegisterPage(),
                                   ),
                                 );
@@ -447,7 +486,8 @@ class _LoginPageState extends State<LoginPage> {
                             child: Text(
                               'OR CONTINUE WITH',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.6),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -516,7 +556,9 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('$label integration is on our roadmap for a future release!'),
+                  content: Text(
+                    '$label integration is on our roadmap for a future release!',
+                  ),
                   duration: const Duration(seconds: 2),
                 ),
               );
@@ -531,13 +573,9 @@ class _LoginPageState extends State<LoginPage> {
                 color: Colors.amber,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.schedule,
-                size: 8,
-                color: Colors.black87,
-              ),
+              child: const Icon(Icons.schedule, size: 8, color: Colors.black87),
             ),
-          )
+          ),
         ],
       ),
     );

@@ -23,21 +23,13 @@ class StreetliftingRulesEngine {
 
   static Map<String, int> calculateAllPlates(double weight) {
     if (weight.isNaN || weight.isInfinite || weight <= 0) {
-      return {
-        '25': 0,
-        '20': 0,
-        '15': 0,
-        '10': 0,
-        '5': 0,
-        '2.5': 0,
-        '1.25': 0,
-      };
+      return {'25': 0, '20': 0, '15': 0, '10': 0, '5': 0, '2.5': 0, '1.25': 0};
     }
     int weightCents = (weight * 100).round();
-    
+
     int count25 = weightCents ~/ 2500;
     weightCents %= 2500;
-    
+
     int count20 = weightCents ~/ 2000;
     weightCents %= 2000;
 
@@ -93,8 +85,11 @@ class StreetliftingRulesEngine {
     if (goodCount == votes.length) return true;
 
     // Under majority rule
-    final isMajorityAllowed = (discipline == 'Dip' && failureReason == 'Invalid Depth') ||
-        (discipline == 'Squat' && (failureReason == 'Bent Knees' || failureReason == 'Invalid Depth'));
+    final isMajorityAllowed =
+        (discipline == 'Dip' && failureReason == 'Invalid Depth') ||
+        (discipline == 'Squat' &&
+            (failureReason == 'Bent Knees' ||
+                failureReason == 'Invalid Depth'));
 
     if (isMajorityAllowed) {
       return goodCount >= (votes.length / 2).ceil();

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/profile.dart';
 import '../models/competition.dart';
 import '../providers/auth_provider.dart';
+import '../providers/competition_provider.dart';
 import '../repositories/profile_repository.dart';
+import '../utils/mock_safety.dart';
 import 'settings_page.dart';
+import 'competition_detail_page.dart';
+
 
 class ProfilePage extends StatefulWidget {
   final String? userId;
@@ -40,6 +43,9 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Map<String, dynamic>> _highestRankings = [];
   List<Map<String, dynamic>> _personalRecords = [];
   bool _isLoadingAthleteData = false;
+  final Map<String, Competition> _competitionCache = {};
+  late ScrollController _scrollController;
+  bool _showAppBarTitle = false;
 
   // Edit fields controllers
   final _formKey = GlobalKey<FormState>();
@@ -52,7 +58,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Uint8List? _customAvatarBytes;
   String? _customAvatarFileName;
 
-  final List<String> _genders = ['Male', 'Female', 'Other', 'Prefer not to say'];
+  final List<String> _genders = [
+    'Male',
+    'Female',
+    'Other',
+    'Prefer not to say',
+  ];
   final List<String> _countries = [
     'Germany',
     'Austria',
@@ -72,6 +83,25 @@ class _ProfilePageState extends State<ProfilePage> {
     _fullNameController = TextEditingController();
     _emailController = TextEditingController();
     _bioController = TextEditingController();
+    _scrollController = ScrollController();
+    _scrollController.addListener(() {
+      if (!mounted) return;
+      final isMobile = MediaQuery.of(context).size.width < 900;
+      if (isMobile) {
+        final show = _scrollController.offset > 150;
+        if (show != _showAppBarTitle) {
+          setState(() {
+            _showAppBarTitle = show;
+          });
+        }
+      } else {
+        if (!_showAppBarTitle) {
+          setState(() {
+            _showAppBarTitle = true;
+          });
+        }
+      }
+    });
     _loadProfile();
   }
 
@@ -100,23 +130,8 @@ class _ProfilePageState extends State<ProfilePage> {
     _fullNameController.dispose();
     _emailController.dispose();
     _bioController.dispose();
+    _scrollController.dispose();
     super.dispose();
-  }
-
-  SupabaseClient? _getSupabaseClient() {
-    try {
-      if (widget.profileRepository != null) {
-        return widget.profileRepository!.client;
-      }
-    } catch (_) {}
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      return authProvider.profileRepository.client;
-    } catch (_) {}
-    try {
-      return Supabase.instance.client;
-    } catch (_) {}
-    return null;
   }
 
   Future<void> _loadProfile() async {
@@ -130,41 +145,42 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       if (widget.userId == null && widget.username == null) {
         // Default to current user
-        if (authProvider.isAuthenticated && authProvider.currentUserProfile != null) {
+        if (authProvider.isAuthenticated &&
+            authProvider.currentUserProfile != null) {
           _profile = authProvider.currentUserProfile;
           _isCurrentUser = true;
         } else {
           _errorMsg = 'Please log in to view your profile.';
         }
       } else {
-        final client = _getSupabaseClient();
-        final profileRepository = widget.profileRepository ?? (client != null ? ProfileRepository(client) : null);
-        if (profileRepository == null) {
-          _errorMsg = 'Supabase client not available.';
-        } else {
-          if (widget.userId != null) {
-            // Fetch by ID
-            _isCurrentUser = authProvider.isAuthenticated &&
-                authProvider.currentUserProfile?.id == widget.userId;
-            if (_isCurrentUser) {
-              _profile = authProvider.currentUserProfile;
-            } else {
-              _profile = await profileRepository.getProfile(widget.userId!);
-            }
-          } else if (widget.username != null) {
-            // Fetch by Username
-            _isCurrentUser = authProvider.isAuthenticated &&
-                authProvider.currentUserProfile?.username.toLowerCase() ==
-                    widget.username!.toLowerCase();
-            if (_isCurrentUser) {
-              _profile = authProvider.currentUserProfile;
-            } else {
-              _profile =
-                  await profileRepository.getProfileByUsername(widget.username!);
-            }
+        final profileRepository =
+            widget.profileRepository ?? authProvider.profileRepository;
+        if (widget.userId != null) {
+          // Fetch by ID
+          _isCurrentUser =
+              authProvider.isAuthenticated &&
+              authProvider.currentUserProfile?.id == widget.userId;
+          if (_isCurrentUser) {
+            _profile = authProvider.currentUserProfile;
+          } else {
+            _profile = await profileRepository.getProfile(widget.userId!);
+          }
+        } else if (widget.username != null) {
+          // Fetch by Username
+          _isCurrentUser =
+              authProvider.isAuthenticated &&
+              authProvider.currentUserProfile?.username.toLowerCase() ==
+                  widget.username!.toLowerCase();
+          if (_isCurrentUser) {
+            _profile = authProvider.currentUserProfile;
+          } else {
+            _profile = await profileRepository.getProfileByUsername(
+              widget.username!,
+            );
           }
         }
       }
+
 
       if (_profile == null && _errorMsg == null) {
         _errorMsg = 'User profile not found.';
@@ -222,25 +238,14 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       String? uploadedUrl;
       if (_customAvatarBytes != null) {
-        final client = _getSupabaseClient();
-        if (client == null) {
-          throw Exception('Supabase client not available.');
-        }
-        final ext = _customAvatarFileName?.split('.').last ?? 'png';
-        final filePath = 'profiles/${_profile!.id}/${_customAvatarFileName ?? "avatar.png"}';
-
-        await client.storage.from('avatars').uploadBinary(
-          filePath,
+        final profileRepository = widget.profileRepository ?? authProvider.profileRepository;
+        final fileName = 'profiles-${_profile!.id}-${_customAvatarFileName ?? "avatar.png"}';
+        uploadedUrl = await profileRepository.uploadFile(
           _customAvatarBytes!,
-          fileOptions: FileOptions(
-            contentType: 'image/$ext',
-            cacheControl: '3600',
-            upsert: true,
-          ),
+          fileName,
         );
-
-        uploadedUrl = client.storage.from('avatars').getPublicUrl(filePath);
       }
+
 
       await authProvider.updateProfile(
         fullName: _fullNameController.text.trim(),
@@ -287,10 +292,13 @@ class _ProfilePageState extends State<ProfilePage> {
     if (_profile == null) return '';
     final userId = _profile!.id;
     try {
-      final client = _getSupabaseClient();
-      if (client == null) return '';
-      final url = client.storage.from('avatars').getPublicUrl('profiles/$userId/banner.jpg');
-      return '$url?t=$_bannerTimestamp';
+      final competitionProvider = Provider.of<CompetitionProvider>(context, listen: false);
+      final apiBaseUrl = competitionProvider.competitionRepository.baseUrl;
+      if (MockSafety.isMockAllowed) {
+        return '$apiBaseUrl/uploads/profiles-$userId-banner.jpg';
+      }
+      final bucket = 'finalrep-app-media-${MockSafety.env}';
+      return 'https://storage.googleapis.com/$bucket/avatars/profiles-$userId-banner.jpg?t=$_bannerTimestamp';
     } catch (_) {
       return '';
     }
@@ -316,21 +324,11 @@ class _ProfilePageState extends State<ProfilePage> {
             _isLoadingProfile = true;
           });
 
-          final filePath = 'profiles/$userId/banner.jpg';
-          final client = _getSupabaseClient();
-          if (client == null) {
-            throw Exception('Supabase client not available.');
-          }
+          final fileName = 'profiles-$userId-banner.jpg';
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final profileRepository = widget.profileRepository ?? authProvider.profileRepository;
 
-          await client.storage.from('avatars').uploadBinary(
-            filePath,
-            bytes,
-            fileOptions: const FileOptions(
-              contentType: 'image/jpeg',
-              cacheControl: '0',
-              upsert: true,
-            ),
-          );
+          await profileRepository.uploadFile(bytes, fileName);
 
           setState(() {
             _bannerTimestamp = DateTime.now().millisecondsSinceEpoch;
@@ -361,29 +359,117 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
   }
+
   Future<void> _loadAthleteData() async {
     if (_profile == null) return;
     setState(() {
       _isLoadingAthleteData = true;
     });
     try {
-      final client = _getSupabaseClient();
-      final repo = widget.profileRepository ?? (client != null ? ProfileRepository(client) : null);
-      if (repo != null) {
-        final results = await Future.wait([
-          repo.getUserUpcomingMeets(_profile!.id),
-          repo.getUserCompletedMeets(_profile!.id),
-          repo.getUserHighestRankings(_profile!.id),
-          repo.getUserPersonalRecords(_profile!.id),
-        ]);
-        if (mounted) {
-          setState(() {
-            _upcomingMeets = results[0] as List<Competition>;
-            _completedMeets = results[1] as List<Competition>;
-            _highestRankings = results[2] as List<Map<String, dynamic>>;
-            _personalRecords = results[3] as List<Map<String, dynamic>>;
-          });
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final repo = widget.profileRepository ?? authProvider.profileRepository;
+      final competitionRepository = Provider.of<CompetitionProvider>(context, listen: false).competitionRepository;
+
+      final results = await Future.wait([
+        repo.getUserUpcomingMeets(_profile!.id),
+        repo.getUserCompletedMeets(_profile!.id),
+        repo.getUserHighestRankings(_profile!.id),
+        repo.getUserPersonalRecords(_profile!.id),
+      ]);
+      if (mounted) {
+        final upcoming = results[0] as List<Competition>;
+        final completed = results[1] as List<Competition>;
+        final rankings = results[2] as List<Map<String, dynamic>>;
+        final prs = results[3] as List<Map<String, dynamic>>;
+
+        // Populate cache from loaded meets
+        for (final c in completed) {
+          _competitionCache[c.title] = c;
         }
+        for (final c in upcoming) {
+          _competitionCache[c.title] = c;
+        }
+
+        // Fallbacks for mock data
+        _competitionCache.putIfAbsent(
+          'FinalRep Qualifier Munich 2025',
+          () => Competition(
+            id: 'mock-meet-munich',
+            title: 'FinalRep Qualifier Munich 2025',
+            description: 'Munich streetlifting meet',
+            startDate: DateTime(2025, 6, 15),
+            endDate: DateTime(2025, 6, 16),
+            location: 'Munich, Germany',
+            sportSubtype: 'Modern',
+            status: 'completed',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+        _competitionCache.putIfAbsent(
+          'FinalRep Underground Berlin 2025',
+          () => Competition(
+            id: 'mock-meet-berlin',
+            title: 'FinalRep Underground Berlin 2025',
+            description: 'Berlin streetlifting meet',
+            startDate: DateTime(2025, 10, 12),
+            endDate: DateTime(2025, 10, 12),
+            location: 'Berlin, Germany',
+            sportSubtype: 'Modern',
+            status: 'completed',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+        _competitionCache.putIfAbsent(
+          'FinalRep Underground Frankfurt 2025',
+          () => Competition(
+            id: 'mock-meet-frankfurt',
+            title: 'FinalRep Underground Frankfurt 2025',
+            description: 'Frankfurt streetlifting meet',
+            startDate: DateTime(2025, 11, 5),
+            endDate: DateTime(2025, 11, 5),
+            location: 'Frankfurt, Germany',
+            sportSubtype: 'Modern',
+            status: 'completed',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        // Fetch any missing competitions from database
+        final titlesToFetch = <String>{};
+        for (final r in rankings) {
+          final title = r['competition']?.toString();
+          if (title != null && title.isNotEmpty) titlesToFetch.add(title);
+        }
+        for (final pr in prs) {
+          final title = pr['competition']?.toString();
+          if (title != null && title.isNotEmpty) titlesToFetch.add(title);
+        }
+        titlesToFetch.removeWhere(
+          (title) => _competitionCache.containsKey(title),
+        );
+
+        if (titlesToFetch.isNotEmpty) {
+          try {
+            final completedComps = await competitionRepository.getUpcomingCompetitions(status: 'completed');
+            for (final c in completedComps) {
+              if (titlesToFetch.contains(c.title)) {
+                _competitionCache[c.title] = c;
+              }
+            }
+          } catch (e) {
+            debugPrint('Error caching competitions: $e');
+          }
+        }
+
+        setState(() {
+          _upcomingMeets = upcoming;
+          _completedMeets = completed;
+          _highestRankings = rankings;
+          _personalRecords = prs;
+        });
       }
     } catch (e) {
       debugPrint('Error loading athlete data: $e');
@@ -397,7 +483,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildSocialLinks(ThemeData theme) {
-    if (_profile == null || _profile!.socialLinks == null || _profile!.socialLinks!.isEmpty) {
+
+    if (_profile == null ||
+        _profile!.socialLinks == null ||
+        _profile!.socialLinks!.isEmpty) {
       return const SizedBox.shrink();
     }
     return Padding(
@@ -448,24 +537,96 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
+    String cleanLiftName(String name) {
+      final lower = name.toLowerCase();
+      if (lower.contains('muscle') && lower.contains('up')) return 'Muscle Up';
+      if (lower.contains('pull') && lower.contains('up')) return 'Pull Up';
+      if (lower.contains('dip')) return 'Dip';
+      if (lower.contains('squat')) return 'Squat';
+      return name
+          .replaceAll(RegExp(r'\bWeighted\b', caseSensitive: false), '')
+          .trim();
+    }
+
+    int getDisciplineOrder(String name) {
+      final clean = cleanLiftName(name);
+      switch (clean) {
+        case 'Muscle Up':
+          return 1;
+        case 'Pull Up':
+          return 2;
+        case 'Dip':
+          return 3;
+        case 'Squat':
+          return 4;
+        default:
+          return 5;
+      }
+    }
+
+    String formatDate(DateTime date) {
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      final year = date.year.toString();
+      return '$day.$month.$year';
+    }
+
+    final processedPRs = _personalRecords.map((pr) {
+      final lift = pr['lift']?.toString() ?? pr['discipline']?.toString() ?? '';
+      final cleanName = cleanLiftName(lift);
+      final newMap = Map<String, dynamic>.from(pr);
+      newMap['lift'] = cleanName;
+      return newMap;
+    }).toList();
+
+    processedPRs.sort((a, b) {
+      final orderA = getDisciplineOrder(a['lift']?.toString() ?? '');
+      final orderB = getDisciplineOrder(b['lift']?.toString() ?? '');
+      return orderA.compareTo(orderB);
+    });
+
+    final overallRankings = _highestRankings.where((r) {
+      final disc = r['discipline']?.toString().toLowerCase() ?? '';
+      return disc.contains('overall');
+    }).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 32),
         Text(
           'Athlete Dashboard',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 16),
-        
+
         // Personal Records
-        Text(
-          '🏆 Personal Records',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            Icon(
+              Icons.emoji_events_outlined,
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Personal Records',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        if (_personalRecords.isEmpty)
-          Text('No personal records recorded.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))
+        if (processedPRs.isEmpty)
+          Text(
+            'No personal records recorded.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
         else
           GridView.builder(
             shrinkWrap: true,
@@ -474,17 +635,57 @@ class _ProfilePageState extends State<ProfilePage> {
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 2.2,
+              childAspectRatio: 1.5,
             ),
-            itemCount: _personalRecords.length,
+            itemCount: processedPRs.length,
             itemBuilder: (context, index) {
-              final pr = _personalRecords[index];
-              return Card(
+              final pr = processedPRs[index];
+              final compName =
+                  pr['competition']?.toString() ??
+                  pr['competition_name']?.toString() ??
+                  '';
+              final compObj = _competitionCache[compName];
+
+              final dateRaw =
+                  compObj?.startDate ??
+                  pr['date'] ??
+                  pr['achieved_at'] ??
+                  pr['date_achieved'];
+              String dateStr = '';
+              if (dateRaw != null) {
+                if (dateRaw is DateTime) {
+                  dateStr =
+                      '${dateRaw.day.toString().padLeft(2, '0')}.${dateRaw.month.toString().padLeft(2, '0')}.${dateRaw.year}';
+                } else {
+                  try {
+                    final parsed = DateTime.parse(dateRaw.toString());
+                    dateStr =
+                        '${parsed.day.toString().padLeft(2, '0')}.${parsed.month.toString().padLeft(2, '0')}.${parsed.year}';
+                  } catch (_) {
+                    dateStr = dateRaw.toString();
+                  }
+                }
+              }
+
+              String subtitleText = '';
+              if (compName.isNotEmpty && dateStr.isNotEmpty) {
+                subtitleText = '$compName • $dateStr';
+              } else if (compName.isNotEmpty) {
+                subtitleText = compName;
+              } else if (dateStr.isNotEmpty) {
+                subtitleText = dateStr;
+              }
+
+              final content = Card(
                 elevation: 0,
                 color: theme.colorScheme.surfaceContainerLow,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
@@ -494,76 +695,214 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       Text(
                         pr['lift'] ?? '',
-                        style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         pr['weight'] ?? '',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
+                      if (subtitleText.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitleText,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
                 ),
               );
+
+              if (compObj != null) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CompetitionDetailPage(competition: compObj),
+                      ),
+                    );
+                  },
+                  child: content,
+                );
+              }
+              return content;
             },
           ),
         const SizedBox(height: 24),
 
         // Rankings
-        Text(
-          '🥇 Highest Rankings',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            Icon(
+              Icons.workspace_premium_outlined,
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Highest Rankings',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        if (_highestRankings.isEmpty)
-          Text('No rankings available.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))
+        if (overallRankings.isEmpty)
+          Text(
+            'No overall ranking recorded.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
         else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _highestRankings.length,
-            itemBuilder: (context, index) {
-              final r = _highestRankings[index];
-              return Card(
-                elevation: 0,
-                color: theme.colorScheme.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          ...overallRankings.map((r) {
+            final compName =
+                r['competition']?.toString() ??
+                r['competition_name']?.toString() ??
+                r['source_meet_title']?.toString() ??
+                'Unknown Competition';
+            final compObj = _competitionCache[compName];
+
+            final location =
+                compObj?.location ??
+                r['location']?.toString() ??
+                r['source_meet_location']?.toString() ??
+                r['competition_location']?.toString() ??
+                '';
+            final dateRaw =
+                compObj?.startDate ??
+                r['date'] ??
+                r['achieved_at'] ??
+                r['date_achieved'];
+            String dateStr = '';
+            if (dateRaw != null) {
+              if (dateRaw is DateTime) {
+                dateStr =
+                    '${dateRaw.day.toString().padLeft(2, '0')}.${dateRaw.month.toString().padLeft(2, '0')}.${dateRaw.year}';
+              } else {
+                try {
+                  final parsed = DateTime.parse(dateRaw.toString());
+                  dateStr =
+                      '${parsed.day.toString().padLeft(2, '0')}.${parsed.month.toString().padLeft(2, '0')}.${parsed.year}';
+                } catch (_) {
+                  dateStr = dateRaw.toString();
+                }
+              }
+            }
+
+            String locationAndDate = '';
+            if (location.isNotEmpty && dateStr.isNotEmpty) {
+              locationAndDate = '$location • $dateStr';
+            } else if (location.isNotEmpty) {
+              locationAndDate = location;
+            } else if (dateStr.isNotEmpty) {
+              locationAndDate = dateStr;
+            }
+
+            return Card(
+              elevation: 0,
+              color: theme.colorScheme.surfaceContainerLow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
+                  ),
                 ),
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: const Icon(Icons.stars, color: Colors.amber),
-                  title: Text(r['discipline'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(r['competition'] ?? ''),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      r['rank'] ?? '',
-                      style: TextStyle(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.bold,
+              ),
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                onTap: compObj == null
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                CompetitionDetailPage(competition: compObj),
+                          ),
+                        );
+                      },
+                leading: Icon(
+                  Icons.stars_outlined,
+                  color: theme.colorScheme.onSurface,
+                ),
+                title: Text(
+                  r['discipline'] ?? '',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(compName),
+                    if (locationAndDate.isNotEmpty)
+                      Text(
+                        locationAndDate,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
+                  ],
+                ),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    r['rank'] ?? '',
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }),
         const SizedBox(height: 24),
 
-        // Upcoming Meets
-        Text(
-          '📅 Upcoming Meets',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        // Upcoming Competitions
+        Row(
+          children: [
+            Icon(
+              Icons.calendar_today_outlined,
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Upcoming Competitions',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         if (_upcomingMeets.isEmpty)
-          Text('No upcoming meets registered.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))
+          Text(
+            'No upcoming competitions registered.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
         else
           ListView.builder(
             shrinkWrap: true,
@@ -576,27 +915,65 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: theme.colorScheme.surfaceContainerLow,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
                 ),
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
-                  title: Text(comp.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${comp.location} • ${comp.startDate.day}.${comp.startDate.month}.${comp.startDate.year}'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CompetitionDetailPage(competition: comp),
+                      ),
+                    );
+                  },
+                  title: Text(
+                    comp.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${comp.location} • ${formatDate(comp.startDate)}',
+                  ),
+                  trailing: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               );
             },
           ),
         const SizedBox(height: 24),
 
-        // Completed Meets
-        Text(
-          '🏁 Completed Meets',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        // Completed Competitions
+        Row(
+          children: [
+            Icon(
+              Icons.check_circle_outline,
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Completed Competitions',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         if (_completedMeets.isEmpty)
-          Text('No completed meets.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))
+          Text(
+            'No completed competitions.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
         else
           ListView.builder(
             shrinkWrap: true,
@@ -609,13 +986,33 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: theme.colorScheme.surfaceContainerLow,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                  side: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
                 ),
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
-                  title: Text(comp.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${comp.location} • ${comp.startDate.day}.${comp.startDate.month}.${comp.startDate.year}'),
-                  trailing: const Icon(Icons.check_circle, color: Colors.green),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CompetitionDetailPage(competition: comp),
+                      ),
+                    );
+                  },
+                  title: Text(
+                    comp.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${comp.location} • ${formatDate(comp.startDate)}',
+                  ),
+                  trailing: Icon(
+                    Icons.check_circle_outline,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               );
             },
@@ -623,7 +1020,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -701,23 +1097,41 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
+    final isMobile = !isDesktop;
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: NestedScrollView(
+        controller: _scrollController,
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             if (!hideAppBar)
               SliverAppBar(
                 floating: true,
                 snap: true,
-                pinned: false,
-                automaticallyImplyLeading: !widget.isInline,
+                pinned: true,
+                automaticallyImplyLeading: !widget.isInline || _isEditing,
                 backgroundColor: theme.colorScheme.surface,
-                title: Text(
-                  _profile?.username != null && _profile!.username.isNotEmpty
-                      ? '@${_profile!.username}'
-                      : 'Profile',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                leading: _isEditing
+                    ? IconButton(
+                        key: const Key('edit_mode_back_button'),
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () {
+                          setState(() {
+                            _isEditing = false;
+                          });
+                        },
+                      )
+                    : null,
+                title: AnimatedOpacity(
+                  opacity: isMobile ? (_showAppBarTitle ? 1.0 : 0.0) : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Text(
+                    _profile?.username != null && _profile!.username.isNotEmpty
+                        ? '@${_profile!.username}'
+                        : 'Profile',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
           ];
@@ -726,7 +1140,32 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildBanner(theme),
+              SizedBox(
+                height: 190,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: _buildBanner(theme),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 600),
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          alignment: Alignment.centerLeft,
+                          child: _buildAvatar(theme),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Center(
@@ -735,7 +1174,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 36), // Reserve space for the shifted avatar (which has bottom: -40, so 40px overlap)
+                        SizedBox(height: isMobile ? 12 : 36),
                         if (_customAvatarFileName != null) ...[
                           Text(
                             _customAvatarFileName!,
@@ -768,8 +1207,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                   label: const Text('EDIT PROFILE'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor: theme.colorScheme.onPrimary,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    foregroundColor:
+                                        theme.colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -785,8 +1227,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                   label: const Text('SHARE PROFILE'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor: theme.colorScheme.onPrimary,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    foregroundColor:
+                                        theme.colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -796,7 +1241,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ],
                           ),
                         ],
-                        _buildAthleteDashboard(theme),
+                        if (!_isEditing) _buildAthleteDashboard(theme),
                       ],
                     ),
                   ),
@@ -809,26 +1254,16 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-
   Widget _buildBanner(ThemeData theme) {
-    print('DEBUG PROFILE_PAGE _buildBanner: _isEditing=$_isEditing, _isCurrentUser=$_isCurrentUser, profileId=${_profile?.id}');
+    debugPrint(
+      'DEBUG PROFILE_PAGE _buildBanner: _isEditing=$_isEditing, _isCurrentUser=$_isCurrentUser, profileId=${_profile?.id}',
+    );
     final bannerUrl = _getBannerUrl();
-    final initials = _profile!.fullName.isNotEmpty
-        ? _profile!.fullName
-            .trim()
-            .split(' ')
-            .map((e) => e.isEmpty ? '' : e[0])
-            .take(2)
-            .join()
-            .toUpperCase()
-        : _profile!.username.isNotEmpty
-            ? _profile!.username[0].toUpperCase()
-            : '?';
 
     return SizedBox(
-      height: 190,
+      height: 150,
+      width: double.infinity,
       child: Stack(
-        clipBehavior: Clip.none,
         children: [
           Container(
             height: 150,
@@ -854,11 +1289,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
           ),
           if (_isEditing && _isCurrentUser)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 150,
+            Positioned.fill(
               child: Container(
                 color: Colors.black38,
                 child: InkWell(
@@ -880,96 +1311,108 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-          Positioned(
-            left: 24,
-            bottom: 0,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  child: ClipOval(
-                    child: _customAvatarBytes != null
-                        ? Image.memory(
-                            _customAvatarBytes!,
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Center(
-                                child: Text(
-                                  initials,
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onPrimaryContainer,
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-                        : (_profile!.profilePictureUrl != null
-                            ? Image.network(
-                                _profile!.profilePictureUrl!,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Center(
-                                    child: Text(
-                                      initials,
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.onPrimaryContainer,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              )
-                            : Text(
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar(ThemeData theme) {
+    final initials = _profile!.fullName.isNotEmpty
+        ? _profile!.fullName
+              .trim()
+              .split(' ')
+              .map((e) => e.isEmpty ? '' : e[0])
+              .take(2)
+              .join()
+              .toUpperCase()
+        : _profile!.username.isNotEmpty
+        ? _profile!.username[0].toUpperCase()
+        : '?';
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        CircleAvatar(
+          radius: 40,
+          backgroundColor: theme.colorScheme.primaryContainer,
+          child: ClipOval(
+            child: _customAvatarBytes != null
+                ? Image.memory(
+                    _customAvatarBytes!,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Text(
+                          initials,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                : (_profile!.profilePictureUrl != null
+                      ? Image.network(
+                          _profile!.profilePictureUrl!,
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Text(
                                 initials,
                                 style: TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
                                   color: theme.colorScheme.onPrimaryContainer,
                                 ),
-                              )),
+                              ),
+                            );
+                          },
+                        )
+                      : Text(
+                          initials,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        )),
+          ),
+        ),
+        if (_isEditing && _isCurrentUser)
+          Positioned.fill(
+            child: ClipOval(
+              child: Material(
+                color: Colors.black45,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _pickAvatar,
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                      SizedBox(height: 2),
+                      Text(
+                        'CHANGE PHOTO',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
-                if (_isEditing && _isCurrentUser)
-                  Positioned.fill(
-                    child: ClipOval(
-                      child: Container(
-                        color: Colors.black45,
-                        child: InkWell(
-                          onTap: _pickAvatar,
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                              SizedBox(height: 2),
-                              Text(
-                                'CHANGE PHOTO',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -1003,7 +1446,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   );
                 },
                 child: Icon(
-                  Icons.settings,
+                  Icons.settings_outlined,
                   size: 20,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -1023,7 +1466,9 @@ class _ProfilePageState extends State<ProfilePage> {
             if (_profile!.gender != null)
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(20),
@@ -1041,7 +1486,9 @@ class _ProfilePageState extends State<ProfilePage> {
             if (_profile!.country != null)
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.tertiaryContainer,
                   borderRadius: BorderRadius.circular(20),
@@ -1049,7 +1496,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.location_on, size: 12),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 12,
+                      color: theme.colorScheme.onTertiaryContainer,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       _profile!.country!,
@@ -1068,7 +1519,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileInfoCard(ThemeData theme) {
-    final hasDescription = _profile!.description != null && _profile!.description!.isNotEmpty;
+    final hasDescription =
+        _profile!.description != null && _profile!.description!.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Text(
@@ -1140,7 +1592,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
           // Gender Picker
           DropdownButtonFormField<String>(
-            value: _selectedGender,
+            initialValue: _selectedGender,
             decoration: const InputDecoration(
               labelText: 'Gender',
               prefixIcon: Icon(Icons.people_outline),
@@ -1154,7 +1606,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
           // Country Picker
           DropdownButtonFormField<String>(
-            value: _selectedCountry,
+            initialValue: _selectedCountry,
             decoration: const InputDecoration(
               labelText: 'Country',
               prefixIcon: Icon(Icons.public),
@@ -1194,6 +1646,4 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-
 }

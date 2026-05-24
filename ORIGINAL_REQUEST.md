@@ -1,84 +1,97 @@
 # Original User Request
 
-## Initial Request — 2026-05-23T14:04:12+02:00
+## Initial Request — 2026-05-23T22:27:44+02:00
 
-Implement a comprehensive suite of platform features for the FinalRep Streetlifting application in Flutter. This includes login adjustments, forgot password, profile enhancements, system administration settings, association creation and management, competition creation and management, Streetlifting Modern rules competition handling (attempt weight configurations, judging, flight planning), rankings, and system notifications.
+Implement a set of refinements, UX improvements, bug fixes, and feature additions to the Profile, Navigation, and Administration sections of the FinalRep Streetlifting application.
 
-Working directory: `/Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/platform-features-update`
+Working directory: `/Users/malikjannico/.gemini/antigravity/worktrees/finalrep-app/profile-navigation-dashboard-updates`
 Integrity mode: development
 
 ## Requirements
 
-### R1. Login & Forgot Password
-- convert all characters typed in the username field to lowercase dynamically at the login page and verify in lowercase.
-- Allow users to enter either username or email on the forgot password flow.
+### R1. Profile Page UX & Alignment Improvements
+- **Profile Photo Placement:** Position the profile image above the Full Name and username, left-aligned (rather than shifted too far to the left).
+- **Personal Records (PRs):**
+  - Increase the font/display size of the PR scores.
+  - Standardize and correct the names and order of disciplines: Muscle Up > Pull Up > Dip > Squat (remove "Weighted" from all names).
+  - Include the competition name and competition date next to/within each personal record.
+- **Highest Rankings:** Show only the "Overall" ranking with its associated Competition Name, location, and date.
+- **Visual & Icons:** Use cleaner, monocolor icons instead of the current colorful icons on the profile page.
+- **Competition Section Titles:**
+  - Update "Upcoming Meets" to "Upcoming Competitions".
+  - Update "Completed Meets" to "Completed Competitions".
+- **Upcoming Competition Rankings Bug:** Fix the bug where user `@malikjannico` has rankings displayed from "FinalRep Qualifier Hamburg 2026", even though that competition is upcoming and has not completed.
+- **Edit Profile Mode Changes:**
+  - Profile Picture Hover: Fix the bug where hovering over "upload profile picture" displays a square outline rather than matching the circle shape.
+  - Dashboard Visibility: In edit mode, hide the athlete dashboard.
+  - Navigation Links: Configure each element/card in the athlete dashboard to navigate to its respective single competition details page.
+- **Mobile Scrolling UX:** On mobile, the profile header should start hidden (or collapse) and only become visible when scrolling down (mimicking the header scrolling behavior in the single competition page).
+- **Mobile Spacing:** Reduce the layout gap between the Full Name and the profile picture.
 
-### R2. User Profiles Customization
-- Add social media profile links (website and channels) to user profiles and render them on profile pages with icons and names.
-- Place the settings gear icon immediately after the full name on the "My Profile" page.
-- Render other user profiles inline under the header and subheader in desktop view (like "My Profile"). Banners must touch subheaders directly with no gap in desktop layout.
-- Align profile picture: show half above header (shifted up), and left-align the full name, username, gender, and country under the profile picture.
-- Mobile UX improvements:
-  - In mobile layout, ensure the navigation drawer items forward users to the same profile page as the bottom navigation bar.
-  - Users page top header must touch the top of the viewport in mobile layout.
-  - Scroll behavior: hide username from header if the username under the full name is visible. If the user scrolls and the username is no longer visible, render it in the header.
-- Add sections on profiles for upcoming/completed competitions, highest rankings per sport/format, and personal records per discipline.
+### R2. Navigation, Layout & Views Refactoring
+- **Desktop/Mobile Navigation:**
+  - Fix the bug where "Associations" is missing from the desktop subheader and the mobile bottom navigation bar.
+  - Fix the navigation drawer theme bug where "Associations" displays in a different color from other nav items.
+  - Add a "Ranking" navigation item to the desktop subheader, mobile bottom nav, and mobile drawer.
+- **Navigation Item Ordering:**
+  - Desktop Subheader: Competitions, Associations, Ranking, My Profile
+  - Mobile bottom nav bar: Competitions, Associations, Ranking, My Profile
+  - Mobile navigation drawer: Competitions, Associations, Ranking, My Profile, Settings (with logout separated by a horizontal divider).
+- **Desktop Subheader Alignment:** Left-align all nav items on the subheader.
+- **Dynamic View Mode Dropdown:**
+  - Add a dropdown button at the beginning (left) of the desktop subheader and in the mobile drawer (above all nav items, below the profile details, separated by a line).
+  - Dropdown values: "All" (global normal user view), "Management", "Administration", with matching icons.
+  - Visibility rules:
+    - If the user has management privileges, show "All" and "Management".
+    - If the user has administration privileges, show all three.
+    - Otherwise, hide the dropdown.
+  - Filtering rules:
+    - Management view: subheader, drawer, and nav bar must only display "Competition Mgmt" and "Association Mgmt" items.
+    - Administration view: subheader, drawer, and nav bar must only display administration page items.
+- **Associations View:**
+  - Implement a paginated/filtered list of created associations (similar to the competitions list).
+  - Set the navigation bar/drawer links to direct to this view.
+  - If a user lacks permission to create associations, display a small banner with a link to the application page.
+- **Competitions View:**
+  - Allow all users (including unregistered/guests) to toggle between "Upcoming" and "Completed" events using a toggle switch (matching the style of the mobile admin dashboard).
+  - If a user lacks permission to create competitions, display a small banner with a link to the application page.
 
-### R3. System Administration
-- Admin permissions toggle: restrict competition/association creation to authorized users. Provide an application form where users can apply for either permission separately with a reason.
-- Admin Panel:
-  - List accepted users (with permissions) and applied users (with application date and reason).
-  - Admin controls to accept/reject applications and promote users to admins.
-  - Configurator: Add/rename sports, formats per sport, and disciplines. Associate disciplines to formats.
+### R3. Administration Dashboard Improvements
+- **Permission Requests:** In the permission requests table, show the user's Full Name and username instead of just their User ID.
+- **Sports Configuration:**
+  - Rename the "Sport Config" navigation item to "Configuration".
+  - Redesign the mobile configuration page layout to optimize the user experience under Google quality standards.
+- **User Management Page:**
+  - Add a "Users" page under Admin Dashboard listing all users.
+  - Clicking a user must navigate to a single user administration page.
+  - The user admin page must contain a Privileges section allowing admins to manually toggle/grant creator and admin privileges directly without going through the requests flow.
 
-### R4. Associations & Management
-- Association Creation: Wizard capturing name, profile photo, banner, scope (Global, Area, National with country selector), sports and formats, rulebook link per sport, website, social channels, description, and parent associations (requiring permission application with reason).
-- Association Details: display metadata, upcoming/completed meets, rulebook link, team members, and sub-associations.
-- Association Management:
-  - Roles: Owner and Editor. Manage roles and edit details. Transfer ownership (by Owner or Admin).
-  - Admin List: list of accepted and applied associations. Accept/reject applications.
-  - Team members list: add users with custom roles.
-  - Competition & Athlete Groups: create, activate/deactivate competition groups and athlete groups per sport and format. Specify if athlete groups are required.
+### R4. Search Functionality Expansion
+- Add the ability to search for and view Associations inside both the desktop and mobile search bars.
 
-### R5. Competition Creation & Custom Fields
-- Step-by-step wizard for competition creation:
-  - Name, location verification (detail selector: country -> city -> address).
-  - DateTime pickers (text vs calendar/clock) for start/end and registration periods.
-  - Payments: toggle fees. Specify amount, currency, bank details, and auto-generated description (max 140 chars) per athlete. Start/end payment dates.
-  - Registration mode: First-come-first-serve vs manual approval.
-  - Description: RichText editor (H1, H2, Bold, Italic, Underline, Bullets).
-  - Social media, website, ticket shop link.
-  - Sport selection: sport/format, association (only owned/managed), competition group, athlete groups.
-  - Limits: max athletes (per competition vs per group), max volunteers (per competition vs per position), toggle waiting lists.
-  - Volunteer setup: toggle volunteer needs, list positions (judges, spotters, livestream, media, commentators, administration), and configure periods.
-  - Custom fields: define text/dropdown inputs for athletes and volunteers.
-  - Disclaimers: configure disclaimers (text/link/both) to accept during registration.
-  - Safe zone guides for banner uploads in desktop/mobile feeds.
-  - Volunteer applications: multi-role applications with preference ordering.
+### R5. Settings Page Adjustments
+- **Creator Privileges Button:**
+  - Update the subtitle/description to "Apply to create associations or competitions".
+  - If a user has one privilege (e.g. competition creator), update the description to reflect this.
+  - If a user has both privileges, hide the button/section.
+- **Apply Privileges Modal:** Update the Submit button color to align with `design.md` style guidelines and other system buttons.
 
-### H1. Competition Management & Handling (Streetlifting Rules)
-- Manage roles: Owner, Editor, Viewer. Publish competition, auto-start/end registration & payment.
-- Roster: accept athletes, manage waiting list replacements, remove athletes with reason.
-- Scheduling: plan slots (weigh-in, flights, awards, staff). Public public schedules vs private staff schedules. CSV exports.
-- Weigh-in: record athlete bodyweight, enable disqualification status.
-- Modern Streetlifting rules engine:
-  - Muscle Up, Pull Up, Dip, Squat. 3 attempts. Ascending weight order. Smallest increments (1.25kg, 2.5kg).
-  - Weight configuration plate calculator from standard plates (1.25kg to 25kg) and micro-weights.
-  - Attempts weight selection: first attempt during weigh-in, subsequent attempts within 3 minutes (auto-fill defaults). Squats 3rd attempt can be changed twice (must be ascending).
-  - 1-minute execution timer control.
-  - 3 Platform Judges + 1 Head Judge voting panel. Voting rules: Dips (Invalid Depth) and Squats (Bent Knees & Invalid Depth) use majority 2:1 voting. Other failure reasons require unanimous 3:0. Anonymous judging options.
-  - Disqualification check: 0 of 3 valid attempts in a discipline.
-  - VAR: 1 request per meet, Head Judge reviews and overrules/confirms (restores VAR if overruled).
-  - Rankings feed: overall total and discipline scores with filters.
+## Acceptance Criteria
 
-### N1. System Notifications
-- Notify users of registration/permission updates, payment deadlines, schedule releases, flight listings.
-- User settings: enable/disable system notification categories.
+### Verification Rules
+- [ ] All existing 153 tests in the test suite pass successfully.
+- [ ] New unit and widget tests are written to verify the new/updated views, dropdown filters, privileges management, and associations search.
+- [ ] The app builds cleanly on Flutter without analysis errors or layout overflow warnings.
 
-## Verification & Testing Criteria
-- Implement comprehensive widget and unit tests verifying the business logic of:
-  - Convert username to lowercase on login page and login with username or email.
-  - Streetlifting Modern attempt rules (ascending attempts, plate selection, defaults).
-  - Judging majority vs unanimous voting results.
-  - Admin/Association permissions and role validations.
-- Run `flutter test` and ensure all tests compile and pass.
+## Follow-up — 2026-05-23T21:09:51Z
+
+Hi! The user has requested to add an additional requirement to the current project: "R6. Environment Configuration Setup".
+
+I have updated the prompt_draft.md file with this new requirement:
+### R6. Environment Configuration Setup
+- Environment JSON Files: Create environment-specific configurations in JSON files under config/: config/env_dev.json, config/env_staging.json, and config/env_prod.json. Each file must define ENV, SUPABASE_URL, and SUPABASE_ANON_KEY.
+- Application Startup Injection: Refactor lib/main.dart (or the startup/repository initialization flow) to load these environment variables dynamically using String.fromEnvironment.
+- Strict Mock Safety: If the environment is staging or production, require valid Supabase keys and throw/assert an error if initialization fails or if fallback mock databases are triggered. Allow mock database configurations only when the environment is explicitly set to dev and Supabase keys are empty.
+
+Please update the project sentinel plan and the orchestrator's requirements to include this environment configuration task, so that it is implemented and verified together with the rest of the refinements.
+

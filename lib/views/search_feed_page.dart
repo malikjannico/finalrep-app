@@ -20,6 +20,8 @@ import 'profile_page.dart';
 import 'settings_page.dart';
 import 'admin_dashboard_page.dart';
 import 'association_management_page.dart';
+import 'rankings_page.dart';
+import 'association_detail_page.dart';
 
 class SearchFeedPage extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -43,11 +45,12 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
   final FocusNode _endFocusNode = FocusNode();
   late CompetitionProvider _provider;
   bool _hasCheckedSharedLink = false;
-  int _currentMobileTabIndex = 0;
+  int _currentTabIndex = 0;
   bool _userIsCompactLayout = false;
-  bool _desktopProfileActive = false;
   String? _selectedProfileId;
   String? _selectedProfileUsername;
+  String _currentViewMode = 'All';
+  String _selectedCompetitionStatus = 'upcoming';
 
   // Stored startup URL info to avoid address-bar overwrite race conditions
   String? _initialPath;
@@ -105,7 +108,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     if (!mounted) return;
 
     if (_provider.query.isNotEmpty) {
-      _desktopProfileActive = false;
+      _currentTabIndex = 0;
       _selectedProfileId = null;
       _selectedProfileUsername = null;
     }
@@ -136,7 +139,6 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     // Attempt to route to shared link once data has loaded
     _checkSharedLink(_provider);
   }
-
 
   String? _getUserRouteSegments(String path) {
     final cleanPath = path.startsWith('/') ? path : '/$path';
@@ -176,12 +178,14 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     final queryParams = _initialQueryParams ?? const {};
 
     final userSegments = _getUserRouteSegments(path);
-    final compId = _getCompetitionRouteSegments(path) ?? queryParams['competitionId'];
+    final compId =
+        _getCompetitionRouteSegments(path) ?? queryParams['competitionId'];
     final q = queryParams['q'] ?? '';
     final scopeStr = queryParams['scope'];
 
     // If there is no deep link, set check to true and return
-    final hasNoDeepLink = path == '/' &&
+    final hasNoDeepLink =
+        path == '/' &&
         queryParams.isEmpty &&
         userSegments == null &&
         compId == null &&
@@ -211,19 +215,13 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
     // 1. Check `/profile`
     if (path == '/profile') {
-      final isDesktop = MediaQuery.of(context).size.width >= 900;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _hasCheckedSharedLink = true;
-          if (isDesktop) {
-            setState(() {
-              _desktopProfileActive = true;
-            });
-          } else {
-            setState(() {
-              _currentMobileTabIndex = 1;
-            });
-          }
+          setState(() {
+            _currentViewMode = 'All';
+            _currentTabIndex = 3;
+          });
         }
       });
       return;
@@ -231,22 +229,13 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
     // Check `/auth`, `/login` or `/register`
     if (path == '/auth' || path == '/login') {
-      final isDesktop = MediaQuery.of(context).size.width >= 900;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _hasCheckedSharedLink = true;
-          if (isDesktop) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                settings: const RouteSettings(name: '/login'),
-                builder: (_) => const LoginPage(),
-              ),
-            );
-          } else {
-            setState(() {
-              _currentMobileTabIndex = 1;
-            });
-          }
+          setState(() {
+            _currentViewMode = 'All';
+            _currentTabIndex = 3;
+          });
         }
       });
       return;
@@ -291,6 +280,8 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       SearchScope scope = SearchScope.competitions;
       if (scopeStr == 'users') {
         scope = SearchScope.users;
+      } else if (scopeStr == 'associations') {
+        scope = SearchScope.associations;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -416,7 +407,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     }
   }
 
-  void _showResetPasswordDialog(BuildContext context, AuthProvider authProvider) {
+  void _showResetPasswordDialog(
+    BuildContext context,
+    AuthProvider authProvider,
+  ) {
     final theme = Theme.of(context);
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
@@ -437,7 +431,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             final hasUppercase = pass.contains(RegExp(r'[A-Z]'));
             final hasLowercase = pass.contains(RegExp(r'[a-z]'));
             final hasDigits = pass.contains(RegExp(r'[0-9]'));
-            final hasSpecialChar = pass.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:\x27",./<>?]'));
+            final hasSpecialChar = pass.contains(
+              RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:\x27",./<>?]'),
+            );
 
             final isPasswordValid =
                 hasMinLength &&
@@ -482,7 +478,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   children: [
                     Icon(
                       met ? Icons.check_circle : Icons.radio_button_unchecked,
-                      color: met ? const Color(0xFF4CAF50) : theme.colorScheme.onSurfaceVariant.withAlpha(128),
+                      color: met
+                          ? const Color(0xFF4CAF50)
+                          : theme.colorScheme.onSurfaceVariant.withAlpha(128),
                       size: 16,
                     ),
                     const SizedBox(width: 8),
@@ -490,7 +488,11 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                       child: Text(
                         text,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: met ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant.withAlpha(178),
+                          color: met
+                              ? theme.colorScheme.onSurface
+                              : theme.colorScheme.onSurfaceVariant.withAlpha(
+                                  178,
+                                ),
                         ),
                       ),
                     ),
@@ -523,10 +525,14 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                               controller: newPasswordController,
                               decoration: InputDecoration(
                                 labelText: 'New Password',
-                                prefixIcon: const Icon(Icons.lock_reset_outlined),
+                                prefixIcon: const Icon(
+                                  Icons.lock_reset_outlined,
+                                ),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                    obscureNew
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
                                   ),
                                   onPressed: () {
                                     setDialogState(() {
@@ -555,7 +561,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                    obscureConfirm
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
                                   ),
                                   onPressed: () {
                                     setDialogState(() {
@@ -584,29 +592,43 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                             ),
                             const SizedBox(height: 8),
                             buildRuleRow('At least 8 characters', hasMinLength),
-                            buildRuleRow('At least 1 uppercase letter (A-Z)', hasUppercase),
-                            buildRuleRow('At least 1 lowercase letter (a-z)', hasLowercase),
+                            buildRuleRow(
+                              'At least 1 uppercase letter (A-Z)',
+                              hasUppercase,
+                            ),
+                            buildRuleRow(
+                              'At least 1 lowercase letter (a-z)',
+                              hasLowercase,
+                            ),
                             buildRuleRow('At least 1 number (0-9)', hasDigits),
-                            buildRuleRow('At least 1 special character (e.g. !@#\$%^&*)', hasSpecialChar),
+                            buildRuleRow(
+                              'At least 1 special character (e.g. !@#\$%^&*)',
+                              hasSpecialChar,
+                            ),
                             const SizedBox(height: 20),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Password Strength:',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
                                     ),
                                     Text(
                                       strengthText,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: barColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: barColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -621,8 +643,13 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                                           right: index < 2 ? 6.0 : 0.0,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: isFilled ? barColor : theme.colorScheme.outlineVariant.withAlpha(50),
-                                          borderRadius: BorderRadius.circular(3),
+                                          color: isFilled
+                                              ? barColor
+                                              : theme.colorScheme.outlineVariant
+                                                    .withAlpha(50),
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
                                         ),
                                       ),
                                     );
@@ -636,7 +663,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     ),
               actions: [
                 TextButton(
-                  onPressed: dialogLoading ? null : () => Navigator.of(context).pop(),
+                  onPressed: dialogLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text('CANCEL'),
                 ),
                 ElevatedButton(
@@ -647,7 +676,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                           if (!isPasswordValid) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: const Text('Password does not meet all security rules.'),
+                                content: const Text(
+                                  'Password does not meet all security rules.',
+                                ),
                                 backgroundColor: theme.colorScheme.error,
                               ),
                             );
@@ -657,12 +688,16 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                             dialogLoading = true;
                           });
                           try {
-                            await authProvider.changePassword(newPasswordController.text);
+                            await authProvider.changePassword(
+                              newPasswordController.text,
+                            );
                             if (context.mounted) {
                               Navigator.of(context).pop();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Password updated successfully!'),
+                                  content: Text(
+                                    'Password updated successfully!',
+                                  ),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -671,7 +706,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Failed to update password: $e'),
+                                  content: Text(
+                                    'Failed to update password: $e',
+                                  ),
                                   backgroundColor: theme.colorScheme.error,
                                 ),
                               );
@@ -702,10 +739,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
     // Automatically switch back to competitions tab if user logs out
     if (!authProvider.isAuthenticated) {
-      if (_currentMobileTabIndex == 1) {
-        _currentMobileTabIndex = 0;
+      if (_currentTabIndex == 3) {
+        _currentTabIndex = 0;
       }
-      _desktopProfileActive = false;
     }
 
     if (authProvider.isPasswordRecoveryActive) {
@@ -720,13 +756,17 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width >= 900;
     final isTablet = size.width >= 600 && size.width < 900;
-    final showProfileTab = !isDesktop && _currentMobileTabIndex == 1;
+    final showProfileTab = !isDesktop && _currentTabIndex == 3;
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: theme.colorScheme.surface,
-      drawer: showProfileTab ? null : _buildNavigationDrawer(context, provider, theme),
-      endDrawer: showProfileTab ? null : _buildFiltersDrawer(context, provider, theme),
+      drawer: showProfileTab
+          ? null
+          : _buildNavigationDrawer(context, provider, theme),
+      endDrawer: _currentTabIndex == 0
+          ? _buildFiltersDrawer(context, provider, theme)
+          : null,
       body: SafeArea(
         top: false,
         child: Column(
@@ -740,75 +780,197 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
             // Main View Content
             Expanded(
-              child: (isDesktop && (_selectedProfileId != null || _selectedProfileUsername != null))
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 24, top: 16),
-                          child: TextButton.icon(
-                            icon: const Icon(Icons.arrow_back),
-                            label: const Text('Back to search feed'),
-                            onPressed: () {
-                              setState(() {
-                                _selectedProfileId = null;
-                                _selectedProfileUsername = null;
-                              });
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: ProfilePage(
-                            userId: _selectedProfileId,
-                            username: _selectedProfileUsername,
-                            isInline: true,
-                            profileRepository: provider.profileRepository,
-                          ),
-                        ),
-                      ],
-                    )
-                  : (isDesktop && _desktopProfileActive && authProvider.isAuthenticated)
-                      ? const ProfilePage(isInline: true)
-                      : showProfileTab
-                          ? (authProvider.isAuthenticated
-                              ? const ProfilePage(isInline: true)
-                              : const LoginPage(isInline: true))
-                          : _buildMainContent(
-                              context,
-                              provider,
-                              theme,
-                              isDesktop,
-                              isTablet,
-                            ),
+              child: _buildActiveTabContent(
+                context,
+                provider,
+                authProvider,
+                theme,
+                isDesktop,
+                isTablet,
+              ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: !isDesktop && authProvider.isAuthenticated
+      bottomNavigationBar: !isDesktop
           ? BottomNavigationBar(
-              currentIndex: _currentMobileTabIndex,
+              type: BottomNavigationBarType.fixed,
+              currentIndex: _currentTabIndex.clamp(
+                0,
+                (authProvider.isAuthenticated ? 4 : 3) - 1,
+              ),
               selectedItemColor: const Color(0xFFE94E1B),
               unselectedItemColor: theme.colorScheme.onSurfaceVariant,
               onTap: (index) {
                 if (index == 0) {
                   provider.setSearchScopeAndQuery(SearchScope.competitions, '');
+                } else if (index == 1) {
+                  provider.searchAssociations('');
                 }
                 setState(() {
-                  _currentMobileTabIndex = index;
+                  _currentTabIndex = index;
+                  _selectedProfileId = null;
+                  _selectedProfileUsername = null;
                 });
               },
-              items: const [
-                BottomNavigationBarItem(
+              items: [
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.explore),
                   label: 'Competitions',
                 ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person),
-                  label: 'My Profile',
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.business),
+                  label: 'Associations',
                 ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.emoji_events),
+                  label: 'Rankings',
+                ),
+                if (authProvider.isAuthenticated)
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.person),
+                    label: 'My Profile',
+                  ),
               ],
             )
           : null,
+    );
+  }
+
+  Widget _buildActiveTabContent(
+    BuildContext context,
+    CompetitionProvider provider,
+    AuthProvider authProvider,
+    ThemeData theme,
+    bool isDesktop,
+    bool isTablet,
+  ) {
+    switch (_currentTabIndex) {
+      case 1:
+        if (!authProvider.isAuthenticated) {
+          return _buildPublicAssociationsLibrary(
+            context,
+            provider,
+            theme,
+            isDesktop,
+            isTablet,
+          );
+        }
+        return AssociationManagementPage(isInline: true);
+      case 2:
+        return const RankingsPage(showAppBar: false);
+      case 3:
+        if (authProvider.isAuthenticated) {
+          return const ProfilePage(isInline: true);
+        } else {
+          return const LoginPage(isInline: true);
+        }
+      case 0:
+      default:
+        if (isDesktop &&
+            (_selectedProfileId != null || _selectedProfileUsername != null)) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 24, top: 16),
+                child: TextButton.icon(
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Back to search feed'),
+                  onPressed: () {
+                    setState(() {
+                      _selectedProfileId = null;
+                      _selectedProfileUsername = null;
+                    });
+                  },
+                ),
+              ),
+              Expanded(
+                child: ProfilePage(
+                  userId: _selectedProfileId,
+                  username: _selectedProfileUsername,
+                  isInline: true,
+                  profileRepository: provider.profileRepository,
+                ),
+              ),
+            ],
+          );
+        }
+        return _buildMainContent(context, provider, theme, isDesktop, isTablet);
+    }
+  }
+
+  Widget _buildPublicAssociationsLibrary(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+    bool isTablet,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          color: theme.colorScheme.primaryContainer,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: theme.colorScheme.onPrimaryContainer,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'You are viewing the public Associations Library. Log in to create or manage your own associations.',
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: TextField(
+            onChanged: (val) {
+              provider.searchAssociations(val);
+            },
+            decoration: InputDecoration(
+              hintText: 'Search associations...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: theme.brightness == Brightness.dark
+                  ? const Color(0xFF1E1715)
+                  : const Color(0xFFF3EDEB),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _buildAssociationsListGrid(
+            context,
+            provider,
+            theme,
+            isDesktop,
+            isTablet,
+          ),
+        ),
+      ],
     );
   }
 
@@ -847,7 +1009,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
-                      provider.setSearchScopeAndQuery(SearchScope.competitions, '');
+                      provider.setSearchScopeAndQuery(
+                        SearchScope.competitions,
+                        '',
+                      );
                     },
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
@@ -863,10 +1028,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   ),
                 ),
                 // Centered Search bar
-                const SizedBox(
-                  width: 440,
-                  child: DesktopSearchBar(),
-                ),
+                const SizedBox(width: 440, child: DesktopSearchBar()),
                 // Theme toggle and profile on desktop right
                 Align(
                   alignment: Alignment.centerRight,
@@ -876,7 +1038,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                       if (!authProvider.isAuthenticated) ...[
                         IconButton(
                           icon: Icon(
-                            widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                            widget.isDarkMode
+                                ? Icons.light_mode
+                                : Icons.dark_mode,
                             color: theme.colorScheme.onSurface,
                           ),
                           onPressed: widget.onToggleTheme,
@@ -904,7 +1068,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    provider.setSearchScopeAndQuery(SearchScope.competitions, '');
+                    provider.setSearchScopeAndQuery(
+                      SearchScope.competitions,
+                      '',
+                    );
                   },
                   child: SvgPicture.asset(
                     'assets/finalrep_icon.svg',
@@ -921,7 +1088,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   icon: const Icon(Icons.search),
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MobileSearchPage()),
+                      MaterialPageRoute(
+                        builder: (_) => const MobileSearchPage(),
+                      ),
                     );
                   },
                 ),
@@ -936,31 +1105,23 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       final user = authProvider.currentUserProfile;
       final initials = user != null && user.fullName.isNotEmpty
           ? user.fullName
-              .trim()
-              .split(' ')
-              .map((e) => e.isEmpty ? '' : e[0])
-              .take(2)
-              .join()
-              .toUpperCase()
+                .trim()
+                .split(' ')
+                .map((e) => e.isEmpty ? '' : e[0])
+                .take(2)
+                .join()
+                .toUpperCase()
           : user?.username.isNotEmpty == true
-              ? user!.username[0].toUpperCase()
-              : '?';
+          ? user!.username[0].toUpperCase()
+          : '?';
       return PopupMenuButton<String>(
         onSelected: (value) async {
           if (value == 'profile') {
-            final isDesktop = MediaQuery.of(context).size.width >= 900;
-            if (isDesktop) {
-              setState(() {
-                _desktopProfileActive = true;
-              });
-            } else {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  settings: const RouteSettings(name: '/profile'),
-                  builder: (_) => const ProfilePage(),
-                ),
-              );
-            }
+            setState(() {
+              _currentTabIndex = 3;
+              _selectedProfileId = null;
+              _selectedProfileUsername = null;
+            });
           } else if (value == 'settings') {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -973,7 +1134,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text('Log Out?'),
-                content: const Text('Are you sure you want to log out of your session?'),
+                content: const Text(
+                  'Are you sure you want to log out of your session?',
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
@@ -1008,7 +1171,11 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             value: 'profile',
             child: Row(
               children: [
-                Icon(Icons.person_outline, size: 20, color: theme.colorScheme.onSurface),
+                Icon(
+                  Icons.person_outline,
+                  size: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
                 const SizedBox(width: 12),
                 const Text('My Profile'),
               ],
@@ -1018,7 +1185,11 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             value: 'settings',
             child: Row(
               children: [
-                Icon(Icons.settings_outlined, size: 20, color: theme.colorScheme.onSurface),
+                Icon(
+                  Icons.settings_outlined,
+                  size: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
                 const SizedBox(width: 12),
                 const Text('Settings'),
               ],
@@ -1031,7 +1202,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               children: [
                 const Icon(Icons.logout, size: 20, color: Colors.redAccent),
                 const SizedBox(width: 12),
-                const Text('Log Out', style: TextStyle(color: Colors.redAccent)),
+                const Text(
+                  'Log Out',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
               ],
             ),
           ),
@@ -1070,7 +1244,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
             child: const Text('Sign In', style: TextStyle(fontSize: 13)),
           ),
@@ -1089,9 +1265,14 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               backgroundColor: const Color(0xFFE94E1B),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
-            child: const Text('Register', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Register',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       );
@@ -1100,6 +1281,8 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
 
   Widget _buildDesktopSubNavBar(CompetitionProvider provider, ThemeData theme) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAuthenticated = authProvider.isAuthenticated;
+
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -1116,10 +1299,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
         children: [
           _buildSubNavButton(
             label: 'Competitions',
-            isActive: provider.searchScope == SearchScope.competitions && !_desktopProfileActive && _selectedProfileId == null && _selectedProfileUsername == null,
+            isActive: _currentTabIndex == 0,
             onPressed: () {
               setState(() {
-                _desktopProfileActive = false;
+                _currentTabIndex = 0;
                 _selectedProfileId = null;
                 _selectedProfileUsername = null;
               });
@@ -1127,14 +1310,41 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
             },
             theme: theme,
           ),
-          if (authProvider.isAuthenticated) ...[
+          const SizedBox(width: 8),
+          _buildSubNavButton(
+            label: 'Associations',
+            isActive: _currentTabIndex == 1,
+            onPressed: () {
+              setState(() {
+                _currentTabIndex = 1;
+                _selectedProfileId = null;
+                _selectedProfileUsername = null;
+              });
+              provider.searchAssociations('');
+            },
+            theme: theme,
+          ),
+          const SizedBox(width: 8),
+          _buildSubNavButton(
+            label: 'Rankings',
+            isActive: _currentTabIndex == 2,
+            onPressed: () {
+              setState(() {
+                _currentTabIndex = 2;
+                _selectedProfileId = null;
+                _selectedProfileUsername = null;
+              });
+            },
+            theme: theme,
+          ),
+          if (isAuthenticated) ...[
             const SizedBox(width: 8),
             _buildSubNavButton(
               label: 'My Profile',
-              isActive: _desktopProfileActive && _selectedProfileId == null && _selectedProfileUsername == null,
+              isActive: _currentTabIndex == 3,
               onPressed: () {
                 setState(() {
-                  _desktopProfileActive = true;
+                  _currentTabIndex = 3;
                   _selectedProfileId = null;
                   _selectedProfileUsername = null;
                 });
@@ -1180,15 +1390,15 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     final user = authProvider.currentUserProfile;
     final initials = user != null && user.fullName.isNotEmpty
         ? user.fullName
-            .trim()
-            .split(' ')
-            .map((e) => e.isEmpty ? '' : e[0])
-            .take(2)
-            .join()
-            .toUpperCase()
+              .trim()
+              .split(' ')
+              .map((e) => e.isEmpty ? '' : e[0])
+              .take(2)
+              .join()
+              .toUpperCase()
         : user?.username.isNotEmpty == true
-            ? user!.username[0].toUpperCase()
-            : '?';
+        ? user!.username[0].toUpperCase()
+        : '?';
 
     return Drawer(
       child: GestureDetector(
@@ -1219,12 +1429,17 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
                       border: Border(
                         bottom: BorderSide(
-                          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.5,
+                          ),
                           width: 1,
                         ),
                       ),
@@ -1288,7 +1503,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                 ),
               ] else ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 32.0,
+                  ),
                   child: SvgPicture.asset(
                     'assets/finalrep_icon.svg',
                     height: 36,
@@ -1302,17 +1520,72 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               ],
 
               ListTile(
-                leading: const Icon(Icons.explore, color: Color(0xFFE94E1B)),
-                title: const Text(
+                leading: Icon(
+                  Icons.explore,
+                  color: _currentTabIndex == 0 ? const Color(0xFFE94E1B) : null,
+                ),
+                title: Text(
                   'Competitions',
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFE94E1B),
+                    fontWeight: _currentTabIndex == 0 ? FontWeight.bold : FontWeight.normal,
+                    color: _currentTabIndex == 0 ? const Color(0xFFE94E1B) : null,
                   ),
                 ),
                 onTap: () {
+                  setState(() {
+                    _currentTabIndex = 0;
+                    _selectedProfileId = null;
+                    _selectedProfileUsername = null;
+                  });
                   provider.setSearchScopeAndQuery(SearchScope.competitions, '');
                   provider.setLayout(CompetitionsLayout.grid);
+                  if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.business,
+                  color: _currentTabIndex == 1 ? const Color(0xFFE94E1B) : null,
+                ),
+                title: Text(
+                  'Associations',
+                  style: TextStyle(
+                    fontWeight: _currentTabIndex == 1 ? FontWeight.bold : FontWeight.normal,
+                    color: _currentTabIndex == 1 ? const Color(0xFFE94E1B) : null,
+                  ),
+                ),
+                onTap: () {
+                  setState(() {
+                    _currentTabIndex = 1;
+                    _selectedProfileId = null;
+                    _selectedProfileUsername = null;
+                  });
+                  provider.searchAssociations('');
+                  if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.emoji_events,
+                  color: _currentTabIndex == 2 ? const Color(0xFFE94E1B) : null,
+                ),
+                title: Text(
+                  'Rankings',
+                  style: TextStyle(
+                    fontWeight: _currentTabIndex == 2 ? FontWeight.bold : FontWeight.normal,
+                    color: _currentTabIndex == 2 ? const Color(0xFFE94E1B) : null,
+                  ),
+                ),
+                onTap: () {
+                  setState(() {
+                    _currentTabIndex = 2;
+                    _selectedProfileId = null;
+                    _selectedProfileUsername = null;
+                  });
                   if (_scaffoldKey.currentState?.isDrawerOpen == true) {
                     Navigator.of(context).pop();
                   }
@@ -1323,24 +1596,13 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   leading: const Icon(Icons.person),
                   title: const Text('My Profile'),
                   onTap: () {
-                    final isDesktop = MediaQuery.of(context).size.width >= 900;
-                    if (!isDesktop) {
-                      setState(() {
-                        _currentMobileTabIndex = 1;
-                      });
-                      if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-                        Navigator.of(context).pop();
-                      }
-                    } else {
-                      if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-                        Navigator.of(context).pop();
-                      }
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          settings: const RouteSettings(name: '/profile'),
-                          builder: (_) => const ProfilePage(),
-                        ),
-                      );
+                    setState(() {
+                      _currentTabIndex = 3;
+                      _selectedProfileId = null;
+                      _selectedProfileUsername = null;
+                    });
+                    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                      Navigator.of(context).pop();
                     }
                   },
                 ),
@@ -1369,24 +1631,10 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                       }
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          settings: const RouteSettings(name: '/admin_dashboard'),
+                          settings: const RouteSettings(
+                            name: '/admin_dashboard',
+                          ),
                           builder: (_) => const AdminDashboardPage(),
-                        ),
-                      );
-                    },
-                  ),
-                if (authProvider.isAssociationCreator || authProvider.isAdmin || authProvider.currentUserProfile != null)
-                  ListTile(
-                    leading: const Icon(Icons.business, color: Colors.orange),
-                    title: const Text('Associations'),
-                    onTap: () {
-                      if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-                        Navigator.of(context).pop();
-                      }
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          settings: const RouteSettings(name: '/associations'),
-                          builder: (_) => const AssociationManagementPage(),
                         ),
                       );
                     },
@@ -1405,7 +1653,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Log Out?'),
-                        content: const Text('Are you sure you want to log out of your session?'),
+                        content: const Text(
+                          'Are you sure you want to log out of your session?',
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(false),
@@ -1427,7 +1677,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                       await authProvider.logout();
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Logged out successfully.')),
+                          const SnackBar(
+                            content: Text('Logged out successfully.'),
+                          ),
                         );
                       }
                     }
@@ -1436,14 +1688,18 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               ],
               if (!authProvider.isAuthenticated) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           key: const Key('drawer_signin_button'),
                           onPressed: () {
-                            if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                            if (_scaffoldKey.currentState?.isDrawerOpen ==
+                                true) {
                               Navigator.of(context).pop();
                             }
                             Navigator.of(context).push(
@@ -1468,12 +1724,15 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                         child: ElevatedButton.icon(
                           key: const Key('drawer_register_button'),
                           onPressed: () {
-                            if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                            if (_scaffoldKey.currentState?.isDrawerOpen ==
+                                true) {
                               Navigator.of(context).pop();
                             }
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                settings: const RouteSettings(name: '/register'),
+                                settings: const RouteSettings(
+                                  name: '/register',
+                                ),
                                 builder: (_) => const RegisterPage(),
                               ),
                             );
@@ -1554,7 +1813,8 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () {
-                        if (_scaffoldKey.currentState?.isEndDrawerOpen == true) {
+                        if (_scaffoldKey.currentState?.isEndDrawerOpen ==
+                            true) {
                           Navigator.of(context).pop();
                         }
                       },
@@ -1876,26 +2136,35 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
     bool isDesktop,
     bool isTablet,
   ) {
-    final activeWidget = provider.searchScope == SearchScope.users
-        ? _buildUsersListGrid(context, provider, theme, isDesktop, isTablet)
-        : (provider.layout == CompetitionsLayout.map
-            ? const WorldMapView()
-            : _buildCompetitionsListGrid(
-                context,
-                provider,
-                theme,
-                isDesktop,
-                isTablet,
-              ));
-
     final isUsers = provider.searchScope == SearchScope.users;
+    final isAssociations = provider.searchScope == SearchScope.associations;
+
+    final activeWidget = isUsers
+        ? _buildUsersListGrid(context, provider, theme, isDesktop, isTablet)
+        : isAssociations
+        ? _buildAssociationsListGrid(
+            context,
+            provider,
+            theme,
+            isDesktop,
+            isTablet,
+          )
+        : (provider.layout == CompetitionsLayout.map
+              ? const WorldMapView()
+              : _buildCompetitionsListGrid(
+                  context,
+                  provider,
+                  theme,
+                  isDesktop,
+                  isTablet,
+                ));
 
     if (isDesktop) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Left Sidebar (always visible on desktop, hidden for users search scope)
-          if (!isUsers)
+          // Left Sidebar (always visible on desktop, hidden for users and associations search scope)
+          if (!isUsers && !isAssociations)
             Container(
               width: 300,
               decoration: BoxDecoration(
@@ -1951,6 +2220,13 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
               children: [
                 isUsers
                     ? _buildUsersResultsHeader(context, provider, theme, true)
+                    : isAssociations
+                    ? _buildAssociationsResultsHeader(
+                        context,
+                        provider,
+                        theme,
+                        true,
+                      )
                     : _buildResultsHeader(context, provider, theme, true),
                 Expanded(child: activeWidget),
               ],
@@ -1967,7 +2243,7 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           if (velocity > 200) {
             _scaffoldKey.currentState?.openDrawer();
           } else if (velocity < -200) {
-            if (!isUsers) {
+            if (!isUsers && !isAssociations) {
               _scaffoldKey.currentState?.openEndDrawer();
             }
           }
@@ -1976,6 +2252,13 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
           children: [
             isUsers
                 ? _buildUsersResultsHeader(context, provider, theme, false)
+                : isAssociations
+                ? _buildAssociationsResultsHeader(
+                    context,
+                    provider,
+                    theme,
+                    false,
+                  )
                 : _buildResultsHeader(context, provider, theme, false),
             Expanded(child: activeWidget),
           ],
@@ -2534,7 +2817,9 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        settings: RouteSettings(name: '/competitions/${comp.id}'),
+                        settings: RouteSettings(
+                          name: '/competitions/${comp.id}',
+                        ),
                         builder: (_) =>
                             CompetitionDetailPage(competition: comp),
                       ),
@@ -2681,6 +2966,313 @@ class _SearchFeedPageState extends State<SearchFeedPage> {
       ],
     );
   }
+
+  Widget _buildAssociationsResultsHeader(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              '${provider.searchedAssociations.length} Associations',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PopupMenuButton<bool>(
+                tooltip: 'Select layout',
+                onSelected: (bool isCompact) {
+                  setState(() {
+                    _userIsCompactLayout = isCompact;
+                  });
+                },
+                itemBuilder: (BuildContext context) => [
+                  PopupMenuItem<bool>(
+                    value: false,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.grid_view,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Grid Layout',
+                          style: TextStyle(
+                            fontWeight: !_userIsCompactLayout
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<bool>(
+                    value: true,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.view_list,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Compact Layout',
+                          style: TextStyle(
+                            fontWeight: _userIsCompactLayout
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(
+                    !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssociationsListGrid(
+    BuildContext context,
+    CompetitionProvider provider,
+    ThemeData theme,
+    bool isDesktop,
+    bool isTablet,
+  ) {
+    if (provider.isLoadingAssociations) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (provider.errorMessage != null) {
+      return Center(
+        child: Text(
+          provider.errorMessage!,
+          style: TextStyle(color: theme.colorScheme.error),
+        ),
+      );
+    }
+
+    if (provider.searchedAssociations.isEmpty) {
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.grid_off_outlined,
+                size: 64,
+                color: theme.colorScheme.outline,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No associations found',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Try refining your search query.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      slivers: [
+        if (_userIsCompactLayout)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final assoc = provider.searchedAssociations[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                      child: Text(
+                        assoc.name.isNotEmpty
+                            ? assoc.name[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      assoc.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      'Scope: ${assoc.scope.toUpperCase()} • ${assoc.supportedSports.join(", ")}',
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AssociationDetailPage(associationId: assoc.id),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              }, childCount: provider.searchedAssociations.length),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.only(
+              left: 24,
+              right: 24,
+              bottom: 40,
+              top: 12,
+            ),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isDesktop ? 3 : (isTablet ? 2 : 1),
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+                mainAxisExtent: 160,
+              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final assoc = provider.searchedAssociations[index];
+                return Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AssociationDetailPage(associationId: assoc.id),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor:
+                                    theme.colorScheme.primaryContainer,
+                                child: Text(
+                                  assoc.name.isNotEmpty
+                                      ? assoc.name[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  assoc.name,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: Text(
+                              assoc.description.isEmpty
+                                  ? 'No description provided.'
+                                  : assoc.description,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  assoc.scope.toUpperCase(),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color:
+                                        theme.colorScheme.onSecondaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                assoc.supportedSports.join(', '),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }, childCount: provider.searchedAssociations.length),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class CollapsibleFilterSection extends StatefulWidget {
@@ -2809,6 +3401,8 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
       final provider = Provider.of<CompetitionProvider>(context, listen: false);
       if (_tempSearchScope == SearchScope.users) {
         provider.searchUsers(_controller.text);
+      } else if (_tempSearchScope == SearchScope.associations) {
+        provider.searchAssociations(_controller.text);
       }
     } else {
       _hideOverlay();
@@ -2870,15 +3464,15 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
                         final user = suggestions[index];
                         final initials = user.fullName.isNotEmpty
                             ? user.fullName
-                                .trim()
-                                .split(' ')
-                                .map((e) => e.isEmpty ? '' : e[0])
-                                .take(2)
-                                .join()
-                                .toUpperCase()
+                                  .trim()
+                                  .split(' ')
+                                  .map((e) => e.isEmpty ? '' : e[0])
+                                  .take(2)
+                                  .join()
+                                  .toUpperCase()
                             : user.username.isNotEmpty
-                                ? user.username[0].toUpperCase()
-                                : '?';
+                            ? user.username[0].toUpperCase()
+                            : '?';
                         return ListTile(
                           dense: true,
                           leading: CircleAvatar(
@@ -2893,7 +3487,8 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onPrimaryContainer,
+                                      color:
+                                          theme.colorScheme.onPrimaryContainer,
                                     ),
                                   )
                                 : null,
@@ -2908,10 +3503,67 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
                             _focusNode.unfocus();
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                settings: RouteSettings(name: '/users/${user.username}'),
+                                settings: RouteSettings(
+                                  name: '/users/${user.username}',
+                                ),
                                 builder: (_) => ProfilePage(
                                   userId: user.id,
                                   profileRepository: provider.profileRepository,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  );
+                } else if (_tempSearchScope == SearchScope.associations) {
+                  final suggestions = provider.searchedAssociations;
+
+                  if (suggestions.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      child: const Text('No associations found'),
+                    );
+                  }
+
+                  return Container(
+                    constraints: const BoxConstraints(maxHeight: 250),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: suggestions.length,
+                      itemBuilder: (context, index) {
+                        final assoc = suggestions[index];
+                        return ListTile(
+                          dense: true,
+                          leading: CircleAvatar(
+                            radius: 16,
+                            backgroundColor:
+                                theme.colorScheme.secondaryContainer,
+                            child: Text(
+                              assoc.name.isNotEmpty
+                                  ? assoc.name[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            assoc.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(assoc.scope.toUpperCase()),
+                          onTap: () {
+                            _hideOverlay();
+                            _focusNode.unfocus();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => AssociationDetailPage(
+                                  associationId: assoc.id,
                                 ),
                               ),
                             );
@@ -2957,7 +3609,9 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
                             _focusNode.unfocus();
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                settings: RouteSettings(name: '/competitions/${comp.id}'),
+                                settings: RouteSettings(
+                                  name: '/competitions/${comp.id}',
+                                ),
                                 builder: (_) =>
                                     CompetitionDetailPage(competition: comp),
                               ),
@@ -2992,11 +3646,14 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
         _controller.text = provider.query;
       }
     }
-    if (provider.query.isEmpty && _controller.text.isNotEmpty && !_focusNode.hasFocus) {
+    if (provider.query.isEmpty &&
+        _controller.text.isNotEmpty &&
+        !_focusNode.hasFocus) {
       _controller.clear();
     }
 
     final isUsers = _tempSearchScope == SearchScope.users;
+    final isAssociations = _tempSearchScope == SearchScope.associations;
 
     return CompositedTransformTarget(
       link: _layerLink,
@@ -3010,7 +3667,11 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
             horizontal: 16,
             vertical: 10,
           ),
-          hintText: isUsers ? 'Search users...' : 'Search competitions',
+          hintText: isUsers
+              ? 'Search users...'
+              : isAssociations
+              ? 'Search associations...'
+              : 'Search competitions',
           prefixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -3033,6 +3694,10 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
                     value: SearchScope.users,
                     child: Text('Users'),
                   ),
+                  DropdownMenuItem(
+                    value: SearchScope.associations,
+                    child: Text('Assocs'),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -3050,11 +3715,7 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
                 color: theme.colorScheme.outlineVariant,
               ),
               const SizedBox(width: 8),
-              Icon(
-                Icons.search,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
+              Icon(Icons.search, size: 20, color: theme.colorScheme.primary),
             ],
           ),
           prefixIconConstraints: const BoxConstraints(

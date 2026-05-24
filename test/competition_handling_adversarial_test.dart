@@ -15,7 +15,7 @@ class LocalMockSupabaseClient implements SupabaseClient {
 
 class LocalMockCompetitionRepository implements CompetitionRepository {
   final Map<String, Competition> competitions = {};
-  
+
   @override
   SupabaseClient get client => LocalMockSupabaseClient();
 
@@ -24,6 +24,7 @@ class LocalMockCompetitionRepository implements CompetitionRepository {
     String? query,
     String? sportSubtype,
     String? compGroupName,
+    String? status = 'upcoming',
   }) async => [];
 
   @override
@@ -68,41 +69,57 @@ void main() {
       );
     });
 
-    test('Double submission of judging votes is prevented and does not corrupt state', () {
-      provider.initCompetitionHandling('comp-1');
-      expect(provider.activeDiscipline, 'Muscle Up');
-      expect(provider.attemptNum, 1);
-      expect(provider.submittedAttempts, isEmpty);
+    test(
+      'Double submission of judging votes is prevented and does not corrupt state',
+      () {
+        provider.initCompetitionHandling('comp-1');
+        expect(provider.activeDiscipline, 'Muscle Up');
+        expect(provider.attemptNum, 1);
+        expect(provider.submittedAttempts, isEmpty);
 
-      // Select valid weight for attempt 1
-      final err = provider.selectAttemptWeight('athlete-1', 'Muscle Up', 1, 10.0);
-      expect(err, isNull);
-      expect(provider.attemptWeight, 10.0);
-      expect(provider.judgingComplete, isFalse);
+        // Select valid weight for attempt 1
+        final err = provider.selectAttemptWeight(
+          'athlete-1',
+          'Muscle Up',
+          1,
+          10.0,
+        );
+        expect(err, isNull);
+        expect(provider.attemptWeight, 10.0);
+        expect(provider.judgingComplete, isFalse);
 
-      // 1. First submission (valid)
-      provider.submitJudgingVotes(discipline: 'Muscle Up');
-      expect(provider.judgingComplete, isTrue);
-      expect(provider.liftPassed, isTrue);
-      expect(provider.submittedAttempts, equals([10.0]));
-      expect(provider.attemptNum, 2);
+        // 1. First submission (valid)
+        provider.submitJudgingVotes(discipline: 'Muscle Up');
+        expect(provider.judgingComplete, isTrue);
+        expect(provider.liftPassed, isTrue);
+        expect(provider.submittedAttempts, equals([10.0]));
+        expect(provider.attemptNum, 2);
 
-      // 2. Second submission without selecting a new weight is prevented
-      provider.submitJudgingVotes(discipline: 'Muscle Up');
-      expect(provider.submittedAttempts, equals([10.0])); // No duplicates added!
-      expect(provider.attemptNum, 2); // Attempt number remains 2!
-    });
+        // 2. Second submission without selecting a new weight is prevented
+        provider.submitJudgingVotes(discipline: 'Muscle Up');
+        expect(
+          provider.submittedAttempts,
+          equals([10.0]),
+        ); // No duplicates added!
+        expect(provider.attemptNum, 2); // Attempt number remains 2!
+      },
+    );
 
     test('Selecting negative attempt weight is rejected by validation', () {
       provider.initCompetitionHandling('comp-1');
 
-      final err = provider.selectAttemptWeight('athlete-1', 'Muscle Up', 1, -1.25);
+      final err = provider.selectAttemptWeight(
+        'athlete-1',
+        'Muscle Up',
+        1,
+        -1.25,
+      );
       expect(err, isNotNull); // Negative weight rejected!
     });
 
     test('Negative bodyweight throws ArgumentError', () {
       provider.initCompetitionHandling('comp-1');
-      
+
       // Record negative bodyweight (-75.0kg) and zero weight -> must throw ArgumentError
       expect(
         () => provider.recordWeighIn('athlete-1', -75.0, '12', 'Medium'),
@@ -116,11 +133,13 @@ void main() {
 
     test('VAR overrules correct disqualification status on 3rd attempt fail', () {
       provider.initCompetitionHandling('comp-1');
-      
+
       // Fail first attempt
       provider.selectAttemptWeight('athlete-1', 'Muscle Up', 1, 10.0);
       provider.toggleJudgeVote(0); // vote: [false, true, true]
-      provider.setFailureReason('Double Motion'); // needs unanimous, so will fail
+      provider.setFailureReason(
+        'Double Motion',
+      ); // needs unanimous, so will fail
       provider.submitJudgingVotes(discipline: 'Muscle Up');
       expect(provider.liftPassed, isFalse);
       expect(provider.attemptNum, 2);
@@ -128,7 +147,9 @@ void main() {
 
       // Fail second attempt
       provider.selectAttemptWeight('athlete-1', 'Muscle Up', 2, 11.25);
-      provider.submitJudgingVotes(discipline: 'Muscle Up'); // votes still have a false, fails
+      provider.submitJudgingVotes(
+        discipline: 'Muscle Up',
+      ); // votes still have a false, fails
       expect(provider.liftPassed, isFalse);
       expect(provider.attemptNum, 3);
       expect(provider.submittedAttempts, isEmpty);
@@ -150,7 +171,7 @@ void main() {
       expect(provider.varRequested, isFalse);
       expect(provider.liftPassed, isTrue);
       expect(provider.disqualified, isFalse); // Restored!
-      
+
       // Since it was the 3rd attempt, and it was overruled to pass:
       // It should have advanced to the next discipline, so current active discipline is Pull Up
       // And attemptNum is 1, and submittedAttempts for the new discipline is empty.

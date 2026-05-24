@@ -23,7 +23,9 @@ void main() {
       harness.dispose();
     });
 
-    testWidgets('Test 3.1: Register -> Login -> Customize Profile Flow', (WidgetTester tester) async {
+    testWidgets('Test 3.1: Register -> Login -> Customize Profile Flow', (
+      WidgetTester tester,
+    ) async {
       await harness.initialize();
       tester.view.physicalSize = const Size(800, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -33,19 +35,33 @@ void main() {
       });
 
       // 1. REGISTER NEW USER (with mixed case username)
-      await tester.pumpWidget(harness.buildApp(const RegisterPage(isInline: true)));
+      await tester.pumpWidget(
+        harness.buildApp(const RegisterPage(isInline: true)),
+      );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const Key('register_username_field')), 'NewAthlete');
-      await tester.enterText(find.byKey(const Key('register_email_field')), 'newathlete@example.com');
-      await tester.enterText(find.byKey(const Key('register_password_field')), 'StrongPw123!');
+      await tester.enterText(
+        find.byKey(const Key('register_username_field')),
+        'NewAthlete',
+      );
+      await tester.enterText(
+        find.byKey(const Key('register_email_field')),
+        'newathlete@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const Key('register_password_field')),
+        'StrongPw123!',
+      );
       await tester.pumpAndSettle();
 
       // Step 1 -> Step 2
       await tester.tap(find.text('NEXT'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byKey(const Key('register_fullname_field')), 'New Athlete');
+      await tester.enterText(
+        find.byKey(const Key('register_fullname_field')),
+        'New Athlete',
+      );
       await tester.pumpAndSettle();
 
       // Step 2 -> Step 3
@@ -61,15 +77,23 @@ void main() {
       await tester.pumpAndSettle();
 
       // 2. LOGIN WITH REGISTERED CREDENTIALS (lowercase check)
-      await tester.pumpWidget(harness.buildApp(const LoginPage(isInline: true)));
+      await tester.pumpWidget(
+        harness.buildApp(const LoginPage(isInline: true)),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Username'));
       await tester.pumpAndSettle();
 
       // Input mixed case 'newathlete' -> should lower case
-      await tester.enterText(find.byKey(const Key('login_id_field')), 'NEWATHLETE');
-      await tester.enterText(find.byKey(const Key('login_password_field')), 'StrongPw123!');
+      await tester.enterText(
+        find.byKey(const Key('login_id_field')),
+        'NEWATHLETE',
+      );
+      await tester.enterText(
+        find.byKey(const Key('login_password_field')),
+        'StrongPw123!',
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('SIGN IN'));
@@ -85,7 +109,10 @@ void main() {
       await tester.tap(find.text('EDIT PROFILE'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextFormField, 'Description / Bio'), 'Lifting all day.');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Description / Bio'),
+        'Lifting all day.',
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('SAVE'));
@@ -93,11 +120,19 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify updated profile
-      expect(harness.db.profiles[harness.authProvider.currentUserProfile!.id]?.description, 'Lifting all day.');
+      expect(
+        harness
+            .db
+            .profiles[harness.authProvider.currentUserProfile!.id]
+            ?.description,
+        'Lifting all day.',
+      );
       expect(find.text('Lifting all day.'), findsOneWidget);
     });
 
-    testWidgets('Test 3.2: Auth State Synchronization & Theme Persistence', (WidgetTester tester) async {
+    testWidgets('Test 3.2: Auth State Synchronization & Theme Persistence', (
+      WidgetTester tester,
+    ) async {
       await harness.initialize();
       // Authenticate user-1
       final user = harness.db.profiles['user-1']!;
@@ -113,7 +148,10 @@ void main() {
           email: user.email,
         ),
       );
-      harness.mockAuth.triggerAuthStateChange(AuthChangeEvent.signedIn, session);
+      harness.mockAuth.triggerAuthStateChange(
+        AuthChangeEvent.signedIn,
+        session,
+      );
       await tester.pumpAndSettle();
 
       // Launch appearance settings
@@ -134,46 +172,58 @@ void main() {
       await tester.pumpAndSettle();
 
       // Log back in
-      harness.mockAuth.triggerAuthStateChange(AuthChangeEvent.signedIn, session);
+      harness.mockAuth.triggerAuthStateChange(
+        AuthChangeEvent.signedIn,
+        session,
+      );
       await tester.pumpAndSettle();
 
       // Verify colorMode remains 'light' (persistent theme state)
       expect(harness.authProvider.currentUserProfile?.colorMode, 'light');
     });
 
-    testWidgets('Test 3.3: Deep Link Navigation -> Authentication Gateway Interception', (WidgetTester tester) async {
-      await harness.initialize();
-      // We simulate navigating to a private page (/settings) directly as a guest
-      // We expect the Gateway (MaterialsApp settings in our buildApp or our custom route protection) to redirect us.
-      // Let's implement route redirection inside the harness or a wrapper to simulate deep link interception:
-      final privateWidget = Builder(
-        builder: (context) {
-          final auth = Provider.of<AuthProvider>(context);
-          if (!auth.isAuthenticated) {
-            return const LoginPage(isInline: true);
-          }
-          return const SettingsPage();
-        },
-      );
+    testWidgets(
+      'Test 3.3: Deep Link Navigation -> Authentication Gateway Interception',
+      (WidgetTester tester) async {
+        await harness.initialize();
+        // We simulate navigating to a private page (/settings) directly as a guest
+        // We expect the Gateway (MaterialsApp settings in our buildApp or our custom route protection) to redirect us.
+        // Let's implement route redirection inside the harness or a wrapper to simulate deep link interception:
+        final privateWidget = Builder(
+          builder: (context) {
+            final auth = Provider.of<AuthProvider>(context);
+            if (!auth.isAuthenticated) {
+              return const LoginPage(isInline: true);
+            }
+            return const SettingsPage();
+          },
+        );
 
-      await tester.pumpWidget(harness.buildApp(privateWidget));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildApp(privateWidget));
+        await tester.pumpAndSettle();
 
-      // Verify that we are intercepted and showing the login screen instead of Settings
-      expect(find.text('Welcome Back'), findsOneWidget);
-      expect(find.text('Settings'), findsNothing);
+        // Verify that we are intercepted and showing the login screen instead of Settings
+        expect(find.text('Welcome Back'), findsOneWidget);
+        expect(find.text('Settings'), findsNothing);
 
-      // Perform a successful login
-      await tester.enterText(find.byKey(const Key('login_id_field')), 'john@example.com');
-      await tester.enterText(find.byKey(const Key('login_password_field')), 'password123');
-      await tester.pumpAndSettle();
+        // Perform a successful login
+        await tester.enterText(
+          find.byKey(const Key('login_id_field')),
+          'john@example.com',
+        );
+        await tester.enterText(
+          find.byKey(const Key('login_password_field')),
+          'password123',
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('SIGN IN'));
-      await harness.waitForAuthSettle(tester);
+        await tester.tap(find.text('SIGN IN'));
+        await harness.waitForAuthSettle(tester);
 
-      // Verify we are now forwarded to Settings page
-      expect(find.text('Settings'), findsOneWidget);
-      expect(find.text('Welcome Back'), findsNothing);
-    });
+        // Verify we are now forwarded to Settings page
+        expect(find.text('Settings'), findsOneWidget);
+        expect(find.text('Welcome Back'), findsNothing);
+      },
+    );
   });
 }

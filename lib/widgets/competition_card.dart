@@ -39,7 +39,9 @@ class _CompetitionCardState extends State<CompetitionCard> {
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              settings: RouteSettings(name: '/competitions/${widget.competition.id}'),
+              settings: RouteSettings(
+                name: '/competitions/${widget.competition.id}',
+              ),
               builder: (_) =>
                   CompetitionDetailPage(competition: widget.competition),
             ),

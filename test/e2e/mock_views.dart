@@ -73,36 +73,47 @@ class _CreateAssociationPageState extends State<CreateAssociationPage> {
                     TextField(
                       key: const Key('assoc_name'),
                       controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Association Name'),
+                      decoration: const InputDecoration(
+                        labelText: 'Association Name',
+                      ),
                     ),
                   ] else if (_currentStep == 1) ...[
                     DropdownButton<String>(
                       key: const Key('assoc_scope'),
                       value: _scope,
                       items: ['Global', 'National', 'Local']
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                          .map(
+                            (s) => DropdownMenuItem(value: s, child: Text(s)),
+                          )
                           .toList(),
-                      onChanged: (val) => setState(() => _scope = val ?? 'Global'),
+                      onChanged: (val) =>
+                          setState(() => _scope = val ?? 'Global'),
                     ),
                   ] else if (_currentStep == 2) ...[
                     CheckboxListTile(
                       key: const Key('assoc_sport_streetlifting'),
                       title: const Text('Streetlifting'),
                       value: _sports.contains('Streetlifting'),
-                      onChanged: (val) => setState(() => val!
-                          ? _sports.add('Streetlifting')
-                          : _sports.remove('Streetlifting')),
+                      onChanged: (val) => setState(
+                        () => val!
+                            ? _sports.add('Streetlifting')
+                            : _sports.remove('Streetlifting'),
+                      ),
                     ),
                     TextField(
                       key: const Key('assoc_rulebook'),
                       controller: _rulebookController,
-                      decoration: const InputDecoration(labelText: 'Rulebook Link'),
+                      decoration: const InputDecoration(
+                        labelText: 'Rulebook Link',
+                      ),
                     ),
                   ] else if (_currentStep == 3) ...[
                     TextField(
                       key: const Key('assoc_details'),
                       controller: _detailsController,
-                      decoration: const InputDecoration(labelText: 'Details/Reason'),
+                      decoration: const InputDecoration(
+                        labelText: 'Details/Reason',
+                      ),
                     ),
                   ],
                   const Spacer(),
@@ -127,7 +138,7 @@ class _CreateAssociationPageState extends State<CreateAssociationPage> {
                         child: Text(_currentStep == 3 ? 'Submit' : 'Next'),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
@@ -177,14 +188,16 @@ class _CreateCompetitionPageState extends State<CreateCompetitionPage> {
                       key: const Key('comp_waitlist_toggle'),
                       title: const Text('Enable Waitlist'),
                       value: _waitlistRequired,
-                      onChanged: (val) => setState(() => _waitlistRequired = val),
+                      onChanged: (val) =>
+                          setState(() => _waitlistRequired = val),
                     ),
                   ] else if (_step == 2) ...[
                     CheckboxListTile(
                       key: const Key('comp_disclaimer'),
                       title: const Text('Accept Terms'),
                       value: _disclaimerAccepted,
-                      onChanged: (val) => setState(() => _disclaimerAccepted = val ?? false),
+                      onChanged: (val) =>
+                          setState(() => _disclaimerAccepted = val ?? false),
                     ),
                   ],
                   const Spacer(),
@@ -223,7 +236,8 @@ class CompetitionHandlingPage extends StatefulWidget {
   const CompetitionHandlingPage({super.key, this.competitionId});
 
   @override
-  State<CompetitionHandlingPage> createState() => _CompetitionHandlingPageState();
+  State<CompetitionHandlingPage> createState() =>
+      _CompetitionHandlingPageState();
 }
 
 class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
@@ -233,13 +247,17 @@ class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
   double _attemptWeight = 0.0;
   final List<double> _submittedAttempts = [];
   bool _disqualified = false;
-  
+
   // Platform Judging
-  final List<bool> _judgeVotes = [true, true, true]; // true = Good Lift, false = No Lift
+  final List<bool> _judgeVotes = [
+    true,
+    true,
+    true,
+  ]; // true = Good Lift, false = No Lift
   String? _failureReason;
   bool _judgingComplete = false;
   bool _liftPassed = false;
-  
+
   // VAR
   bool _varRequested = false;
   int _varCredits = 1;
@@ -250,13 +268,19 @@ class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
     if (_submittedAttempts.isNotEmpty && weight < _submittedAttempts.last) {
       // Must be ascending weight order
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attempt weight must be ascending!'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Attempt weight must be ascending!'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     if (((weight * 100).round() % (minIncrement * 100).round()) != 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Weight must be multiple of ${minIncrement}kg!'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Weight must be multiple of ${minIncrement}kg!'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -273,7 +297,8 @@ class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
     bool passed = false;
     if (_activeDiscipline == 'Dip' && _failureReason == 'Invalid Depth') {
       passed = goodCount >= 2; // Majority (2:1)
-    } else if (_activeDiscipline == 'Squat' && (_failureReason == 'Bent Knees' || _failureReason == 'Invalid Depth')) {
+    } else if (_activeDiscipline == 'Squat' &&
+        (_failureReason == 'Bent Knees' || _failureReason == 'Invalid Depth')) {
       passed = goodCount >= 2; // Majority (2:1)
     } else {
       passed = goodCount == 3; // Unanimous (3:0)
@@ -285,7 +310,7 @@ class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
       if (passed) {
         _submittedAttempts.add(_attemptWeight);
       }
-      
+
       // Regardless of pass/fail, progress attempts
       if (_attemptNum < 3) {
         _attemptNum++;
@@ -339,7 +364,9 @@ class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Competition Handling: ${widget.competitionId}')),
+      appBar: AppBar(
+        title: Text('Competition Handling: ${widget.competitionId}'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -353,104 +380,134 @@ class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
                 child: const Center(
                   child: Text(
                     'ATHLETE DISQUALIFIED (0/3 lifts valid)',
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            Text('Discipline: $_activeDiscipline', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(
+              'Discipline: $_activeDiscipline',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
             Text('Attempt: #$_attemptNum'),
             const SizedBox(height: 16),
-            
+
             // Pre-calculated weight configurations
-            Text('Standard Plates: ${(_attemptWeight / 25).floor()}x25kg, ${((_attemptWeight % 25) / 20).floor()}x20kg'),
-            Text(StreetliftingRulesEngine.calculateOtherPlatesString(_attemptWeight)),
-            
+            Text(
+              'Standard Plates: ${(_attemptWeight / 25).floor()}x25kg, ${((_attemptWeight % 25) / 20).floor()}x20kg',
+            ),
+            Text(
+              StreetliftingRulesEngine.calculateOtherPlatesString(
+                _attemptWeight,
+              ),
+            ),
+
             const SizedBox(height: 8),
             TextField(
               key: const Key('attempt_weight_input'),
               enabled: !_disqualified,
               keyboardType: TextInputType.number,
-              onSubmitted: _disqualified ? null : (val) => _submitAttempt(double.parse(val)),
-              decoration: const InputDecoration(labelText: 'Attempt Weight (kg)'),
-            ),
-                  const SizedBox(height: 16),
-                  
-                  // Judging Options
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        key: const Key('judge_1_toggle'),
-                        onPressed: _disqualified ? null : () => setState(() => _judgeVotes[0] = !_judgeVotes[0]),
-                        child: Text('J1: ${_judgeVotes[0] ? "Good" : "No"}'),
-                      ),
-                      ElevatedButton(
-                        key: const Key('judge_2_toggle'),
-                        onPressed: _disqualified ? null : () => setState(() => _judgeVotes[1] = !_judgeVotes[1]),
-                        child: Text('J2: ${_judgeVotes[1] ? "Good" : "No"}'),
-                      ),
-                      ElevatedButton(
-                        key: const Key('judge_3_toggle'),
-                        onPressed: _disqualified ? null : () => setState(() => _judgeVotes[2] = !_judgeVotes[2]),
-                        child: Text('J3: ${_judgeVotes[2] ? "Good" : "No"}'),
-                      ),
-                    ],
-                  ),
-                  DropdownButton<String>(
-                    key: const Key('failure_reason_dropdown'),
-                    value: _failureReason,
-                    hint: const Text('Select Failure Reason'),
-                    items: ['Chicken Wing', 'Invalid Depth', 'Bent Knees', 'Kipping']
-                        .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                        .toList(),
-                    onChanged: _disqualified ? null : (val) => setState(() => _failureReason = val),
-                  ),
-                  ElevatedButton(
-                    key: const Key('judge_submit'),
-                    onPressed: _disqualified ? null : _judgeLift,
-                    child: const Text('SUBMIT JUDGING'),
-                  ),
-                  
-                  if (_judgingComplete) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _liftPassed ? 'LIFT PASSED' : 'LIFT FAILED',
-                      key: const Key('lift_status'),
-                      style: TextStyle(color: _liftPassed ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
-                    ),
-                    if (!_liftPassed && _varCredits > 0) ...[
-                      ElevatedButton(
-                        key: const Key('var_request_btn'),
-                        onPressed: _requestVAR,
-                        child: Text('Request VAR (Credits: $_varCredits)'),
-                      ),
-                    ],
-                  ],
-                  
-                  if (_varRequested) ...[
-                    const SizedBox(height: 16),
-                    const Text('VAR Video Review in Progress...'),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          key: const Key('var_confirm_fail'),
-                          onPressed: () => _overruleVAR(false),
-                          child: const Text('Confirm No Lift'),
-                        ),
-                        ElevatedButton(
-                          key: const Key('var_overrule_pass'),
-                          onPressed: () => _overruleVAR(true),
-                          child: const Text('Overrule to Good Lift'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
+              onSubmitted: _disqualified
+                  ? null
+                  : (val) => _submitAttempt(double.parse(val)),
+              decoration: const InputDecoration(
+                labelText: 'Attempt Weight (kg)',
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Judging Options
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton(
+                  key: const Key('judge_1_toggle'),
+                  onPressed: _disqualified
+                      ? null
+                      : () => setState(() => _judgeVotes[0] = !_judgeVotes[0]),
+                  child: Text('J1: ${_judgeVotes[0] ? "Good" : "No"}'),
+                ),
+                ElevatedButton(
+                  key: const Key('judge_2_toggle'),
+                  onPressed: _disqualified
+                      ? null
+                      : () => setState(() => _judgeVotes[1] = !_judgeVotes[1]),
+                  child: Text('J2: ${_judgeVotes[1] ? "Good" : "No"}'),
+                ),
+                ElevatedButton(
+                  key: const Key('judge_3_toggle'),
+                  onPressed: _disqualified
+                      ? null
+                      : () => setState(() => _judgeVotes[2] = !_judgeVotes[2]),
+                  child: Text('J3: ${_judgeVotes[2] ? "Good" : "No"}'),
+                ),
+              ],
+            ),
+            DropdownButton<String>(
+              key: const Key('failure_reason_dropdown'),
+              value: _failureReason,
+              hint: const Text('Select Failure Reason'),
+              items: [
+                'Chicken Wing',
+                'Invalid Depth',
+                'Bent Knees',
+                'Kipping',
+              ].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+              onChanged: _disqualified
+                  ? null
+                  : (val) => setState(() => _failureReason = val),
+            ),
+            ElevatedButton(
+              key: const Key('judge_submit'),
+              onPressed: _disqualified ? null : _judgeLift,
+              child: const Text('SUBMIT JUDGING'),
+            ),
+
+            if (_judgingComplete) ...[
+              const SizedBox(height: 16),
+              Text(
+                _liftPassed ? 'LIFT PASSED' : 'LIFT FAILED',
+                key: const Key('lift_status'),
+                style: TextStyle(
+                  color: _liftPassed ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (!_liftPassed && _varCredits > 0) ...[
+                ElevatedButton(
+                  key: const Key('var_request_btn'),
+                  onPressed: _requestVAR,
+                  child: Text('Request VAR (Credits: $_varCredits)'),
+                ),
+              ],
+            ],
+
+            if (_varRequested) ...[
+              const SizedBox(height: 16),
+              const Text('VAR Video Review in Progress...'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    key: const Key('var_confirm_fail'),
+                    onPressed: () => _overruleVAR(false),
+                    child: const Text('Confirm No Lift'),
+                  ),
+                  ElevatedButton(
+                    key: const Key('var_overrule_pass'),
+                    onPressed: () => _overruleVAR(true),
+                    child: const Text('Overrule to Good Lift'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -487,8 +544,12 @@ class _RankingsPageState extends State<RankingsPage> {
       final response = await _client
           .from('meet_results')
           .select('*, profile:profiles(*)');
-      
-      final list = (response as List?)?.map((e) => Map<String, dynamic>.from(e)).toList() ?? [];
+
+      final list =
+          (response as List?)
+              ?.map((e) => Map<String, dynamic>.from(e))
+              .toList() ??
+          [];
       setState(() {
         _results = list;
         _isLoading = false;
@@ -503,41 +564,35 @@ class _RankingsPageState extends State<RankingsPage> {
   }
 
   List<Map<String, dynamic>> get _fallbackData => [
-        {
-          'id': 'fallback-1',
-          'profile': {
-            'full_name': 'John Doe',
-            'gender': 'Male',
-          },
-          'competition_class': 'Male -83kg (Modern)',
-          'total_score': 420.0,
-          'rank': 1,
-          'best_lifts': {
-            'Muscle Up': 20.0,
-            'Pull Up': 50.0,
-            'Dip': 80.0,
-            'Squat': 180.0,
-          },
-          'subtype': 'Modern',
-        },
-        {
-          'id': 'fallback-2',
-          'profile': {
-            'full_name': 'Jane Smith',
-            'gender': 'Female',
-          },
-          'competition_class': 'Female -63kg (Classic)',
-          'total_score': 390.0,
-          'rank': 2,
-          'best_lifts': {
-            'Muscle Up': 15.0,
-            'Pull Up': 45.0,
-            'Dip': 75.0,
-            'Squat': 165.0,
-          },
-          'subtype': 'Classic',
-        },
-      ];
+    {
+      'id': 'fallback-1',
+      'profile': {'full_name': 'John Doe', 'gender': 'Male'},
+      'competition_class': 'Male -83kg (Modern)',
+      'total_score': 420.0,
+      'rank': 1,
+      'best_lifts': {
+        'Muscle Up': 20.0,
+        'Pull Up': 50.0,
+        'Dip': 80.0,
+        'Squat': 180.0,
+      },
+      'subtype': 'Modern',
+    },
+    {
+      'id': 'fallback-2',
+      'profile': {'full_name': 'Jane Smith', 'gender': 'Female'},
+      'competition_class': 'Female -63kg (Classic)',
+      'total_score': 390.0,
+      'rank': 2,
+      'best_lifts': {
+        'Muscle Up': 15.0,
+        'Pull Up': 45.0,
+        'Dip': 75.0,
+        'Squat': 165.0,
+      },
+      'subtype': 'Classic',
+    },
+  ];
 
   String _formatWeight(double weight) {
     if (weight == weight.toInt()) {
@@ -556,10 +611,11 @@ class _RankingsPageState extends State<RankingsPage> {
       final profile = item['profile'] as Map<String, dynamic>? ?? {};
       final athleteName = profile['full_name'] as String? ?? 'Unknown Athlete';
       final gender = profile['gender'] as String? ?? 'Male';
-      
+
       // Determine subtype from competition_class or key
       String subtype = item['subtype'] as String? ?? 'Modern';
-      final compClass = (item['competition_class'] as String? ?? '').toLowerCase();
+      final compClass = (item['competition_class'] as String? ?? '')
+          .toLowerCase();
       if (compClass.contains('classic')) {
         subtype = 'Classic';
       } else if (compClass.contains('modern')) {
@@ -568,14 +624,18 @@ class _RankingsPageState extends State<RankingsPage> {
 
       final totalScore = (item['total_score'] as num?)?.toDouble() ?? 0.0;
       final rank = item['rank'] as int? ?? 0;
-      
-      final bestLiftsMap = Map<String, dynamic>.from(item['best_lifts'] as Map? ?? {});
-      final mu = (bestLiftsMap['Muscle Up'] ?? bestLiftsMap['mu'] ?? 0.0) as num;
+
+      final bestLiftsMap = Map<String, dynamic>.from(
+        item['best_lifts'] as Map? ?? {},
+      );
+      final mu =
+          (bestLiftsMap['Muscle Up'] ?? bestLiftsMap['mu'] ?? 0.0) as num;
       final pu = (bestLiftsMap['Pull Up'] ?? bestLiftsMap['pu'] ?? 0.0) as num;
       final dip = (bestLiftsMap['Dip'] ?? bestLiftsMap['dip'] ?? 0.0) as num;
       final squat = (bestLiftsMap['Squat'] ?? bestLiftsMap['sq'] ?? 0.0) as num;
 
-      final subtitleStr = 'MU: ${_formatWeight(mu.toDouble())}kg | PU: ${_formatWeight(pu.toDouble())}kg | '
+      final subtitleStr =
+          'MU: ${_formatWeight(mu.toDouble())}kg | PU: ${_formatWeight(pu.toDouble())}kg | '
           'Dip: ${_formatWeight(dip.toDouble())}kg | Squat: ${_formatWeight(squat.toDouble())}kg';
 
       return {
@@ -603,12 +663,14 @@ class _RankingsPageState extends State<RankingsPage> {
 
       // 2. Gender
       if (_selectedGender != 'All') {
-        if (item['gender'].toLowerCase() != _selectedGender.toLowerCase()) return false;
+        if (item['gender'].toLowerCase() != _selectedGender.toLowerCase())
+          return false;
       }
 
       // 3. Subtype
       if (_selectedSubtype != 'All') {
-        if (item['subtype'].toLowerCase() != _selectedSubtype.toLowerCase()) return false;
+        if (item['subtype'].toLowerCase() != _selectedSubtype.toLowerCase())
+          return false;
       }
 
       return true;
@@ -634,7 +696,10 @@ class _RankingsPageState extends State<RankingsPage> {
                   padding: const EdgeInsets.all(12.0),
                   child: Card(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
                       child: Column(
                         children: [
                           TextField(
@@ -656,9 +721,16 @@ class _RankingsPageState extends State<RankingsPage> {
                                 child: DropdownButtonFormField<String>(
                                   key: const Key('gender_filter_dropdown'),
                                   value: _selectedGender,
-                                  decoration: const InputDecoration(labelText: 'Gender'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Gender',
+                                  ),
                                   items: ['All', 'Male', 'Female']
-                                      .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                                      .map(
+                                        (g) => DropdownMenuItem(
+                                          value: g,
+                                          child: Text(g),
+                                        ),
+                                      )
                                       .toList(),
                                   onChanged: (val) {
                                     setState(() {
@@ -672,9 +744,16 @@ class _RankingsPageState extends State<RankingsPage> {
                                 child: DropdownButtonFormField<String>(
                                   key: const Key('subtype_filter_dropdown'),
                                   value: _selectedSubtype,
-                                  decoration: const InputDecoration(labelText: 'Subtype'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Subtype',
+                                  ),
                                   items: ['All', 'Modern', 'Classic']
-                                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                                      .map(
+                                        (s) => DropdownMenuItem(
+                                          value: s,
+                                          child: Text(s),
+                                        ),
+                                      )
                                       .toList(),
                                   onChanged: (val) {
                                     setState(() {
@@ -713,7 +792,9 @@ class _RankingsPageState extends State<RankingsPage> {
                             final displayRank = index + 1;
                             return ListTile(
                               key: Key('ranking_item_${item['id']}'),
-                              title: Text('$displayRank. ${item['athleteName']} - ${item['totalScore'].toStringAsFixed(1)}kg'),
+                              title: Text(
+                                '$displayRank. ${item['athleteName']} - ${item['totalScore'].toStringAsFixed(1)}kg',
+                              ),
                               subtitle: Text(item['subtitle']),
                             );
                           },
@@ -823,7 +904,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
       return _selectedCategories.contains(n.category);
     }).toList();
 
-    final categories = ['registration', 'permissions', 'payments', 'schedule', 'flights'];
+    final categories = [
+      'registration',
+      'permissions',
+      'payments',
+      'schedule',
+      'flights',
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -848,7 +935,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   children: categories.map((category) {
                     return SwitchListTile(
                       key: Key('switch_$category'),
-                      title: Text(category[0].toUpperCase() + category.substring(1)),
+                      title: Text(
+                        category[0].toUpperCase() + category.substring(1),
+                      ),
                       value: _enabledAlerts[category] ?? true,
                       onChanged: (val) {
                         setState(() {
@@ -858,20 +947,27 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     );
                   }).toList(),
                 ),
-                
+
                 // Category Filter Chips Section
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8.0,
+                    horizontal: 16.0,
+                  ),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: categories.map((category) {
-                        final isSelected = _selectedCategories.contains(category);
+                        final isSelected = _selectedCategories.contains(
+                          category,
+                        );
                         return Padding(
                           padding: const EdgeInsets.only(right: 8.0),
                           child: FilterChip(
                             key: Key('chip_$category'),
-                            label: Text(category[0].toUpperCase() + category.substring(1)),
+                            label: Text(
+                              category[0].toUpperCase() + category.substring(1),
+                            ),
                             selected: isSelected,
                             onSelected: (selected) {
                               setState(() {
@@ -888,9 +984,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                   ),
                 ),
-                
+
                 const Divider(),
-                
+
                 // Notifications List Section
                 Expanded(
                   child: filteredNotifications.isEmpty
@@ -915,7 +1011,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                               title: Text(
                                 notification.title,
                                 style: TextStyle(
-                                  fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
+                                  fontWeight: notification.isRead
+                                      ? FontWeight.normal
+                                      : FontWeight.bold,
                                 ),
                               ),
                               subtitle: Column(
@@ -925,13 +1023,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Category: ${notification.category} • ${notification.createdAt.toString().split('.')[0]}',
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ],
                               ),
                               leading: Icon(
-                                notification.isRead ? Icons.mark_email_read : Icons.mark_email_unread,
-                                color: notification.isRead ? Colors.grey : Colors.blue,
+                                notification.isRead
+                                    ? Icons.mark_email_read
+                                    : Icons.mark_email_unread,
+                                color: notification.isRead
+                                    ? Colors.grey
+                                    : Colors.blue,
                               ),
                               onTap: () => _markAsRead(notification),
                             );

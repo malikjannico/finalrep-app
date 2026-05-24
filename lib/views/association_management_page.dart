@@ -9,15 +9,23 @@ import '../providers/competition_provider.dart';
 import 'association_creation_page.dart';
 
 class AssociationManagementPage extends StatefulWidget {
-  final String? associationId; // If null, acts as Management Dashboard for all owned/edited associations
+  final String?
+  associationId; // If null, acts as Management Dashboard for all owned/edited associations
+  final bool isInline;
 
-  const AssociationManagementPage({super.key, this.associationId});
+  const AssociationManagementPage({
+    super.key,
+    this.associationId,
+    this.isInline = false,
+  });
 
   @override
-  State<AssociationManagementPage> createState() => _AssociationManagementPageState();
+  State<AssociationManagementPage> createState() =>
+      _AssociationManagementPageState();
 }
 
-class _AssociationManagementPageState extends State<AssociationManagementPage> with SingleTickerProviderStateMixin {
+class _AssociationManagementPageState extends State<AssociationManagementPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Association? _association;
   List<AssociationMember> _members = [];
@@ -34,20 +42,24 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
 
   // Add Member Controllers
   final TextEditingController _memberUserIdController = TextEditingController();
-  final TextEditingController _memberCustomTitleController = TextEditingController();
+  final TextEditingController _memberCustomTitleController =
+      TextEditingController();
   String _memberRole = 'editor';
 
   // Create Comp Group Controllers
-  final TextEditingController _compGroupNameController = TextEditingController();
+  final TextEditingController _compGroupNameController =
+      TextEditingController();
   String _compGroupSport = 'Streetlifting';
   String _compGroupFormat = 'Modern';
 
   // Create Athlete Group Controllers
-  final TextEditingController _athleteGroupNameController = TextEditingController();
+  final TextEditingController _athleteGroupNameController =
+      TextEditingController();
   String _athleteGroupSport = 'Streetlifting';
   String _athleteGroupFormat = 'Modern';
   String _athleteGroupGender = 'Male';
-  final TextEditingController _athleteGroupMaxWeightController = TextEditingController();
+  final TextEditingController _athleteGroupMaxWeightController =
+      TextEditingController();
 
   @override
   void initState() {
@@ -57,7 +69,11 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     _descController = TextEditingController();
     _areaNameController = TextEditingController();
 
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadData();
+      }
+    });
   }
 
   @override
@@ -79,7 +95,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
       _isLoading = true;
     });
 
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     if (widget.associationId == null) {
@@ -92,11 +111,19 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     }
 
     try {
-      final assoc = await compProvider.getAssociationDetails(widget.associationId!);
+      final assoc = await compProvider.getAssociationDetails(
+        widget.associationId!,
+      );
       if (assoc != null) {
-        final membersList = await compProvider.getAssociationMembers(widget.associationId!);
-        final compGroupsList = await compProvider.getCompetitionGroups(widget.associationId!);
-        final athleteGroupsList = await compProvider.getAthleteGroups(widget.associationId!);
+        final membersList = await compProvider.getAssociationMembers(
+          widget.associationId!,
+        );
+        final compGroupsList = await compProvider.getCompetitionGroups(
+          widget.associationId!,
+        );
+        final athleteGroupsList = await compProvider.getAthleteGroups(
+          widget.associationId!,
+        );
 
         setState(() {
           _association = assoc;
@@ -112,7 +139,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading details: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error loading details: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() {
@@ -125,7 +155,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     if (_association == null) return;
     if (!_metadataFormKey.currentState!.validate()) return;
 
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     final updated = _association!.copyWith(
       name: _nameController.text.trim(),
       description: _descController.text.trim(),
@@ -136,7 +169,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     final res = await compProvider.updateAssociation(updated);
     if (res != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Metadata updated successfully.'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Metadata updated successfully.'),
+          backgroundColor: Colors.green,
+        ),
       );
       _loadData();
     }
@@ -148,7 +184,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     final customTitle = _memberCustomTitleController.text.trim();
     if (userId.isEmpty) return;
 
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     final member = await compProvider.addAssociationMember(
       _association!.id,
       userId,
@@ -158,7 +197,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
 
     if (member != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Member added successfully.'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Member added successfully.'),
+          backgroundColor: Colors.green,
+        ),
       );
       _memberUserIdController.clear();
       _memberCustomTitleController.clear();
@@ -168,23 +210,38 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
 
   Future<void> _removeMember(String userId) async {
     if (_association == null) return;
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
-    final success = await compProvider.removeAssociationMember(_association!.id, userId);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
+    final success = await compProvider.removeAssociationMember(
+      _association!.id,
+      userId,
+    );
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Member removed.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Member removed.')));
       _loadData();
     }
   }
 
   Future<void> _transferOwnership(String newOwnerId) async {
     if (_association == null) return;
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
-    final res = await compProvider.transferAssociationOwnership(_association!.id, newOwnerId);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
+    final res = await compProvider.transferAssociationOwnership(
+      _association!.id,
+      newOwnerId,
+    );
     if (res != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ownership transferred successfully.'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Ownership transferred successfully.'),
+          backgroundColor: Colors.green,
+        ),
       );
       _loadData();
     }
@@ -195,7 +252,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     final name = _compGroupNameController.text.trim();
     if (name.isEmpty) return;
 
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     final group = CompetitionGroup(
       id: 'cg-${DateTime.now().millisecondsSinceEpoch}',
       associationId: _association!.id,
@@ -209,7 +269,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     final res = await compProvider.createCompetitionGroup(group);
     if (res != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Competition Group created.'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Competition Group created.'),
+          backgroundColor: Colors.green,
+        ),
       );
       _compGroupNameController.clear();
       _loadData();
@@ -217,7 +280,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
   }
 
   Future<void> _toggleCompGroup(CompetitionGroup group) async {
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     final updated = group.copyWith(isActive: !group.isActive);
     final res = await compProvider.updateCompetitionGroup(updated);
     if (res != null) {
@@ -231,9 +297,14 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     if (name.isEmpty) return;
 
     final maxWeightStr = _athleteGroupMaxWeightController.text.trim();
-    final maxWeight = maxWeightStr.isNotEmpty ? double.tryParse(maxWeightStr) : null;
+    final maxWeight = maxWeightStr.isNotEmpty
+        ? double.tryParse(maxWeightStr)
+        : null;
 
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     final group = AthleteGroup(
       id: 'ag-${DateTime.now().millisecondsSinceEpoch}',
       associationId: _association!.id,
@@ -248,7 +319,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     final res = await compProvider.createAthleteGroup(group);
     if (res != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Athlete Group created.'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Athlete Group created.'),
+          backgroundColor: Colors.green,
+        ),
       );
       _athleteGroupNameController.clear();
       _athleteGroupMaxWeightController.clear();
@@ -257,7 +331,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
   }
 
   Future<void> _toggleAthleteGroup(AthleteGroup group) async {
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     final updated = group.copyWith(isActive: !group.isActive);
     final res = await compProvider.updateAthleteGroup(updated);
     if (res != null) {
@@ -272,6 +349,9 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
     final compProvider = Provider.of<CompetitionProvider>(context);
 
     if (_isLoading) {
+      if (widget.isInline) {
+        return const Center(child: CircularProgressIndicator());
+      }
       return Scaffold(
         appBar: AppBar(title: const Text('Manage Association')),
         body: const Center(child: CircularProgressIndicator()),
@@ -285,69 +365,125 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
         return assoc.ownerId == authProvider.currentUserProfile?.id;
       }).toList();
 
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Association Dashboard'),
-          actions: [
-            if (authProvider.isAssociationCreator || authProvider.isAdmin)
-              IconButton(
-                icon: const Icon(Icons.add, color: Colors.orange),
-                onPressed: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AssociationCreationPage()),
-                  );
-                  _loadData();
-                },
-              ),
-          ],
-        ),
-        body: managedAssociations.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('You do not manage any associations yet.'),
-                    const SizedBox(height: 12),
-                    if (authProvider.isAssociationCreator || authProvider.isAdmin)
-                      ElevatedButton(
-                        onPressed: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const AssociationCreationPage()),
-                          );
-                          _loadData();
-                        },
-                        child: const Text('Create Association'),
-                      )
-                    else
-                      const Text('Apply for Association Creator privileges in settings.'),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(16.0),
-                itemCount: managedAssociations.length,
-                itemBuilder: (context, index) {
-                  final assoc = managedAssociations[index];
-                  return Card(
-                    child: ListTile(
-                      title: Text(assoc.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('${assoc.scope.toUpperCase()} • ${assoc.description}'),
-                      trailing: const Icon(Icons.arrow_forward),
-                      onTap: () {
-                        Navigator.of(context).push(
+      final dashboardBody = managedAssociations.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('You do not manage any associations yet.'),
+                  const SizedBox(height: 12),
+                  if (authProvider.isAssociationCreator || authProvider.isAdmin)
+                    ElevatedButton(
+                      onPressed: () async {
+                        await Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => AssociationManagementPage(associationId: assoc.id),
+                            builder: (_) => const AssociationCreationPage(),
                           ),
                         );
+                        _loadData();
+                      },
+                      child: const Text('Create Association'),
+                    )
+                  else
+                    const Text(
+                      'Apply for Association Creator privileges in settings.',
+                    ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: managedAssociations.length,
+              itemBuilder: (context, index) {
+                final assoc = managedAssociations[index];
+                return Card(
+                  child: ListTile(
+                    title: Text(
+                      assoc.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '${assoc.scope.toUpperCase()} • ${assoc.description}',
+                    ),
+                    trailing: const Icon(Icons.arrow_forward),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AssociationManagementPage(
+                            associationId: assoc.id,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            );
+
+      if (widget.isInline) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Association Dashboard',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (authProvider.isAssociationCreator || authProvider.isAdmin)
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.orange),
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AssociationCreationPage(),
+                          ),
+                        );
+                        _loadData();
                       },
                     ),
-                  );
-                },
+                ],
               ),
-      );
+            ),
+            const Divider(height: 1),
+            Expanded(child: dashboardBody),
+          ],
+        );
+      } else {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Association Dashboard'),
+            actions: [
+              if (authProvider.isAssociationCreator || authProvider.isAdmin)
+                IconButton(
+                  icon: const Icon(Icons.add, color: Colors.orange),
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AssociationCreationPage(),
+                      ),
+                    );
+                    _loadData();
+                  },
+                ),
+            ],
+          ),
+          body: dashboardBody,
+        );
+      }
     }
 
     if (_association == null) {
+      if (widget.isInline) {
+        return const Center(child: Text('Error loading association details.'));
+      }
       return Scaffold(
         appBar: AppBar(title: const Text('Management')),
         body: const Center(child: Text('Error loading association details.')),
@@ -356,30 +492,58 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
 
     final assoc = _association!;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Manage: ${assoc.name}'),
-        bottom: TabBar(
+    if (widget.isInline) {
+      return Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            indicatorColor: theme.colorScheme.primary,
+            tabs: const [
+              Tab(icon: Icon(Icons.settings), text: 'Metadata'),
+              Tab(icon: Icon(Icons.people), text: 'Members'),
+              Tab(icon: Icon(Icons.list_alt), text: 'Comp Groups'),
+              Tab(icon: Icon(Icons.fitness_center), text: 'Athlete Groups'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildMetadataTab(theme),
+                _buildMembersTab(theme),
+                _buildCompGroupsTab(theme),
+                _buildAthleteGroupsTab(theme),
+              ],
+            ),
+          ),
+        ],
+      );
+    } else {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Manage: ${assoc.name}'),
+          bottom: TabBar(
+            controller: _tabController,
+            indicatorColor: theme.colorScheme.primary,
+            tabs: const [
+              Tab(icon: Icon(Icons.settings), text: 'Metadata'),
+              Tab(icon: Icon(Icons.people), text: 'Members'),
+              Tab(icon: Icon(Icons.list_alt), text: 'Comp Groups'),
+              Tab(icon: Icon(Icons.fitness_center), text: 'Athlete Groups'),
+            ],
+          ),
+        ),
+        body: TabBarView(
           controller: _tabController,
-          indicatorColor: theme.colorScheme.primary,
-          tabs: const [
-            Tab(icon: Icon(Icons.settings), text: 'Metadata'),
-            Tab(icon: Icon(Icons.people), text: 'Members'),
-            Tab(icon: Icon(Icons.list_alt), text: 'Comp Groups'),
-            Tab(icon: Icon(Icons.fitness_center), text: 'Athlete Groups'),
+          children: [
+            _buildMetadataTab(theme),
+            _buildMembersTab(theme),
+            _buildCompGroupsTab(theme),
+            _buildAthleteGroupsTab(theme),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildMetadataTab(theme),
-          _buildMembersTab(theme),
-          _buildCompGroupsTab(theme),
-          _buildAthleteGroupsTab(theme),
-        ],
-      ),
-    );
+      );
+    }
   }
 
   Widget _buildMetadataTab(ThemeData theme) {
@@ -390,12 +554,16 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Edit Association Details', style: theme.textTheme.titleMedium),
+            Text(
+              'Edit Association Details',
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Association Name'),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Enter name' : null,
+              validator: (val) =>
+                  val == null || val.trim().isEmpty ? 'Enter name' : null,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -419,7 +587,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
               TextFormField(
                 controller: _areaNameController,
                 decoration: const InputDecoration(labelText: 'Area Name'),
-                validator: (val) => _scope != 'global' && (val == null || val.isEmpty) ? 'Enter area name' : null,
+                validator: (val) =>
+                    _scope != 'global' && (val == null || val.isEmpty)
+                    ? 'Enter area name'
+                    : null,
               ),
             ],
             const SizedBox(height: 16),
@@ -427,7 +598,9 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
               controller: _descController,
               maxLines: 4,
               decoration: const InputDecoration(labelText: 'Description'),
-              validator: (val) => val == null || val.trim().isEmpty ? 'Enter description' : null,
+              validator: (val) => val == null || val.trim().isEmpty
+                  ? 'Enter description'
+                  : null,
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -453,14 +626,20 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
               Expanded(
                 child: TextField(
                   controller: _memberUserIdController,
-                  decoration: const InputDecoration(labelText: 'User ID', hintText: 'user-uuid-here'),
+                  decoration: const InputDecoration(
+                    labelText: 'User ID',
+                    hintText: 'user-uuid-here',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
                   controller: _memberCustomTitleController,
-                  decoration: const InputDecoration(labelText: 'Custom Title (optional)', hintText: 'e.g. Chief Admin'),
+                  decoration: const InputDecoration(
+                    labelText: 'Custom Title (optional)',
+                    hintText: 'e.g. Chief Admin',
+                  ),
                 ),
               ),
             ],
@@ -490,7 +669,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
             ],
           ),
           const SizedBox(height: 24),
-          Text('Current Members (${_members.length})', style: theme.textTheme.titleMedium),
+          Text(
+            'Current Members (${_members.length})',
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           ListView.builder(
             shrinkWrap: true,
@@ -502,16 +684,28 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
               return Card(
                 child: ListTile(
                   title: Text(member.userId),
-                  subtitle: Text('${member.role.toUpperCase()} ${member.customTitle != null ? "• ${member.customTitle}" : ""}'),
+                  subtitle: Text(
+                    '${member.role.toUpperCase()} ${member.customTitle != null ? "• ${member.customTitle}" : ""}',
+                  ),
                   trailing: isSelf
-                      ? const Text('OWNER', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange))
+                      ? const Text(
+                          'OWNER',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        )
                       : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.swap_horiz, color: Colors.orange),
+                              icon: const Icon(
+                                Icons.swap_horiz,
+                                color: Colors.orange,
+                              ),
                               tooltip: 'Transfer Ownership',
-                              onPressed: () => _transferOwnership(member.userId),
+                              onPressed: () =>
+                                  _transferOwnership(member.userId),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
@@ -538,7 +732,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
           const SizedBox(height: 12),
           TextField(
             controller: _compGroupNameController,
-            decoration: const InputDecoration(labelText: 'Group Name', hintText: 'e.g. FinalRep Qualifier'),
+            decoration: const InputDecoration(
+              labelText: 'Group Name',
+              hintText: 'e.g. FinalRep Qualifier',
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -546,7 +743,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
               DropdownButton<String>(
                 value: _compGroupSport,
                 items: const [
-                  DropdownMenuItem(value: 'Streetlifting', child: Text('Streetlifting')),
+                  DropdownMenuItem(
+                    value: 'Streetlifting',
+                    child: Text('Streetlifting'),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -579,7 +779,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
             ],
           ),
           const SizedBox(height: 24),
-          Text('Configured Groups (${_compGroups.length})', style: theme.textTheme.titleMedium),
+          Text(
+            'Configured Groups (${_compGroups.length})',
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           ListView.builder(
             shrinkWrap: true,
@@ -589,7 +792,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
               final group = _compGroups[idx];
               return Card(
                 child: ListTile(
-                  title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    group.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Text('${group.sport} (${group.format})'),
                   trailing: Switch(
                     value: group.isActive,
@@ -610,11 +816,17 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Create Athlete Weight/Format Class', style: theme.textTheme.titleMedium),
+          Text(
+            'Create Athlete Weight/Format Class',
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _athleteGroupNameController,
-            decoration: const InputDecoration(labelText: 'Group Name', hintText: 'e.g. -80kg Male'),
+            decoration: const InputDecoration(
+              labelText: 'Group Name',
+              hintText: 'e.g. -80kg Male',
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -622,7 +834,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
               DropdownButton<String>(
                 value: _athleteGroupSport,
                 items: const [
-                  DropdownMenuItem(value: 'Streetlifting', child: Text('Streetlifting')),
+                  DropdownMenuItem(
+                    value: 'Streetlifting',
+                    child: Text('Streetlifting'),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -672,7 +887,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
                 child: TextField(
                   controller: _athleteGroupMaxWeightController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Max Weight Limit (kg, optional)', hintText: 'e.g. 80.0'),
+                  decoration: const InputDecoration(
+                    labelText: 'Max Weight Limit (kg, optional)',
+                    hintText: 'e.g. 80.0',
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -683,7 +901,10 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
             ],
           ),
           const SizedBox(height: 24),
-          Text('Athlete Classes / Weight Divisions (${_athleteGroups.length})', style: theme.textTheme.titleMedium),
+          Text(
+            'Athlete Classes / Weight Divisions (${_athleteGroups.length})',
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           ListView.builder(
             shrinkWrap: true,
@@ -693,8 +914,13 @@ class _AssociationManagementPageState extends State<AssociationManagementPage> w
               final group = _athleteGroups[idx];
               return Card(
                 child: ListTile(
-                  title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${group.sport} (${group.format}) • ${group.gender} • Limit: ${group.maxWeight ?? "Open"}'),
+                  title: Text(
+                    group.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${group.sport} (${group.format}) • ${group.gender} • Limit: ${group.maxWeight ?? "Open"}',
+                  ),
                   trailing: Switch(
                     value: group.isActive,
                     onChanged: (_) => _toggleAthleteGroup(group),

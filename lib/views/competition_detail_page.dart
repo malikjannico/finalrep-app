@@ -345,7 +345,10 @@ class CompetitionDetailPage extends StatelessWidget {
                               showModalBottomSheet(
                                 context: context,
                                 isScrollControlled: true,
-                                builder: (context) => VolunteerApplicationBottomSheet(competition: competition),
+                                builder: (context) =>
+                                    VolunteerApplicationBottomSheet(
+                                      competition: competition,
+                                    ),
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -531,12 +534,15 @@ class VolunteerApplicationBottomSheet extends StatefulWidget {
   const VolunteerApplicationBottomSheet({super.key, required this.competition});
 
   @override
-  State<VolunteerApplicationBottomSheet> createState() => _VolunteerApplicationBottomSheetState();
+  State<VolunteerApplicationBottomSheet> createState() =>
+      _VolunteerApplicationBottomSheetState();
 }
 
-class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBottomSheet> {
+class _VolunteerApplicationBottomSheetState
+    extends State<VolunteerApplicationBottomSheet> {
   final List<String> _selectedRoles = [];
-  final Map<String, List<String>> _shiftAvailability = {}; // role -> list of shifts
+  final Map<String, List<String>> _shiftAvailability =
+      {}; // role -> list of shifts
   final Map<String, dynamic> _customFieldAnswers = {};
   bool _disclaimerAccepted = false;
   bool _isSubmitting = false;
@@ -554,9 +560,14 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     final positions = widget.competition.volunteerPositions ?? [];
-    final hasDisclaimer = widget.competition.disclaimerType != null && widget.competition.disclaimerType != 'none';
+    final hasDisclaimer =
+        widget.competition.disclaimerType != null &&
+        widget.competition.disclaimerType != 'none';
 
     return Container(
       padding: EdgeInsets.only(
@@ -583,10 +594,12 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
             const SizedBox(height: 16),
             Text(
               'Apply as Volunteer',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
-            
+
             // 1. Roles selection
             Text('Select Preferred Roles', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -628,7 +641,10 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
 
             // 2. Reorderable preference list
             if (_selectedRoles.isNotEmpty) ...[
-              Text('Rank Preference (Drag to Reorder)', style: theme.textTheme.titleMedium),
+              Text(
+                'Rank Preference (Drag to Reorder)',
+                style: theme.textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
@@ -655,10 +671,16 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
               const SizedBox(height: 16),
 
               // 3. Shift Availability per selected role
-              Text('Select Shift Availability', style: theme.textTheme.titleMedium),
+              Text(
+                'Select Shift Availability',
+                style: theme.textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               ..._selectedRoles.map((role) {
-                final shifts = (widget.competition.volunteerShifts != null && widget.competition.volunteerShifts![role] != null && widget.competition.volunteerShifts![role]!.isNotEmpty)
+                final shifts =
+                    (widget.competition.volunteerShifts != null &&
+                        widget.competition.volunteerShifts![role] != null &&
+                        widget.competition.volunteerShifts![role]!.isNotEmpty)
                     ? widget.competition.volunteerShifts![role]!
                     : ['Morning', 'Afternoon'];
                 final selectedShifts = _shiftAvailability[role] ?? [];
@@ -669,7 +691,10 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(role, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          role,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(height: 4),
                         Wrap(
                           spacing: 8,
@@ -681,9 +706,14 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
                               onSelected: (selected) {
                                 setState(() {
                                   if (selected) {
-                                    _shiftAvailability[role] = [...selectedShifts, shift];
+                                    _shiftAvailability[role] = [
+                                      ...selectedShifts,
+                                      shift,
+                                    ];
                                   } else {
-                                    _shiftAvailability[role] = selectedShifts.where((s) => s != shift).toList();
+                                    _shiftAvailability[role] = selectedShifts
+                                        .where((s) => s != shift)
+                                        .toList();
                                   }
                                 });
                               },
@@ -706,9 +736,10 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
               ...widget.competition.customVolunteerFields!.map((f) {
                 final String name = f['name'] ?? '';
                 final String type = f['type'] ?? 'text';
-                
+
                 if (type == 'boolean') {
-                  final currentVal = _customFieldAnswers[name] as bool? ?? false;
+                  final currentVal =
+                      _customFieldAnswers[name] as bool? ?? false;
                   return CheckboxListTile(
                     title: Text(name),
                     value: currentVal,
@@ -719,12 +750,19 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
                     },
                   );
                 } else if (type == 'dropdown') {
-                  final List<String> options = List<String>.from(f['options'] ?? []).toSet().toList();
+                  final List<String> options = List<String>.from(
+                    f['options'] ?? [],
+                  ).toSet().toList();
                   final currentVal = _customFieldAnswers[name] as String?;
                   return DropdownButtonFormField<String>(
                     decoration: InputDecoration(labelText: name),
                     initialValue: currentVal,
-                    items: options.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+                    items: options
+                        .map(
+                          (opt) =>
+                              DropdownMenuItem(value: opt, child: Text(opt)),
+                        )
+                        .toList(),
                     onChanged: (val) {
                       setState(() {
                         _customFieldAnswers[name] = val;
@@ -734,7 +772,9 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
                 } else {
                   return TextFormField(
                     decoration: InputDecoration(labelText: name),
-                    keyboardType: type == 'number' ? TextInputType.number : TextInputType.text,
+                    keyboardType: type == 'number'
+                        ? TextInputType.number
+                        : TextInputType.text,
                     onChanged: (val) {
                       setState(() {
                         _customFieldAnswers[name] = val;
@@ -757,7 +797,9 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
               const SizedBox(height: 8),
               CheckboxListTile(
                 key: const Key('comp_disclaimer'),
-                title: const Text('I accept the disclaimer and terms conditions'),
+                title: const Text(
+                  'I accept the disclaimer and terms conditions',
+                ),
                 value: _disclaimerAccepted,
                 onChanged: (val) {
                   setState(() {
@@ -772,21 +814,26 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: (_isSubmitting || _selectedRoles.isEmpty || (hasDisclaimer && !_disclaimerAccepted))
+                onPressed:
+                    (_isSubmitting ||
+                        _selectedRoles.isEmpty ||
+                        (hasDisclaimer && !_disclaimerAccepted))
                     ? null
                     : () async {
                         setState(() {
                           _isSubmitting = true;
                         });
-                        final userId = authProvider.currentUserProfile?.id ?? 'user-123';
-                        final success = await compProvider.submitVolunteerApplication(
-                          competitionId: widget.competition.id,
-                          userId: userId,
-                          preferredRoles: _selectedRoles,
-                          shiftAvailability: _shiftAvailability,
-                          customFieldAnswers: _customFieldAnswers,
-                          disclaimerAccepted: _disclaimerAccepted,
-                        );
+                        final userId =
+                            authProvider.currentUserProfile?.id ?? 'user-123';
+                        final success = await compProvider
+                            .submitVolunteerApplication(
+                              competitionId: widget.competition.id,
+                              userId: userId,
+                              preferredRoles: _selectedRoles,
+                              shiftAvailability: _shiftAvailability,
+                              customFieldAnswers: _customFieldAnswers,
+                              disclaimerAccepted: _disclaimerAccepted,
+                            );
                         if (!context.mounted) return;
                         setState(() {
                           _isSubmitting = false;
@@ -796,7 +843,10 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(compProvider.errorMessage ?? 'Submission failed'),
+                              content: Text(
+                                compProvider.errorMessage ??
+                                    'Submission failed',
+                              ),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -806,7 +856,10 @@ class _VolunteerApplicationBottomSheetState extends State<VolunteerApplicationBo
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('Submit Application'),
               ),

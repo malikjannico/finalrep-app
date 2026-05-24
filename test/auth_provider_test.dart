@@ -53,7 +53,9 @@ class MockGoTrueClient implements GoTrueClient {
         'data': namedArgs[#data],
       });
       if (signUpError != null) throw signUpError!;
-      return Future.value(signUpResult ?? AuthResponse(session: null, user: null));
+      return Future.value(
+        signUpResult ?? AuthResponse(session: null, user: null),
+      );
     }
     if (name == #signInWithPassword) {
       final namedArgs = invocation.namedArguments;
@@ -62,7 +64,9 @@ class MockGoTrueClient implements GoTrueClient {
         'password': namedArgs[#password],
       });
       if (signInError != null) throw signInError!;
-      return Future.value(signInResult ?? AuthResponse(session: null, user: null));
+      return Future.value(
+        signInResult ?? AuthResponse(session: null, user: null),
+      );
     }
     if (name == #signOut) {
       signOutCallCount++;
@@ -70,7 +74,9 @@ class MockGoTrueClient implements GoTrueClient {
     }
     if (name == #updateUser) {
       final positionalArgs = invocation.positionalArguments;
-      final attributes = positionalArgs.isNotEmpty ? positionalArgs.first as UserAttributes : null;
+      final attributes = positionalArgs.isNotEmpty
+          ? positionalArgs.first as UserAttributes
+          : null;
       updateUserCalls.add({
         'email': attributes?.email,
         'password': attributes?.password,
@@ -150,11 +156,7 @@ User _createFakeUser(String id, String email) {
 }
 
 Session _createFakeSession(User user) {
-  return Session(
-    accessToken: 'token-abc',
-    tokenType: 'bearer',
-    user: user,
-  );
+  return Session(accessToken: 'token-abc', tokenType: 'bearer', user: user);
 }
 
 void main() {
@@ -187,7 +189,7 @@ void main() {
     test('Auth state change to authenticated loads profile', () async {
       final user = _createFakeUser('user-1', 'user1@example.com');
       final session = _createFakeSession(user);
-      
+
       final profile = Profile(
         id: 'user-1',
         username: 'user1',
@@ -209,22 +211,28 @@ void main() {
       expect(authProvider.errorMessage, isNull);
     });
 
-    test('Auth state change fails if profile details cannot be loaded', () async {
-      final user = _createFakeUser('user-1', 'user1@example.com');
-      final session = _createFakeSession(user);
+    test(
+      'Auth state change fails if profile details cannot be loaded',
+      () async {
+        final user = _createFakeUser('user-1', 'user1@example.com');
+        final session = _createFakeSession(user);
 
-      // Trigger auth change (no profile in repository)
-      authStateController.add(AuthState(AuthChangeEvent.signedIn, session));
+        // Trigger auth change (no profile in repository)
+        authStateController.add(AuthState(AuthChangeEvent.signedIn, session));
 
-      // Wait for 3 retries (500ms delay each) to complete
-      await Future.delayed(const Duration(milliseconds: 1700));
+        // Wait for 3 retries (500ms delay each) to complete
+        await Future.delayed(const Duration(milliseconds: 1700));
 
-      expect(authProvider.isLoading, false);
-      expect(authProvider.status, AuthStatus.unauthenticated);
-      expect(authProvider.currentUserProfile, isNull);
-      expect(authProvider.errorMessage, 'Profile details could not be loaded.');
-      expect(mockProfileRepository.getProfileCallCount, 3);
-    });
+        expect(authProvider.isLoading, false);
+        expect(authProvider.status, AuthStatus.unauthenticated);
+        expect(authProvider.currentUserProfile, isNull);
+        expect(
+          authProvider.errorMessage,
+          'Profile details could not be loaded.',
+        );
+        expect(mockProfileRepository.getProfileCallCount, 3);
+      },
+    );
 
     test('Auth state change to unauthenticated resets profile', () async {
       // Trigger sign out event
@@ -263,28 +271,37 @@ void main() {
       });
     });
 
-    test('registerWithEmailAndPassword fails if username is already taken', () async {
-      final existingProfile = Profile(
-        id: 'user-2',
-        username: 'takenuser',
-        fullName: 'Taken User',
-        email: 'taken@example.com',
-      );
-      mockProfileRepository.profiles['user-2'] = existingProfile;
-
-      expect(
-        () => authProvider.registerWithEmailAndPassword(
-          email: 'test@example.com',
-          password: 'password123',
+    test(
+      'registerWithEmailAndPassword fails if username is already taken',
+      () async {
+        final existingProfile = Profile(
+          id: 'user-2',
           username: 'takenuser',
-          fullName: 'Test User',
-        ),
-        throwsA(isA<Exception>().having((e) => e.toString(), 'message', contains("Username 'takenuser' is already taken.")),
-      ));
+          fullName: 'Taken User',
+          email: 'taken@example.com',
+        );
+        mockProfileRepository.profiles['user-2'] = existingProfile;
 
-      // Auth sign up should NOT have been called
-      expect(mockAuth.signUpCalls, isEmpty);
-    });
+        expect(
+          () => authProvider.registerWithEmailAndPassword(
+            email: 'test@example.com',
+            password: 'password123',
+            username: 'takenuser',
+            fullName: 'Test User',
+          ),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'message',
+              contains("Username 'takenuser' is already taken."),
+            ),
+          ),
+        );
+
+        // Auth sign up should NOT have been called
+        expect(mockAuth.signUpCalls, isEmpty);
+      },
+    );
 
     test('loginWithEmailAndPassword calls signInWithPassword', () async {
       await authProvider.loginWithEmailAndPassword(
@@ -298,83 +315,98 @@ void main() {
       expect(call['password'], 'password123');
     });
 
-    test('loginWithUsernameAndPassword resolves email and calls signInWithPassword', () async {
-      final profile = Profile(
-        id: 'user-3',
-        username: 'user3',
-        fullName: 'User Three',
-        email: 'user3@example.com',
-      );
-      mockProfileRepository.profiles['user-3'] = profile;
+    test(
+      'loginWithUsernameAndPassword resolves email and calls signInWithPassword',
+      () async {
+        final profile = Profile(
+          id: 'user-3',
+          username: 'user3',
+          fullName: 'User Three',
+          email: 'user3@example.com',
+        );
+        mockProfileRepository.profiles['user-3'] = profile;
 
-      await authProvider.loginWithUsernameAndPassword(
-        username: 'user3',
-        password: 'my-password',
-      );
+        await authProvider.loginWithUsernameAndPassword(
+          username: 'user3',
+          password: 'my-password',
+        );
 
-      expect(mockAuth.signInCalls.length, 1);
-      final call = mockAuth.signInCalls.first;
-      expect(call['email'], 'user3@example.com');
-      expect(call['password'], 'my-password');
-    });
+        expect(mockAuth.signInCalls.length, 1);
+        final call = mockAuth.signInCalls.first;
+        expect(call['email'], 'user3@example.com');
+        expect(call['password'], 'my-password');
+      },
+    );
 
-    test('loginWithUsernameAndPassword fails if username is not found', () async {
-      expect(
-        () => authProvider.loginWithUsernameAndPassword(
-          username: 'unknownuser',
-          password: 'password123',
-        ),
-        throwsA(isA<Exception>().having((e) => e.toString(), 'message', contains("Username 'unknownuser' not found.")),
-      ));
+    test(
+      'loginWithUsernameAndPassword fails if username is not found',
+      () async {
+        expect(
+          () => authProvider.loginWithUsernameAndPassword(
+            username: 'unknownuser',
+            password: 'password123',
+          ),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'message',
+              contains("Username 'unknownuser' not found."),
+            ),
+          ),
+        );
 
-      expect(mockAuth.signInCalls, isEmpty);
-    });
+        expect(mockAuth.signInCalls, isEmpty);
+      },
+    );
 
     test('logout calls signOut', () async {
       await authProvider.logout();
       expect(mockAuth.signOutCallCount, 1);
     });
 
-    test('updateProfile updates user attributes and updates repository profile', () async {
-      final initialProfile = Profile(
-        id: 'user-4',
-        username: 'user4',
-        fullName: 'User Four',
-        email: 'user4@example.com',
-        colorMode: 'system',
-      );
-      
-      // Simulate auth state as authenticated with user-4
-      mockProfileRepository.profiles['user-4'] = initialProfile;
-      final user = _createFakeUser('user-4', 'user4@example.com');
-      final session = _createFakeSession(user);
-      authStateController.add(AuthState(AuthChangeEvent.signedIn, session));
-      await Future.delayed(const Duration(milliseconds: 100));
+    test(
+      'updateProfile updates user attributes and updates repository profile',
+      () async {
+        final initialProfile = Profile(
+          id: 'user-4',
+          username: 'user4',
+          fullName: 'User Four',
+          email: 'user4@example.com',
+          colorMode: 'system',
+        );
 
-      // Trigger update with new email and name
-      await authProvider.updateProfile(
-        fullName: 'Updated User Four',
-        email: 'newemail@example.com',
-        gender: 'Female',
-        country: 'Canada',
-        description: 'New Description',
-        colorMode: 'dark',
-      );
+        // Simulate auth state as authenticated with user-4
+        mockProfileRepository.profiles['user-4'] = initialProfile;
+        final user = _createFakeUser('user-4', 'user4@example.com');
+        final session = _createFakeSession(user);
+        authStateController.add(AuthState(AuthChangeEvent.signedIn, session));
+        await Future.delayed(const Duration(milliseconds: 100));
 
-      // Email update triggered
-      expect(mockAuth.updateUserCalls.length, 1);
-      expect(mockAuth.updateUserCalls.first['email'], 'newemail@example.com');
+        // Trigger update with new email and name
+        await authProvider.updateProfile(
+          fullName: 'Updated User Four',
+          email: 'newemail@example.com',
+          gender: 'Female',
+          country: 'Canada',
+          description: 'New Description',
+          colorMode: 'dark',
+        );
 
-      // Profile repository update triggered
-      expect(mockProfileRepository.updateCalls.length, 1);
-      final updatedProfile = mockProfileRepository.updateCalls.first;
-      expect(updatedProfile.fullName, 'Updated User Four');
-      expect(updatedProfile.email, 'newemail@example.com');
-      expect(updatedProfile.gender, 'Female');
-      expect(updatedProfile.country, 'Canada');
-      expect(updatedProfile.description, 'New Description');
-      expect(updatedProfile.colorMode, 'dark');
-    });
+        // Email update triggered
+        expect(mockAuth.updateUserCalls.length, 1);
+        expect(mockAuth.updateUserCalls.first['email'], 'newemail@example.com');
+
+        // Profile repository update triggered
+        expect(mockProfileRepository.updateCalls.length, 1);
+        final updatedProfile = mockProfileRepository.updateCalls.first;
+        expect(updatedProfile.fullName, 'Updated User Four');
+        expect(updatedProfile.email, 'newemail@example.com');
+        expect(updatedProfile.gender, 'Female');
+        expect(updatedProfile.country, 'Canada');
+        expect(updatedProfile.description, 'New Description');
+        expect(updatedProfile.colorMode, 'dark');
+      },
+    );
 
     test('changePassword updates password attribute', () async {
       await authProvider.changePassword('new-secure-password');
@@ -392,26 +424,31 @@ void main() {
       );
       mockProfileRepository.profiles['user-resolution'] = profile;
 
-      final email = await authProvider.resolveEmailFromUsername('   ResolvedUser   ');
+      final email = await authProvider.resolveEmailFromUsername(
+        '   ResolvedUser   ',
+      );
       expect(email, 'resolved@example.com');
     });
 
-    test('loginWithUsernameAndPassword trims and lowercases username', () async {
-      final profile = Profile(
-        id: 'user-login-trim',
-        username: 'logintrimuser',
-        fullName: 'Login Trim User',
-        email: 'logintrim@example.com',
-      );
-      mockProfileRepository.profiles['user-login-trim'] = profile;
+    test(
+      'loginWithUsernameAndPassword trims and lowercases username',
+      () async {
+        final profile = Profile(
+          id: 'user-login-trim',
+          username: 'logintrimuser',
+          fullName: 'Login Trim User',
+          email: 'logintrim@example.com',
+        );
+        mockProfileRepository.profiles['user-login-trim'] = profile;
 
-      await authProvider.loginWithUsernameAndPassword(
-        username: '  LoginTrimUser  ',
-        password: 'password123',
-      );
+        await authProvider.loginWithUsernameAndPassword(
+          username: '  LoginTrimUser  ',
+          password: 'password123',
+        );
 
-      expect(mockAuth.signInCalls.length, 1);
-      expect(mockAuth.signInCalls.first['email'], 'logintrim@example.com');
-    });
+        expect(mockAuth.signInCalls.length, 1);
+        expect(mockAuth.signInCalls.first['email'], 'logintrim@example.com');
+      },
+    );
   });
 }

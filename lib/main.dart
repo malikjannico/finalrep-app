@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'theme.dart';
 import 'repositories/competition_repository.dart';
@@ -13,6 +14,7 @@ import 'providers/competition_provider.dart';
 import 'providers/auth_provider.dart';
 import 'views/search_feed_page.dart';
 import 'utils/url_helper.dart';
+import 'utils/mock_safety.dart';
 
 void main() async {
   UrlHelper.initialize();
@@ -74,14 +76,37 @@ void main() async {
         };
   }
 
-  // Initialize Supabase Client
-  await Supabase.initialize(
-    url: 'https://vnseudpajhkicezdcsuj.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZuc2V1ZHBhamhraWNlemRjc3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyOTQ4NjIsImV4cCI6MjA5NDg3MDg2Mn0.qaIyqbVOH_qXvUfz7iCvUvBsywyviFVaIYjt6MG-lsE',
-  );
+  // Validate environment variables and keys
+  MockSafety.validateStartupConfiguration();
 
-  final supabase = Supabase.instance.client;
+  // Initialize Firebase if credentials are provided
+  if (MockSafety.hasFirebaseKeys) {
+    try {
+      await Firebase.initializeApp(
+        options: FirebaseOptions(
+          apiKey: MockSafety.firebaseApiKey,
+          authDomain: MockSafety.firebaseAuthDomain,
+          projectId: MockSafety.firebaseProjectId,
+          storageBucket: MockSafety.firebaseStorageBucket,
+          messagingSenderId: MockSafety.firebaseMessagingSenderId,
+          appId: MockSafety.firebaseAppId,
+        ),
+      );
+    } catch (e) {
+      if (MockSafety.env == 'staging' || MockSafety.env == 'prod') {
+        throw StateError(
+          'CRITICAL: Firebase failed to initialize in "${MockSafety.env}": $e',
+        );
+      }
+      debugPrint('Firebase failed to initialize (using mock fallback in dev): $e');
+    }
+  }
+
+  // Create a placeholder/dummy SupabaseClient for repository construction in test/dev modes
+  final supabase = SupabaseClient(
+    'https://placeholder.supabase.co',
+    'placeholder-anon-key',
+  );
   final competitionRepository = CompetitionRepository(supabase);
   final profileRepository = ProfileRepository(supabase);
   final adminRepository = AdminRepository(supabase);
@@ -125,7 +150,8 @@ class _MyAppState extends State<MyApp> {
 
   void _toggleTheme(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.isAuthenticated && authProvider.currentUserProfile != null) {
+    if (authProvider.isAuthenticated &&
+        authProvider.currentUserProfile != null) {
       final profile = authProvider.currentUserProfile!;
       final currentMode = profile.colorMode;
       String newMode;
@@ -186,7 +212,9 @@ class _MyAppState extends State<MyApp> {
           themeMode: themeMode,
           themeAnimationDuration: Duration.zero,
           navigatorObservers: [
-            WebUrlObserver(Provider.of<CompetitionProvider>(context, listen: false)),
+            WebUrlObserver(
+              Provider.of<CompetitionProvider>(context, listen: false),
+            ),
           ],
           initialRoute: '/',
           home: Builder(

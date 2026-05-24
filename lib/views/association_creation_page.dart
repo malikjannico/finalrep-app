@@ -8,7 +8,8 @@ class AssociationCreationPage extends StatefulWidget {
   const AssociationCreationPage({super.key});
 
   @override
-  State<AssociationCreationPage> createState() => _AssociationCreationPageState();
+  State<AssociationCreationPage> createState() =>
+      _AssociationCreationPageState();
 }
 
 class _AssociationCreationPageState extends State<AssociationCreationPage> {
@@ -25,7 +26,9 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
 
   // Form Fields - Step 2: Rules
   final Map<String, TextEditingController> _rulebookControllers = {
-    'Streetlifting': TextEditingController(text: 'https://example.com/streetlifting-rules.pdf'),
+    'Streetlifting': TextEditingController(
+      text: 'https://example.com/streetlifting-rules.pdf',
+    ),
   };
 
   // Form Fields - Step 3: Social & Admin
@@ -54,7 +57,10 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
 
   Future<void> _submitAssociation() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
 
     if (authProvider.currentUserProfile == null) return;
 
@@ -63,7 +69,9 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
     });
 
     final name = _nameController.text.trim();
-    final areaName = _scope == 'global' ? null : _areaNameController.text.trim();
+    final areaName = _scope == 'global'
+        ? null
+        : _areaNameController.text.trim();
     final description = _descController.text.trim();
 
     // Collect rulebooks
@@ -102,7 +110,10 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       final result = await compProvider.createAssociation(newAssoc);
       if (result != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Association created successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Association created successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.of(context).pop();
       } else {
@@ -110,7 +121,10 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating association: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error creating association: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() {
@@ -128,15 +142,15 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       return Scaffold(
         appBar: AppBar(title: const Text('Access Denied')),
         body: const Center(
-          child: Text('Only authorized Association Creators can access this wizard.'),
+          child: Text(
+            'Only authorized Association Creators can access this wizard.',
+          ),
         ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Association'),
-      ),
+      appBar: AppBar(title: const Text('Create Association')),
       body: _isSaving
           ? const Center(
               child: Column(
@@ -191,8 +205,8 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
           backgroundColor: isDone
               ? Colors.green
               : isActive
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outline,
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outline,
           child: isDone
               ? const Icon(Icons.check, size: 16, color: Colors.white)
               : Text(
@@ -200,7 +214,9 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isActive || isDone ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                    color: isActive || isDone
+                        ? Colors.white
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
         ),
@@ -209,7 +225,9 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
           title,
           style: TextStyle(
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            color: isActive ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+            color: isActive
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ],
@@ -244,7 +262,10 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Step 1: Association Metadata', style: theme.textTheme.titleLarge),
+          Text(
+            'Step 1: Association Metadata',
+            style: theme.textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _nameController,
@@ -268,8 +289,14 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
               prefixIcon: Icon(Icons.map_outlined),
             ),
             items: const [
-              DropdownMenuItem(value: 'global', child: Text('Global (Governing Body)')),
-              DropdownMenuItem(value: 'area', child: Text('Regional / Continental')),
+              DropdownMenuItem(
+                value: 'global',
+                child: Text('Global (Governing Body)'),
+              ),
+              DropdownMenuItem(
+                value: 'area',
+                child: Text('Regional / Continental'),
+              ),
               DropdownMenuItem(value: 'local', child: Text('Local / National')),
             ],
             onChanged: (val) {
@@ -303,7 +330,8 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
             maxLines: 4,
             decoration: const InputDecoration(
               labelText: 'Description / Bio',
-              hintText: 'Tell athletes and organizations about this association...',
+              hintText:
+                  'Tell athletes and organizations about this association...',
               prefixIcon: Icon(Icons.description_outlined),
             ),
             validator: (val) {
@@ -324,11 +352,16 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Step 2: Rulebooks & Guidelines', style: theme.textTheme.titleLarge),
+          Text(
+            'Step 2: Rulebooks & Guidelines',
+            style: theme.textTheme.titleLarge,
+          ),
           const SizedBox(height: 8),
           Text(
             'Associate rulebook PDFs or document URLs for each sport category that this association supports.',
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 20),
           ListView.builder(
@@ -371,9 +404,15 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Step 3: Social Links & Supported Formats', style: theme.textTheme.titleLarge),
+          Text(
+            'Step 3: Social Links & Supported Formats',
+            style: theme.textTheme.titleLarge,
+          ),
           const SizedBox(height: 20),
-          Text('Supported Sports & Formats', style: theme.textTheme.titleMedium),
+          Text(
+            'Supported Sports & Formats',
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -442,7 +481,11 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                   decoration: InputDecoration(
                     labelText: '$platform Handle / Username',
                     hintText: 'e.g. dsa_lifting',
-                    prefixIcon: Icon(platform == 'Instagram' ? Icons.camera_alt_outlined : Icons.link),
+                    prefixIcon: Icon(
+                      platform == 'Instagram'
+                          ? Icons.camera_alt_outlined
+                          : Icons.link,
+                    ),
                   ),
                 ),
               );
@@ -459,7 +502,9 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
-          top: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+          top: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+          ),
         ),
       ),
       child: Row(

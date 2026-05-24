@@ -92,7 +92,9 @@ class MockCompetitionRepository implements CompetitionRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
-  SupabaseClient get client => MockSupabaseClient(auth: MockGoTrueClient(StreamController<AuthState>.broadcast()));
+  SupabaseClient get client => MockSupabaseClient(
+    auth: MockGoTrueClient(StreamController<AuthState>.broadcast()),
+  );
 
   @override
   Future<Competition?> getCompetitionById(String id) async {
@@ -128,6 +130,12 @@ class MockCompetitionRepository implements CompetitionRepository {
     competitions[competition.id] = competition;
     return competition;
   }
+
+  @override
+  String get baseUrl => '';
+
+  @override
+  Future<List<Map<String, dynamic>>> getMeetResults() async => [];
 }
 
 class MockAdminRepository implements AdminRepository {
@@ -137,14 +145,18 @@ class MockAdminRepository implements AdminRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
-  Future<PermissionApplication?> approvePermissionApplication(String applicationId) async {
+  Future<PermissionApplication?> approvePermissionApplication(
+    String applicationId,
+  ) async {
     final app = applications[applicationId];
     if (app == null) return null;
     return app.copyWith(status: 'approved');
   }
 
   @override
-  Future<PermissionApplication?> rejectPermissionApplication(String applicationId) async {
+  Future<PermissionApplication?> rejectPermissionApplication(
+    String applicationId,
+  ) async {
     final app = applications[applicationId];
     if (app == null) return null;
     return app.copyWith(status: 'rejected');
@@ -154,6 +166,9 @@ class MockAdminRepository implements AdminRepository {
 class FakeAssociationRepository implements AssociationRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<List<Association>> getAssociations() async => [];
 
   @override
   Future<Association?> getAssociationDetails(String id) async {
@@ -173,21 +188,32 @@ class WidgetMockAuthProvider extends ChangeNotifier implements AuthProvider {
   Profile? _currentUserProfile;
   final List<String> updatePrefCalls = [];
 
-  WidgetMockAuthProvider({Profile? currentUserProfile}) : _currentUserProfile = currentUserProfile;
+  WidgetMockAuthProvider({Profile? currentUserProfile})
+    : _currentUserProfile = currentUserProfile;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
+  NotificationRepository get notificationRepository => NotificationRepository(null);
+
+  @override
   Profile? get currentUserProfile => _currentUserProfile;
 
   @override
-  Future<void> updateNotificationPreference(String category, bool enabled) async {
+  Future<void> updateNotificationPreference(
+    String category,
+    bool enabled,
+  ) async {
     updatePrefCalls.add('$category:$enabled');
     if (_currentUserProfile != null) {
-      final updatedPrefs = Map<String, bool>.from(_currentUserProfile!.notificationPreferences);
+      final updatedPrefs = Map<String, bool>.from(
+        _currentUserProfile!.notificationPreferences,
+      );
       updatedPrefs[category] = enabled;
-      _currentUserProfile = _currentUserProfile!.copyWith(notificationPreferences: updatedPrefs);
+      _currentUserProfile = _currentUserProfile!.copyWith(
+        notificationPreferences: updatedPrefs,
+      );
       notifyListeners();
     }
   }
@@ -211,125 +237,213 @@ void main() {
       notifRepo = NotificationRepository(null);
     });
 
-    test('Triggers check - registrations, volunteer applications, permission status updates, payments, schedule releases, flight assignments', () async {
-      // 1. Permission status updates
-      final mockAuthClient = MockGoTrueClient(StreamController<AuthState>.broadcast());
-      final mockSupabaseClient = MockSupabaseClient(auth: mockAuthClient);
-      final mockProfileRepo = MockProfileRepository();
-      final mockAdminRepo = MockAdminRepository();
+    test(
+      'Triggers check - registrations, volunteer applications, permission status updates, payments, schedule releases, flight assignments',
+      () async {
+        // 1. Permission status updates
+        final mockAuthClient = MockGoTrueClient(
+          StreamController<AuthState>.broadcast(),
+        );
+        final mockSupabaseClient = MockSupabaseClient(auth: mockAuthClient);
+        final mockProfileRepo = MockProfileRepository();
+        final mockAdminRepo = MockAdminRepository();
 
-      final userId = 'user-perm-test';
-      mockProfileRepo.profiles[userId] = Profile(
-        id: userId,
-        username: 'permuser',
-        fullName: 'Permission User',
-        email: 'perm@test.com',
-      );
+        final userId = 'user-perm-test';
+        mockProfileRepo.profiles[userId] = Profile(
+          id: userId,
+          username: 'permuser',
+          fullName: 'Permission User',
+          email: 'perm@test.com',
+        );
 
-      final authProvider = AuthProvider(
-        mockSupabaseClient,
-        mockProfileRepo,
-        adminRepository: mockAdminRepo,
-        notificationRepository: notifRepo,
-      );
+        final authProvider = AuthProvider(
+          mockSupabaseClient,
+          mockProfileRepo,
+          adminRepository: mockAdminRepo,
+          notificationRepository: notifRepo,
+        );
 
-      // Seed permission applications
-      mockAdminRepo.applications['app-1'] = PermissionApplication(
-        id: 'app-1',
-        userId: userId,
-        type: 'create_competition',
-        reason: 'Reason',
-        status: 'pending',
-        createdAt: DateTime.now(),
-      );
-      mockAdminRepo.applications['app-2'] = PermissionApplication(
-        id: 'app-2',
-        userId: userId,
-        type: 'create_association',
-        reason: 'Reason 2',
-        status: 'pending',
-        createdAt: DateTime.now(),
-      );
+        // Seed permission applications
+        mockAdminRepo.applications['app-1'] = PermissionApplication(
+          id: 'app-1',
+          userId: userId,
+          type: 'create_competition',
+          reason: 'Reason',
+          status: 'pending',
+          createdAt: DateTime.now(),
+        );
+        mockAdminRepo.applications['app-2'] = PermissionApplication(
+          id: 'app-2',
+          userId: userId,
+          type: 'create_association',
+          reason: 'Reason 2',
+          status: 'pending',
+          createdAt: DateTime.now(),
+        );
 
-      // Approve Application
-      final appApprove = await authProvider.approvePermissionApplication('app-1');
-      expect(appApprove!.status, 'approved');
-      final notifsApprove = await notifRepo.getNotifications(userId);
-      expect(notifsApprove.any((n) => n.category == 'permissions' && n.title == 'Permissions Approved'), true);
+        // Approve Application
+        final appApprove = await authProvider.approvePermissionApplication(
+          'app-1',
+        );
+        expect(appApprove!.status, 'approved');
+        final notifsApprove = await notifRepo.getNotifications(userId);
+        expect(
+          notifsApprove.any(
+            (n) =>
+                n.category == 'permissions' &&
+                n.title == 'Permissions Approved',
+          ),
+          true,
+        );
 
-      // Reject Application
-      final appReject = await authProvider.rejectPermissionApplication('app-2');
-      expect(appReject!.status, 'rejected');
-      final notifsReject = await notifRepo.getNotifications(userId);
-      expect(notifsReject.any((n) => n.category == 'permissions' && n.title == 'Permissions Application Update' && n.message.contains('rejected')), true);
+        // Reject Application
+        final appReject = await authProvider.rejectPermissionApplication(
+          'app-2',
+        );
+        expect(appReject!.status, 'rejected');
+        final notifsReject = await notifRepo.getNotifications(userId);
+        expect(
+          notifsReject.any(
+            (n) =>
+                n.category == 'permissions' &&
+                n.title == 'Permissions Application Update' &&
+                n.message.contains('rejected'),
+          ),
+          true,
+        );
 
-      // 2. Registrations & Payments
-      final mockCompRepo = MockCompetitionRepository();
-      final mockAssocRepo = FakeAssociationRepository();
-      final compProvider = CompetitionProvider(
-        mockCompRepo,
-        mockProfileRepo,
-        associationRepository: mockAssocRepo,
-        notificationRepository: notifRepo,
-      );
+        // 2. Registrations & Payments
+        final mockCompRepo = MockCompetitionRepository();
+        final mockAssocRepo = FakeAssociationRepository();
+        final compProvider = CompetitionProvider(
+          mockCompRepo,
+          mockProfileRepo,
+          associationRepository: mockAssocRepo,
+          notificationRepository: notifRepo,
+        );
 
-      final comp = Competition(
-        id: 'comp-1',
-        title: 'Adversarial Pull Meet',
-        location: 'Munich',
-        sportType: 'Streetlifting',
-        sportSubtype: 'Classic',
-        requiresFees: true,
-        feeAmount: 15.0,
-        feeCurrency: 'EUR',
-        registrationEnd: DateTime.now().add(const Duration(days: 2)),
-        startDate: DateTime.now().add(const Duration(days: 5)),
-        endDate: DateTime.now().add(const Duration(days: 5)),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      mockCompRepo.competitions[comp.id] = comp;
+        final comp = Competition(
+          id: 'comp-1',
+          title: 'Adversarial Pull Meet',
+          location: 'Munich',
+          sportType: 'Streetlifting',
+          sportSubtype: 'Classic',
+          requiresFees: true,
+          feeAmount: 15.0,
+          feeCurrency: 'EUR',
+          registrationEnd: DateTime.now().add(const Duration(days: 2)),
+          startDate: DateTime.now().add(const Duration(days: 5)),
+          endDate: DateTime.now().add(const Duration(days: 5)),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        mockCompRepo.competitions[comp.id] = comp;
 
-      // Create competition (fires payment formulation)
-      final created = await compProvider.createCompetition(comp);
-      expect(created, isNotNull);
-      final listPaymentNotif = await notifRepo.getNotifications('');
-      expect(listPaymentNotif.any((n) => n.category == 'payments' && n.title == 'Payment Details Formulated'), true);
+        // Create competition (fires payment formulation)
+        final created = await compProvider.createCompetition(comp);
+        expect(created, isNotNull);
+        final listPaymentNotif = await notifRepo.getNotifications('');
+        expect(
+          listPaymentNotif.any(
+            (n) =>
+                n.category == 'payments' &&
+                n.title == 'Payment Details Formulated',
+          ),
+          true,
+        );
 
-      // Register Athlete (fires registration confirmation + payment action required)
-      mockCompRepo.athletes.add(Profile(id: 'athlete-adversary', username: 'ath1', fullName: 'Athlete One', email: 'a1@test.com'));
-      final regSuccess = await compProvider.registerAthlete(competitionId: 'comp-1', userId: 'athlete-adversary');
-      expect(regSuccess, true);
+        // Register Athlete (fires registration confirmation + payment action required)
+        mockCompRepo.athletes.add(
+          Profile(
+            id: 'athlete-adversary',
+            username: 'ath1',
+            fullName: 'Athlete One',
+            email: 'a1@test.com',
+          ),
+        );
+        final regSuccess = await compProvider.registerAthlete(
+          competitionId: 'comp-1',
+          userId: 'athlete-adversary',
+        );
+        expect(regSuccess, true);
 
-      final athleteNotifs = await notifRepo.getNotifications('athlete-adversary');
-      expect(athleteNotifs.any((n) => n.category == 'registration' && n.title == 'Registration Confirmed'), true);
-      expect(athleteNotifs.any((n) => n.category == 'payments' && n.title == 'Payment Action Required'), true);
+        final athleteNotifs = await notifRepo.getNotifications(
+          'athlete-adversary',
+        );
+        expect(
+          athleteNotifs.any(
+            (n) =>
+                n.category == 'registration' &&
+                n.title == 'Registration Confirmed',
+          ),
+          true,
+        );
+        expect(
+          athleteNotifs.any(
+            (n) =>
+                n.category == 'payments' &&
+                n.title == 'Payment Action Required',
+          ),
+          true,
+        );
 
-      // 3. Volunteer applications
-      final volSuccess = await compProvider.submitVolunteerApplication(
-        competitionId: 'comp-1',
-        userId: 'volunteer-adversary',
-        preferredRoles: ['Judge'],
-        shiftAvailability: {'All': ['Judge']},
-        customFieldAnswers: {},
-        disclaimerAccepted: true,
-      );
-      expect(volSuccess, true);
-      final volNotifs = await notifRepo.getNotifications('volunteer-adversary');
-      expect(volNotifs.any((n) => n.category == 'registration' && n.title == 'Volunteer Application Submitted'), true);
+        // 3. Volunteer applications
+        final volSuccess = await compProvider.submitVolunteerApplication(
+          competitionId: 'comp-1',
+          userId: 'volunteer-adversary',
+          preferredRoles: ['Judge'],
+          shiftAvailability: {
+            'All': ['Judge'],
+          },
+          customFieldAnswers: {},
+          disclaimerAccepted: true,
+        );
+        expect(volSuccess, true);
+        final volNotifs = await notifRepo.getNotifications(
+          'volunteer-adversary',
+        );
+        expect(
+          volNotifs.any(
+            (n) =>
+                n.category == 'registration' &&
+                n.title == 'Volunteer Application Submitted',
+          ),
+          true,
+        );
 
-      // 4. Flight assignments
-      await compProvider.balanceFlights('comp-1');
-      final flightNotifs = await notifRepo.getNotifications('athlete-adversary');
-      expect(flightNotifs.any((n) => n.category == 'flights' && n.title == 'Flight Assignment Updated'), true);
+        // 4. Flight assignments
+        await compProvider.balanceFlights('comp-1');
+        final flightNotifs = await notifRepo.getNotifications(
+          'athlete-adversary',
+        );
+        expect(
+          flightNotifs.any(
+            (n) =>
+                n.category == 'flights' &&
+                n.title == 'Flight Assignment Updated',
+          ),
+          true,
+        );
 
-      // 5. Schedule releases
-      await compProvider.publishSchedule('comp-1', isPublic: true);
-      final schedNotifs = await notifRepo.getNotifications('athlete-adversary');
-      expect(schedNotifs.any((n) => n.category == 'schedule' && n.title == 'Meet Schedule Published'), true);
-    });
+        // 5. Schedule releases
+        await compProvider.publishSchedule('comp-1', isPublic: true);
+        final schedNotifs = await notifRepo.getNotifications(
+          'athlete-adversary',
+        );
+        expect(
+          schedNotifs.any(
+            (n) =>
+                n.category == 'schedule' &&
+                n.title == 'Meet Schedule Published',
+          ),
+          true,
+        );
+      },
+    );
 
-    testWidgets('UI Filters check - settings toggles and category chips', (WidgetTester tester) async {
+    testWidgets('UI Filters check - settings toggles and category chips', (
+      WidgetTester tester,
+    ) async {
       final userId = 'ui-user';
       final profile = Profile(
         id: userId,
@@ -372,9 +486,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<AuthProvider>.value(
           value: authProvider,
-          child: const MaterialApp(
-            home: NotificationsPage(),
-          ),
+          child: const MaterialApp(home: NotificationsPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -412,16 +524,16 @@ void main() {
       expect(find.text('Registration OK'), findsOneWidget);
     });
 
-    testWidgets('Unauthenticated behavior - switches disabled', (WidgetTester tester) async {
+    testWidgets('Unauthenticated behavior - switches disabled', (
+      WidgetTester tester,
+    ) async {
       // Unauthenticated provider
       final authProvider = WidgetMockAuthProvider(currentUserProfile: null);
 
       await tester.pumpWidget(
         ChangeNotifierProvider<AuthProvider>.value(
           value: authProvider,
-          child: const MaterialApp(
-            home: NotificationsPage(),
-          ),
+          child: const MaterialApp(home: NotificationsPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -433,10 +545,14 @@ void main() {
 
       // Verify all switches are disabled (onChanged is null)
       // SwitchListTile uses a Switch. To verify if SwitchListTile is disabled, we can check the Switch onChanged callback.
-      final registrationSwitch = tester.widget<SwitchListTile>(find.byKey(const Key('switch_registration')));
+      final registrationSwitch = tester.widget<SwitchListTile>(
+        find.byKey(const Key('switch_registration')),
+      );
       expect(registrationSwitch.onChanged, isNull);
 
-      final flightsSwitch = tester.widget<SwitchListTile>(find.byKey(const Key('switch_flights')));
+      final flightsSwitch = tester.widget<SwitchListTile>(
+        find.byKey(const Key('switch_flights')),
+      );
       expect(flightsSwitch.onChanged, isNull);
 
       // Verify fallbacks rendered because user is unauthenticated
@@ -451,16 +567,26 @@ void main() {
         'username': 'u1',
         'full_name': 'U One',
         'email': 'u1@test.com',
-        'notification_preferences': {
-          'registration': false,
-        }
+        'notification_preferences': {'registration': false},
       };
       final profilePartial = Profile.fromJson(jsonPartial);
       expect(profilePartial.notificationPreferences['registration'], false);
-      expect(profilePartial.notificationPreferences['permissions'], true); // default fallback
-      expect(profilePartial.notificationPreferences['payments'], true); // default fallback
-      expect(profilePartial.notificationPreferences['schedule'], true); // default fallback
-      expect(profilePartial.notificationPreferences['flights'], true); // default fallback
+      expect(
+        profilePartial.notificationPreferences['permissions'],
+        true,
+      ); // default fallback
+      expect(
+        profilePartial.notificationPreferences['payments'],
+        true,
+      ); // default fallback
+      expect(
+        profilePartial.notificationPreferences['schedule'],
+        true,
+      ); // default fallback
+      expect(
+        profilePartial.notificationPreferences['flights'],
+        true,
+      ); // default fallback
 
       // 2. Missing JSON preferences mapping
       final jsonMissing = {

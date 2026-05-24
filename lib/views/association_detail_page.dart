@@ -17,7 +17,8 @@ class AssociationDetailPage extends StatefulWidget {
   State<AssociationDetailPage> createState() => _AssociationDetailPageState();
 }
 
-class _AssociationDetailPageState extends State<AssociationDetailPage> with SingleTickerProviderStateMixin {
+class _AssociationDetailPageState extends State<AssociationDetailPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Association? _association;
   List<AssociationMember> _members = [];
@@ -44,13 +45,24 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
       _isLoading = true;
     });
 
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
     try {
-      final assoc = await compProvider.getAssociationDetails(widget.associationId);
+      final assoc = await compProvider.getAssociationDetails(
+        widget.associationId,
+      );
       if (assoc != null) {
-        final membersList = await compProvider.getAssociationMembers(widget.associationId);
-        final compGroupsList = await compProvider.getCompetitionGroups(widget.associationId);
-        final athleteGroupsList = await compProvider.getAthleteGroups(widget.associationId);
+        final membersList = await compProvider.getAssociationMembers(
+          widget.associationId,
+        );
+        final compGroupsList = await compProvider.getCompetitionGroups(
+          widget.associationId,
+        );
+        final athleteGroupsList = await compProvider.getAthleteGroups(
+          widget.associationId,
+        );
         setState(() {
           _association = assoc;
           _members = membersList;
@@ -60,7 +72,10 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading association details: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error loading association details: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) {
@@ -77,7 +92,11 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
     if (_association!.ownerId == currentUserId) return true;
 
     // Check if user is editor in members list
-    return _members.any((member) => member.userId == currentUserId && (member.role == 'owner' || member.role == 'editor'));
+    return _members.any(
+      (member) =>
+          member.userId == currentUserId &&
+          (member.role == 'owner' || member.role == 'editor'),
+    );
   }
 
   @override
@@ -113,11 +132,18 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
           if (isAuthorizedToManage)
             TextButton.icon(
               icon: const Icon(Icons.edit, color: Colors.orange),
-              label: const Text('MANAGE', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+              label: const Text(
+                'MANAGE',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onPressed: () async {
                 await Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => AssociationManagementPage(associationId: assoc.id),
+                    builder: (_) =>
+                        AssociationManagementPage(associationId: assoc.id),
                   ),
                 );
                 _loadData();
@@ -131,7 +157,10 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
             Tab(icon: Icon(Icons.info_outline), text: 'Info'),
             Tab(icon: Icon(Icons.groups_outlined), text: 'Members'),
             Tab(icon: Icon(Icons.list_alt_outlined), text: 'Comp Groups'),
-            Tab(icon: Icon(Icons.fitness_center_outlined), text: 'Athlete Groups'),
+            Tab(
+              icon: Icon(Icons.fitness_center_outlined),
+              text: 'Athlete Groups',
+            ),
           ],
         ),
       ),
@@ -156,28 +185,50 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primaryContainer.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   assoc.scope.toUpperCase(),
-                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
               if (assoc.areaName != null) ...[
                 const SizedBox(width: 8),
-                Text('Territory: ${assoc.areaName}', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Territory: ${assoc.areaName}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ],
           ),
           const SizedBox(height: 16),
-          Text('Description', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Description',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(assoc.description, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 24),
-          Text('Rulebooks', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Rulebooks',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 8),
           if (assoc.rulebooks.isEmpty)
             const Text('No rulebooks published yet.')
@@ -187,9 +238,16 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   child: ListTile(
-                    leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                    leading: const Icon(
+                      Icons.picture_as_pdf,
+                      color: Colors.red,
+                    ),
                     title: Text('${e.key} Rulebook'),
-                    subtitle: Text(e.value, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(
+                      e.value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     trailing: const Icon(Icons.open_in_new),
                     onTap: () {
                       // Open external URL
@@ -199,7 +257,12 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
               }).toList(),
             ),
           const SizedBox(height: 24),
-          Text('Social Channels', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Social Channels',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 8),
           if (assoc.socialChannels.isEmpty)
             const Text('No social channels added.')
@@ -208,7 +271,12 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
               spacing: 12,
               children: assoc.socialChannels.entries.map((e) {
                 return ActionChip(
-                  avatar: Icon(e.key == 'Instagram' ? Icons.camera_alt_outlined : Icons.link, size: 16),
+                  avatar: Icon(
+                    e.key == 'Instagram'
+                        ? Icons.camera_alt_outlined
+                        : Icons.link,
+                    size: 16,
+                  ),
                   label: Text('${e.key}: @${e.value}'),
                   onPressed: () {},
                 );
@@ -233,21 +301,33 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
         return Card(
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: isOwner ? Colors.orange.withOpacity(0.2) : theme.colorScheme.primaryContainer,
-              child: Icon(isOwner ? Icons.workspace_premium : Icons.person, color: isOwner ? Colors.orange : theme.colorScheme.primary),
+              backgroundColor: isOwner
+                  ? Colors.orange.withOpacity(0.2)
+                  : theme.colorScheme.primaryContainer,
+              child: Icon(
+                isOwner ? Icons.workspace_premium : Icons.person,
+                color: isOwner ? Colors.orange : theme.colorScheme.primary,
+              ),
             ),
-            title: Text(member.userId, style: const TextStyle(fontWeight: FontWeight.bold)), // In a real app we load profile name
+            title: Text(
+              member.userId,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ), // In a real app we load profile name
             subtitle: Text(member.customTitle ?? member.role.toUpperCase()),
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: isOwner ? Colors.orange.withOpacity(0.1) : theme.colorScheme.outlineVariant.withOpacity(0.3),
+                color: isOwner
+                    ? Colors.orange.withOpacity(0.1)
+                    : theme.colorScheme.outlineVariant.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 member.role.toUpperCase(),
                 style: TextStyle(
-                  color: isOwner ? Colors.orange : theme.colorScheme.onSurfaceVariant,
+                  color: isOwner
+                      ? Colors.orange
+                      : theme.colorScheme.onSurfaceVariant,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -272,12 +352,17 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
         return Card(
           child: ListTile(
             leading: const Icon(Icons.list_alt, color: Colors.blue),
-            title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(
+              group.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             subtitle: Text('Sport: ${group.sport} (${group.format})'),
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: group.isActive ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                color: group.isActive
+                    ? Colors.green.withOpacity(0.1)
+                    : Colors.red.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -308,12 +393,19 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> with Sing
         return Card(
           child: ListTile(
             leading: const Icon(Icons.fitness_center, color: Colors.purple),
-            title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Sport: ${group.sport} (${group.format}) • Gender: ${group.gender} • Max weight: ${group.maxWeight ?? "Open"}'),
+            title: Text(
+              group.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Sport: ${group.sport} (${group.format}) • Gender: ${group.gender} • Max weight: ${group.maxWeight ?? "Open"}',
+            ),
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: group.isActive ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                color: group.isActive
+                    ? Colors.green.withOpacity(0.1)
+                    : Colors.red.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(

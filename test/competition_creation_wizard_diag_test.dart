@@ -25,12 +25,18 @@ void main() {
     await tester.pumpAndSettle();
 
     // Step 1
-    await tester.enterText(find.byKey(const Key('comp_name_field')), 'Date Test Meet');
-    await tester.enterText(find.byKey(const Key('comp_location_field')), 'Berlin Gym');
+    await tester.enterText(
+      find.byKey(const Key('comp_name_field')),
+      'Date Test Meet',
+    );
+    await tester.enterText(
+      find.byKey(const Key('comp_location_field')),
+      'Berlin Gym',
+    );
     final verifyLocBtn = find.widgetWithText(ElevatedButton, 'Verify Location');
     await tester.tap(verifyLocBtn);
     await tester.pumpAndSettle();
-    
+
     final nextButton = find.byKey(const Key('comp_next_btn'));
     final context = tester.element(nextButton);
     ScaffoldMessenger.of(context).clearSnackBars();
@@ -50,32 +56,53 @@ void main() {
 
     // Enable fees
     final feesToggle = find.byKey(const Key('comp_fees_toggle'));
-    await tester.tap(find.descendant(of: feesToggle, matching: find.byType(Switch)));
+    await tester.tap(
+      find.descendant(of: feesToggle, matching: find.byType(Switch)),
+    );
     await tester.pumpAndSettle();
 
     // Fill fee amount & IBAN & payment description
-    await tester.enterText(find.widgetWithText(TextFormField, 'Fee Amount *'), '15.0');
-    await tester.enterText(find.widgetWithText(TextFormField, 'IBAN / Bank Details *'), 'DE9876543210');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Payment Reference / Description *'), 'Date Test Reference');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Fee Amount *'),
+      '15.0',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'IBAN / Bank Details *'),
+      'DE9876543210',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Payment Reference / Description *'),
+      'Date Test Reference',
+    );
     await tester.pumpAndSettle();
 
     // Step 4 -> Step 5
     await tester.tap(nextButton);
     await tester.pumpAndSettle();
-    debugPrint('After Step 4 Next. Current text: ${find.byType(Text).evaluate().map((e) => (e.widget as Text).data).toList()}');
+    debugPrint(
+      'After Step 4 Next. Current text: ${find.byType(Text).evaluate().map((e) => (e.widget as Text).data).toList()}',
+    );
 
     // Step 5 -> Step 6
     await tester.tap(nextButton);
     await tester.pumpAndSettle();
-    debugPrint('After Step 5 Next. Current text: ${find.byType(Text).evaluate().map((e) => (e.widget as Text).data).toList()}');
+    debugPrint(
+      'After Step 5 Next. Current text: ${find.byType(Text).evaluate().map((e) => (e.widget as Text).data).toList()}',
+    );
 
     // Submit the wizard in Step 6
     await tester.tap(nextButton);
     await tester.pumpAndSettle();
 
     // Check Snackbar and database
-    final snackbars = find.byType(SnackBar).evaluate().map((e) => ((e.widget as SnackBar).content as Text).data).toList();
+    final snackbars = find
+        .byType(SnackBar)
+        .evaluate()
+        .map((e) => ((e.widget as SnackBar).content as Text).data)
+        .toList();
     debugPrint('SNACKBARS: $snackbars');
-    debugPrint('DATABASE COMPETITIONS: ${harness.db.competitions.values.map((c) => c.title).toList()}');
+    debugPrint(
+      'DATABASE COMPETITIONS: ${harness.db.competitions.values.map((c) => c.title).toList()}',
+    );
   });
 }

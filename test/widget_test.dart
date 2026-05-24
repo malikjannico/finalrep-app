@@ -42,12 +42,18 @@ class MockProfileRepository implements ProfileRepository {
 
   @override
   Future<Profile> getProfile(String id) async {
-    return profilesToReturn.firstWhere((p) => p.id == id, orElse: () => throw Exception('Profile not found'));
+    return profilesToReturn.firstWhere(
+      (p) => p.id == id,
+      orElse: () => throw Exception('Profile not found'),
+    );
   }
 
   @override
   Future<Profile> getProfileByUsername(String username) async {
-    return profilesToReturn.firstWhere((p) => p.username.toLowerCase() == username.toLowerCase(), orElse: () => throw Exception('Profile not found'));
+    return profilesToReturn.firstWhere(
+      (p) => p.username.toLowerCase() == username.toLowerCase(),
+      orElse: () => throw Exception('Profile not found'),
+    );
   }
 
   @override
@@ -61,12 +67,16 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getUserHighestRankings(String userId) async {
+  Future<List<Map<String, dynamic>>> getUserHighestRankings(
+    String userId,
+  ) async {
     return [];
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getUserPersonalRecords(String userId) async {
+  Future<List<Map<String, dynamic>>> getUserPersonalRecords(
+    String userId,
+  ) async {
     return [];
   }
 }
@@ -86,10 +96,10 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
     ProfileRepository? profileRepository,
     this.onIsUsernameTaken,
     this.onIsEmailTaken,
-  })  : _isAuthenticated = isAuthenticated,
-        _currentUserProfile = currentUserProfile,
-        _status = status,
-        _profileRepository = profileRepository;
+  }) : _isAuthenticated = isAuthenticated,
+       _currentUserProfile = currentUserProfile,
+       _status = status,
+       _profileRepository = profileRepository;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -99,7 +109,8 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   @override
   Profile? get currentUserProfile => _currentUserProfile;
   @override
-  ProfileRepository get profileRepository => _profileRepository ?? MockProfileRepository();
+  ProfileRepository get profileRepository =>
+      _profileRepository ?? MockProfileRepository();
   @override
   bool get isAuthenticated => _isAuthenticated;
   @override
@@ -127,7 +138,10 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   Future<void> sendPasswordResetEmail(String email) async {}
 
   @override
-  Future<void> loginWithEmailAndPassword({required String email, required String password}) async {}
+  Future<void> loginWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {}
 
   @override
   Future<void> changePassword(String newPassword) async {}
@@ -150,16 +164,21 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   bool get isAdmin => _currentUserProfile?.isAdmin ?? false;
 
   @override
-  bool get isCompetitionCreator => _currentUserProfile?.isCompetitionCreator ?? false;
+  bool get isCompetitionCreator =>
+      _currentUserProfile?.isCompetitionCreator ?? false;
 
   @override
-  bool get isAssociationCreator => _currentUserProfile?.isAssociationCreator ?? false;
+  bool get isAssociationCreator =>
+      _currentUserProfile?.isAssociationCreator ?? false;
 
   @override
   AdminRepository get adminRepository => AdminRepository(null);
 
   @override
-  Future<PermissionApplication?> applyForPermissions(String type, String reason) async {
+  Future<PermissionApplication?> applyForPermissions(
+    String type,
+    String reason,
+  ) async {
     return null;
   }
 
@@ -169,12 +188,16 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   }
 
   @override
-  Future<PermissionApplication?> approvePermissionApplication(String applicationId) async {
+  Future<PermissionApplication?> approvePermissionApplication(
+    String applicationId,
+  ) async {
     return null;
   }
 
   @override
-  Future<PermissionApplication?> rejectPermissionApplication(String applicationId) async {
+  Future<PermissionApplication?> rejectPermissionApplication(
+    String applicationId,
+  ) async {
     return null;
   }
 
@@ -210,7 +233,10 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   void clearError() {}
 
   @override
-  Future<void> loginWithUsernameAndPassword({required String username, required String password}) async {}
+  Future<void> loginWithUsernameAndPassword({
+    required String username,
+    required String password,
+  }) async {}
 
   @override
   Future<String> resolveEmailFromUsername(String username) async => '';
@@ -245,7 +271,9 @@ class MockFilePicker extends FilePicker {
       PlatformFile(
         name: 'test_avatar.png',
         size: 100,
-        bytes: base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='),
+        bytes: base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        ),
       ),
     ]);
   }
@@ -286,6 +314,7 @@ class FakeCompetitionRepository implements CompetitionRepository {
     String? query,
     String? sportSubtype,
     String? compGroupName,
+    String? status = 'upcoming',
   }) async {
     return _fakeCompetitions.where((comp) {
       if (query != null && query.isNotEmpty) {
@@ -346,8 +375,7 @@ void main() {
     expect(
       find.byWidgetPredicate(
         (w) =>
-            w is TextField &&
-            w.decoration?.hintText == 'Search competitions',
+            w is TextField && w.decoration?.hintText == 'Search competitions',
       ),
       findsOneWidget,
     );
@@ -673,47 +701,78 @@ void main() {
         await tester.pumpWidget(
           ChangeNotifierProvider<AuthProvider>.value(
             value: authProvider,
-            child: const MaterialApp(
-              home: RegisterPage(),
-            ),
+            child: const MaterialApp(home: RegisterPage()),
           ),
         );
 
         // Verify we start at Step 1: Account
         expect(find.text('Create Account'), findsOneWidget);
         expect(find.text('Account'), findsOneWidget);
-        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+        expect(
+          find.byKey(const Key('register_username_field')),
+          findsOneWidget,
+        );
         expect(find.byKey(const Key('register_email_field')), findsOneWidget);
-        expect(find.byKey(const Key('register_password_field')), findsOneWidget);
+        expect(
+          find.byKey(const Key('register_password_field')),
+          findsOneWidget,
+        );
 
         // Verify password safety rules are displayed
         expect(find.text('Minimum 8 characters'), findsOneWidget);
-        expect(find.text('At least one uppercase letter (A-Z)'), findsOneWidget);
-        expect(find.text('At least one lowercase letter (a-z)'), findsOneWidget);
+        expect(
+          find.text('At least one uppercase letter (A-Z)'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('At least one lowercase letter (a-z)'),
+          findsOneWidget,
+        );
         expect(find.text('At least one numeric digit (0-9)'), findsOneWidget);
-        expect(find.text('At least one special character (!@#\$%^&*)'), findsOneWidget);
+        expect(
+          find.text('At least one special character (!@#\$%^&*)'),
+          findsOneWidget,
+        );
 
         // Tap NEXT to advance - validation should trigger and keep us on Step 1
         // (NEXT is disabled since password is empty)
         await tester.tap(find.text('NEXT'));
         await tester.pumpAndSettle();
-        
+
         // Fields are still present, indicating we did not advance
-        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+        expect(
+          find.byKey(const Key('register_username_field')),
+          findsOneWidget,
+        );
 
         // Fill out Step 1 with a weak password (fails rules)
-        await tester.enterText(find.byKey(const Key('register_username_field')), 'testuser');
-        await tester.enterText(find.byKey(const Key('register_email_field')), 'test@email.com');
-        await tester.enterText(find.byKey(const Key('register_password_field')), 'password123');
+        await tester.enterText(
+          find.byKey(const Key('register_username_field')),
+          'testuser',
+        );
+        await tester.enterText(
+          find.byKey(const Key('register_email_field')),
+          'test@email.com',
+        );
+        await tester.enterText(
+          find.byKey(const Key('register_password_field')),
+          'password123',
+        );
         await tester.pumpAndSettle();
 
         // NEXT should still be disabled because password rules are not met
         await tester.tap(find.text('NEXT'));
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+        expect(
+          find.byKey(const Key('register_username_field')),
+          findsOneWidget,
+        );
 
         // Fill out Step 1 with a strong/valid password (satisfies all 5 rules)
-        await tester.enterText(find.byKey(const Key('register_password_field')), 'Password123!');
+        await tester.enterText(
+          find.byKey(const Key('register_password_field')),
+          'Password123!',
+        );
         await tester.pumpAndSettle();
 
         // Tap NEXT to advance to Step 2
@@ -721,17 +780,26 @@ void main() {
         await tester.pumpAndSettle();
 
         // Verify we are now on Step 2: Details
-        expect(find.byKey(const Key('register_fullname_field')), findsOneWidget);
+        expect(
+          find.byKey(const Key('register_fullname_field')),
+          findsOneWidget,
+        );
         expect(find.text('Gender'), findsOneWidget);
         expect(find.text('Country'), findsOneWidget);
 
         // Tap NEXT to validate Step 2 (Full Name is empty)
         await tester.tap(find.text('NEXT'));
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('register_fullname_field')), findsOneWidget); // still on step 2
+        expect(
+          find.byKey(const Key('register_fullname_field')),
+          findsOneWidget,
+        ); // still on step 2
 
         // Fill out Step 2
-        await tester.enterText(find.byKey(const Key('register_fullname_field')), 'Test User');
+        await tester.enterText(
+          find.byKey(const Key('register_fullname_field')),
+          'Test User',
+        );
         await tester.pumpAndSettle();
 
         // Tap NEXT to advance to Step 3
@@ -849,16 +917,14 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<AuthProvider>.value(
           value: authProvider,
-          child: const MaterialApp(
-            home: ProfilePage(),
-          ),
+          child: const MaterialApp(home: ProfilePage()),
         ),
       );
 
       await tester.pump();
 
       // Verify that settings icon next to the username exists
-      expect(find.byIcon(Icons.settings), findsOneWidget);
+      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
 
       // Verify "About Me" title does NOT exist
       expect(find.text('About Me'), findsNothing);
@@ -871,81 +937,470 @@ void main() {
     },
   );
 
-  testWidgets(
-    'SettingsPage renders details, subpages navigation, and logout',
-    (WidgetTester tester) async {
-      final profile = Profile(
-        id: 'user-123',
-        username: 'johndoe',
-        fullName: 'John Doe',
-        email: 'john@example.com',
-        description: 'Passionate lifter description.',
-        colorMode: 'dark',
-      );
-      final authProvider = MockAuthProvider(
-        isAuthenticated: true,
-        currentUserProfile: profile,
-      );
+  testWidgets('SettingsPage renders details, subpages navigation, and logout', (
+    WidgetTester tester,
+  ) async {
+    final profile = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Passionate lifter description.',
+      colorMode: 'dark',
+    );
+    final authProvider = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profile,
+    );
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: authProvider,
-          child: const MaterialApp(
-            home: SettingsPage(),
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authProvider,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+
+    await tester.pump();
+
+    // Verify settings title
+    expect(find.text('Settings'), findsOneWidget);
+
+    // Verify profile details rendered directly on background
+    expect(find.text('John Doe'), findsOneWidget);
+    expect(find.text('@johndoe'), findsOneWidget);
+
+    // Verify subpage tiles exist
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Change Password'), findsOneWidget);
+
+    // Verify logout button
+    expect(find.text('Log Out'), findsOneWidget);
+  });
+
+  testWidgets('SettingsPage Creator Privileges subtitle changes dynamically based on privileges', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    // Scenario 1: No privileges
+    final profileNoPrivileges = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: false,
+      isAssociationCreator: false,
+    );
+    final authNoPrivileges = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profileNoPrivileges,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authNoPrivileges,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.text('Apply to create associations or competitions'),
+      findsOneWidget,
+    );
+
+    // Scenario 2: Competition Creator only
+    final profileCompCreator = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: true,
+      isAssociationCreator: false,
+    );
+    final authCompCreator = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profileCompCreator,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authCompCreator,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.text('You are a competition creator. Apply to create associations.'),
+      findsOneWidget,
+    );
+
+    // Scenario 3: Association Creator only
+    final profileAssocCreator = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: false,
+      isAssociationCreator: true,
+    );
+    final authAssocCreator = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profileAssocCreator,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authAssocCreator,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.text('You are an association creator. Apply to create competitions.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('SettingsPage Creator Privileges tile and preceding divider are completely hidden if user has both privileges', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final profile = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: true,
+      isAssociationCreator: true,
+    );
+    final authProvider = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profile,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authProvider,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    // Verify Creator Privileges tile is not found
+    expect(find.text('Creator Privileges'), findsNothing);
+
+    // Verify exactly 3 dividers exist in the settings page column
+    expect(find.byType(Divider), findsNWidgets(3));
+
+    // If user has no privileges, we should have 4 dividers
+    final profileNoPrivileges = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: false,
+      isAssociationCreator: false,
+    );
+    final authNoPrivileges = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profileNoPrivileges,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authNoPrivileges,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Creator Privileges'), findsOneWidget);
+    expect(find.byType(Divider), findsNWidgets(4));
+  });
+
+  testWidgets('SettingsPage Creator Privileges dialog dropdown options are restricted and preselected based on privileges', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    // Scenario A: No privileges
+    final profileNoPrivs = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: false,
+      isAssociationCreator: false,
+    );
+    final authNoPrivs = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profileNoPrivs,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authNoPrivs,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    // Tap Creator Privileges tile to open dialog
+    await tester.tap(find.text('Creator Privileges'));
+    await tester.pumpAndSettle();
+
+    // Check Dialog is visible
+    expect(find.text('Apply for Creator Privileges'), findsOneWidget);
+
+    // Verify Dropdown exists and has default value 'create_competition'
+    final dropdownFinder = find.byType(DropdownButtonFormField<String>);
+    expect(dropdownFinder, findsOneWidget);
+    final dropdownWidget = tester.widget<DropdownButtonFormField<String>>(dropdownFinder);
+    expect(dropdownWidget.initialValue, 'create_competition');
+
+    // Tap dropdown to expand and check options
+    await tester.tap(dropdownFinder);
+    await tester.pumpAndSettle();
+
+    // Since both options are available, we expect both to be in the widget tree
+    expect(find.text('Competition Creator'), findsAtLeast(1));
+    expect(find.text('Association Creator'), findsAtLeast(1));
+
+    // Pop the dropdown menu route programmatically to close it cleanly
+    Navigator.of(tester.element(dropdownFinder)).pop();
+    await tester.pumpAndSettle();
+
+    // Tap CANCEL to close the dialog itself
+    await tester.tap(find.text('CANCEL'));
+    await tester.pumpAndSettle();
+
+    // Scenario B: Competition Creator only
+    final profileCompOnly = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: true,
+      isAssociationCreator: false,
+    );
+    final authCompOnly = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profileCompOnly,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authCompOnly,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    // Tap Creator Privileges tile
+    await tester.tap(find.text('Creator Privileges'));
+    await tester.pumpAndSettle();
+
+    // Verify Dropdown defaults to 'create_association'
+    final dropdownFinderComp = find.byType(DropdownButtonFormField<String>);
+    final dropdownWidgetComp = tester.widget<DropdownButtonFormField<String>>(dropdownFinderComp);
+    expect(dropdownWidgetComp.initialValue, 'create_association');
+
+    // Tap dropdown to check options
+    await tester.tap(dropdownFinderComp);
+    await tester.pumpAndSettle();
+
+    // "Competition Creator" should NOT be visible in items, but "Association Creator" should
+    expect(find.text('Competition Creator'), findsNothing);
+    expect(find.text('Association Creator'), findsAtLeast(1));
+
+    // Pop the dropdown menu route programmatically to close it cleanly
+    Navigator.of(tester.element(dropdownFinderComp)).pop();
+    await tester.pumpAndSettle();
+
+    // Tap CANCEL to close the dialog itself
+    await tester.tap(find.text('CANCEL'));
+    await tester.pumpAndSettle();
+
+    // Scenario C: Association Creator only
+    final profileAssocOnly = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: false,
+      isAssociationCreator: true,
+    );
+    final authAssocOnly = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profileAssocOnly,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authAssocOnly,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    // Tap Creator Privileges tile
+    await tester.tap(find.text('Creator Privileges'));
+    await tester.pumpAndSettle();
+
+    // Verify Dropdown defaults to 'create_competition'
+    final dropdownFinderAssoc = find.byType(DropdownButtonFormField<String>);
+    final dropdownWidgetAssoc = tester.widget<DropdownButtonFormField<String>>(dropdownFinderAssoc);
+    expect(dropdownWidgetAssoc.initialValue, 'create_competition');
+
+    // Tap dropdown to check options
+    await tester.tap(dropdownFinderAssoc);
+    await tester.pumpAndSettle();
+
+    // "Association Creator" should NOT be visible in items, but "Competition Creator" should
+    expect(find.text('Association Creator'), findsNothing);
+    expect(find.text('Competition Creator'), findsAtLeast(1));
+
+    // Pop the dropdown menu route programmatically to close it cleanly
+    Navigator.of(tester.element(dropdownFinderAssoc)).pop();
+    await tester.pumpAndSettle();
+
+    // Tap CANCEL to close the dialog itself
+    await tester.tap(find.text('CANCEL'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('SettingsPage Creator Privileges dialog Submit button styles correctly and uses correct progress indicator color', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final profile = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Lifting.',
+      colorMode: 'dark',
+      isCompetitionCreator: false,
+      isAssociationCreator: false,
+    );
+    final authProvider = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profile,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authProvider,
+        child: MaterialApp(
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.deepPurple,
+              primary: Colors.deepPurple,
+              onPrimary: Colors.white,
+            ),
           ),
+          home: const SettingsPage(),
         ),
-      );
+      ),
+    );
+    await tester.pump();
 
-      await tester.pump();
+    // Tap Creator Privileges tile
+    await tester.tap(find.text('Creator Privileges'));
+    await tester.pumpAndSettle();
 
-      // Verify settings title
-      expect(find.text('Settings'), findsOneWidget);
+    // Find the submit button
+    final submitButtonFinder = find.widgetWithText(ElevatedButton, 'SUBMIT');
+    expect(submitButtonFinder, findsOneWidget);
 
-      // Verify profile details rendered directly on background
-      expect(find.text('John Doe'), findsOneWidget);
-      expect(find.text('@johndoe'), findsOneWidget);
+    final submitButton = tester.widget<ElevatedButton>(submitButtonFinder);
+    final submitStyle = submitButton.style;
+    
+    // Check that button style uses primary and onPrimary colors
+    expect(
+      submitStyle?.backgroundColor?.resolve({}),
+      Colors.deepPurple,
+    );
+    expect(
+      submitStyle?.foregroundColor?.resolve({}),
+      Colors.white,
+    );
 
-      // Verify subpage tiles exist
-      expect(find.text('Appearance'), findsOneWidget);
-      expect(find.text('Change Password'), findsOneWidget);
+    // Cancel to close dialog
+    await tester.tap(find.text('CANCEL'));
+    await tester.pumpAndSettle();
+  });
 
-      // Verify logout button
-      expect(find.text('Log Out'), findsOneWidget);
-    },
-  );
+  testWidgets('AppearanceSettingsPage renders Default Color Mode preference', (
+    WidgetTester tester,
+  ) async {
+    final profile = Profile(
+      id: 'user-123',
+      username: 'johndoe',
+      fullName: 'John Doe',
+      email: 'john@example.com',
+      description: 'Passionate lifter description.',
+      colorMode: 'dark',
+    );
+    final authProvider = MockAuthProvider(
+      isAuthenticated: true,
+      currentUserProfile: profile,
+    );
 
-  testWidgets(
-    'AppearanceSettingsPage renders Default Color Mode preference',
-    (WidgetTester tester) async {
-      final profile = Profile(
-        id: 'user-123',
-        username: 'johndoe',
-        fullName: 'John Doe',
-        email: 'john@example.com',
-        description: 'Passionate lifter description.',
-        colorMode: 'dark',
-      );
-      final authProvider = MockAuthProvider(
-        isAuthenticated: true,
-        currentUserProfile: profile,
-      );
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: authProvider,
+        child: const MaterialApp(home: AppearanceSettingsPage()),
+      ),
+    );
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: authProvider,
-          child: const MaterialApp(
-            home: AppearanceSettingsPage(),
-          ),
-        ),
-      );
+    await tester.pump();
 
-      await tester.pump();
-
-      expect(find.text('Appearance'), findsOneWidget);
-      expect(find.text('Theme Settings'), findsOneWidget);
-      expect(find.text('Default Color Mode'), findsOneWidget);
-    },
-  );
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Theme Settings'), findsOneWidget);
+    expect(find.text('Default Color Mode'), findsOneWidget);
+  });
 
   testWidgets(
     'ChangePasswordPage renders password rules, strength bar, and forms',
@@ -966,9 +1421,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<AuthProvider>.value(
           value: authProvider,
-          child: const MaterialApp(
-            home: ChangePasswordPage(),
-          ),
+          child: const MaterialApp(home: ChangePasswordPage()),
         ),
       );
 
@@ -987,7 +1440,10 @@ void main() {
       expect(find.text('At least 1 uppercase letter (A-Z)'), findsOneWidget);
       expect(find.text('At least 1 lowercase letter (a-z)'), findsOneWidget);
       expect(find.text('At least 1 number (0-9)'), findsOneWidget);
-      expect(find.text('At least 1 special character (e.g. !@#\$%^&*)'), findsOneWidget);
+      expect(
+        find.text('At least 1 special character (e.g. !@#\$%^&*)'),
+        findsOneWidget,
+      );
 
       // Verify "Forgot Password?" link on Change Password page
       expect(find.text('Forgot Password?'), findsOneWidget);
@@ -1017,27 +1473,39 @@ void main() {
         await tester.pumpWidget(
           ChangeNotifierProvider<AuthProvider>.value(
             value: authProviderUsernameTaken,
-            child: const MaterialApp(
-              home: RegisterPage(),
-            ),
+            child: const MaterialApp(home: RegisterPage()),
           ),
         );
 
         // Fill in Step 1
-        await tester.enterText(find.byKey(const Key('register_username_field')), 'takenuser');
-        await tester.enterText(find.byKey(const Key('register_email_field')), 'test@email.com');
-        await tester.enterText(find.byKey(const Key('register_password_field')), 'Password123!');
+        await tester.enterText(
+          find.byKey(const Key('register_username_field')),
+          'takenuser',
+        );
+        await tester.enterText(
+          find.byKey(const Key('register_email_field')),
+          'test@email.com',
+        );
+        await tester.enterText(
+          find.byKey(const Key('register_password_field')),
+          'Password123!',
+        );
         await tester.pumpAndSettle();
 
         // Click NEXT
         await tester.tap(find.text('NEXT'));
         await tester.pump(); // Start async check
-        await tester.pump(const Duration(milliseconds: 100)); // allow async to resolve
+        await tester.pump(
+          const Duration(milliseconds: 100),
+        ); // allow async to resolve
         await tester.pumpAndSettle();
 
         // Should show Snackbar and remain on Step 1
         expect(find.text('Username is already taken'), findsOneWidget);
-        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+        expect(
+          find.byKey(const Key('register_username_field')),
+          findsOneWidget,
+        );
 
         // Case B: Email taken
         final authProviderEmailTaken = MockAuthProvider(
@@ -1049,16 +1517,23 @@ void main() {
         await tester.pumpWidget(
           ChangeNotifierProvider<AuthProvider>.value(
             value: authProviderEmailTaken,
-            child: const MaterialApp(
-              home: RegisterPage(),
-            ),
+            child: const MaterialApp(home: RegisterPage()),
           ),
         );
 
         // Fill in Step 1
-        await tester.enterText(find.byKey(const Key('register_username_field')), 'freeuser');
-        await tester.enterText(find.byKey(const Key('register_email_field')), 'taken@email.com');
-        await tester.enterText(find.byKey(const Key('register_password_field')), 'Password123!');
+        await tester.enterText(
+          find.byKey(const Key('register_username_field')),
+          'freeuser',
+        );
+        await tester.enterText(
+          find.byKey(const Key('register_email_field')),
+          'taken@email.com',
+        );
+        await tester.enterText(
+          find.byKey(const Key('register_password_field')),
+          'Password123!',
+        );
         await tester.pumpAndSettle();
 
         // Click NEXT
@@ -1069,7 +1544,10 @@ void main() {
 
         // Should show Snackbar and remain on Step 1
         expect(find.text('Email is already taken'), findsOneWidget);
-        expect(find.byKey(const Key('register_username_field')), findsOneWidget);
+        expect(
+          find.byKey(const Key('register_username_field')),
+          findsOneWidget,
+        );
       } finally {
         debugNetworkImageHttpClientProvider = originalProvider;
       }
@@ -1084,9 +1562,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<AuthProvider>.value(
           value: authProvider,
-          child: const MaterialApp(
-            home: LoginPage(),
-          ),
+          child: const MaterialApp(home: LoginPage()),
         ),
       );
 
@@ -1102,10 +1578,16 @@ void main() {
 
       // Dialog should be open
       expect(find.text('Reset Password'), findsOneWidget);
-      expect(find.byKey(const Key('forgot_password_email_field')), findsOneWidget);
+      expect(
+        find.byKey(const Key('forgot_password_email_field')),
+        findsOneWidget,
+      );
 
       // Enter email
-      await tester.enterText(find.byKey(const Key('forgot_password_email_field')), 'reset@example.com');
+      await tester.enterText(
+        find.byKey(const Key('forgot_password_email_field')),
+        'reset@example.com',
+      );
       await tester.pumpAndSettle();
 
       // Tap CANCEL
@@ -1142,9 +1624,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<AuthProvider>.value(
           value: authProvider,
-          child: const MaterialApp(
-            home: ProfilePage(),
-          ),
+          child: const MaterialApp(home: ProfilePage()),
         ),
       );
 
@@ -1161,8 +1641,8 @@ void main() {
 
       // Verify Athlete Dashboard sections are rendered
       expect(find.text('Athlete Dashboard'), findsOneWidget);
-      expect(find.textContaining('Upcoming Meets'), findsOneWidget);
-      expect(find.textContaining('Completed Meets'), findsOneWidget);
+      expect(find.textContaining('Upcoming Competitions'), findsOneWidget);
+      expect(find.textContaining('Completed Competitions'), findsOneWidget);
       expect(find.textContaining('Personal Records'), findsOneWidget);
       expect(find.textContaining('Highest Rankings'), findsOneWidget);
     },
@@ -1180,7 +1660,7 @@ void main() {
       });
 
       final repo = FakeCompetitionRepository();
-      
+
       final searchedProfiles = [
         Profile(
           id: 'athlete-1',
@@ -1193,7 +1673,9 @@ void main() {
         ),
       ];
 
-      final mockProfileRepo = MockProfileRepository(profilesToReturn: searchedProfiles);
+      final mockProfileRepo = MockProfileRepository(
+        profilesToReturn: searchedProfiles,
+      );
       final provider = CompetitionProvider(repo, mockProfileRepo);
       final authProvider = MockAuthProvider(isAuthenticated: true);
 
@@ -1278,9 +1760,49 @@ class MockHttpHeaders implements HttpHeaders {
 
 class MockHttpClientResponse implements HttpClientResponse {
   static final List<int> kTransparentImage = [
-    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00,
-    0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b
+    0x47,
+    0x49,
+    0x46,
+    0x38,
+    0x39,
+    0x61,
+    0x01,
+    0x00,
+    0x01,
+    0x00,
+    0x80,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0xff,
+    0xff,
+    0xff,
+    0x21,
+    0xf9,
+    0x04,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x2c,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x02,
+    0x02,
+    0x44,
+    0x01,
+    0x00,
+    0x3b,
   ];
 
   @override

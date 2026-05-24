@@ -28,22 +28,26 @@ class _SettingsPageState extends State<SettingsPage> {
     // Monogram / Initials fallback
     final initials = profile.fullName.isNotEmpty
         ? profile.fullName
-            .trim()
-            .split(' ')
-            .map((e) => e.isEmpty ? '' : e[0])
-            .take(2)
-            .join()
-            .toUpperCase()
+              .trim()
+              .split(' ')
+              .map((e) => e.isEmpty ? '' : e[0])
+              .take(2)
+              .join()
+              .toUpperCase()
         : profile.username.isNotEmpty
-            ? profile.username[0].toUpperCase()
-            : '?';
+        ? profile.username[0].toUpperCase()
+        : '?';
 
-    final hasDescription = profile.description != null && profile.description!.isNotEmpty;
+    final hasDescription =
+        profile.description != null && profile.description!.isNotEmpty;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Settings',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -98,7 +102,9 @@ class _SettingsPageState extends State<SettingsPage> {
                               if (profile.gender != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.secondaryContainer,
                                     borderRadius: BorderRadius.circular(20),
@@ -106,17 +112,22 @@ class _SettingsPageState extends State<SettingsPage> {
                                   child: Text(
                                     profile.gender!,
                                     style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSecondaryContainer,
+                                      color: theme
+                                          .colorScheme
+                                          .onSecondaryContainer,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
-                              if (profile.gender != null && profile.country != null)
+                              if (profile.gender != null &&
+                                  profile.country != null)
                                 const SizedBox(width: 8),
                               if (profile.country != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.tertiaryContainer,
                                     borderRadius: BorderRadius.circular(20),
@@ -128,10 +139,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                       const SizedBox(width: 4),
                                       Text(
                                         profile.country!,
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: theme.colorScheme.onTertiaryContainer,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onTertiaryContainer,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -148,7 +162,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Text(
-                    hasDescription ? profile.description! : 'No description provided.',
+                    hasDescription
+                        ? profile.description!
+                        : 'No description provided.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       height: 1.4,
                       color: hasDescription
@@ -188,34 +204,49 @@ class _SettingsPageState extends State<SettingsPage> {
                     );
                   },
                 ),
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.verified_user_outlined),
-                  title: const Text('Creator Privileges'),
-                  subtitle: Text(
-                    'Comp creator: ${profile.isCompetitionCreator ? "Yes" : "No"} • Assoc creator: ${profile.isAssociationCreator ? "Yes" : "No"}'
+                if (!(profile.isCompetitionCreator && profile.isAssociationCreator)) ...[
+                  const Divider(),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.verified_user_outlined),
+                    title: const Text('Creator Privileges'),
+                    subtitle: Text(
+                      !profile.isCompetitionCreator && !profile.isAssociationCreator
+                          ? 'Apply to create associations or competitions'
+                          : profile.isCompetitionCreator
+                              ? 'You are a competition creator. Apply to create associations.'
+                              : 'You are an association creator. Apply to create competitions.',
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                    onTap: () {
+                      _showApplyPrivilegesDialog(context, authProvider, profile);
+                    },
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                  onTap: () {
-                    _showApplyPrivilegesDialog(context, authProvider);
-                  },
-                ),
+                ],
                 const Divider(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.logout, color: Colors.redAccent),
                   title: const Text(
                     'Log Out',
-                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.redAccent),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: Colors.redAccent,
+                  ),
                   onTap: () async {
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Log Out?'),
-                        content: const Text('Are you sure you want to log out of your session?'),
+                        content: const Text(
+                          'Are you sure you want to log out of your session?',
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(false),
@@ -240,7 +271,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       await authProvider.logout();
                       navigator.popUntil((route) => route.isFirst);
                       messenger.showSnackBar(
-                        const SnackBar(content: Text('Logged out successfully.')),
+                        const SnackBar(
+                          content: Text('Logged out successfully.'),
+                        ),
                       );
                     }
                   },
@@ -253,14 +286,19 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _showApplyPrivilegesDialog(BuildContext context, AuthProvider authProvider) {
-    String selectedType = 'create_competition';
+  void _showApplyPrivilegesDialog(
+    BuildContext context,
+    AuthProvider authProvider,
+    dynamic profile,
+  ) {
+    String selectedType = profile.isCompetitionCreator ? 'create_association' : 'create_competition';
     final reasonController = TextEditingController();
     bool isSubmitting = false;
 
     showDialog(
       context: context,
       builder: (context) {
+        final theme = Theme.of(context);
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
@@ -270,11 +308,21 @@ class _SettingsPageState extends State<SettingsPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: selectedType,
-                      decoration: const InputDecoration(labelText: 'Privilege Type'),
-                      items: const [
-                        DropdownMenuItem(value: 'create_competition', child: Text('Competition Creator')),
-                        DropdownMenuItem(value: 'create_association', child: Text('Association Creator')),
+                      initialValue: selectedType,
+                      decoration: const InputDecoration(
+                        labelText: 'Privilege Type',
+                      ),
+                      items: [
+                        if (!profile.isCompetitionCreator)
+                          const DropdownMenuItem(
+                            value: 'create_competition',
+                            child: Text('Competition Creator'),
+                          ),
+                        if (!profile.isAssociationCreator)
+                          const DropdownMenuItem(
+                            value: 'create_association',
+                            child: Text('Association Creator'),
+                          ),
                       ],
                       onChanged: (val) {
                         if (val != null) {
@@ -298,17 +346,25 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.of(context).pop(),
+                  onPressed: isSubmitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text('CANCEL'),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                  ),
                   onPressed: isSubmitting
                       ? null
                       : () async {
                           final reason = reasonController.text.trim();
                           if (reason.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please enter a reason.')),
+                              const SnackBar(
+                                content: Text('Please enter a reason.'),
+                              ),
                             );
                             return;
                           }
@@ -316,16 +372,16 @@ class _SettingsPageState extends State<SettingsPage> {
                             isSubmitting = true;
                           });
                           try {
-                            final success = await authProvider.applyForPermissions(
-                              selectedType,
-                              reason,
-                            );
+                            final success = await authProvider
+                                .applyForPermissions(selectedType, reason);
                             if (success != null) {
                               if (context.mounted) {
                                 Navigator.of(context).pop();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Application submitted successfully!'),
+                                    content: Text(
+                                      'Application submitted successfully!',
+                                    ),
                                     backgroundColor: Colors.green,
                                   ),
                                 );
@@ -334,7 +390,10 @@ class _SettingsPageState extends State<SettingsPage> {
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
                               );
                             }
                           } finally {
@@ -344,7 +403,16 @@ class _SettingsPageState extends State<SettingsPage> {
                           }
                         },
                   child: isSubmitting
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              theme.colorScheme.onPrimary,
+                            ),
+                          ),
+                        )
                       : const Text('SUBMIT'),
                 ),
               ],

@@ -5,7 +5,9 @@ import '../providers/competition_provider.dart';
 void updateWebUrl(String path, [Map<String, String>? queryParams]) {
   final uri = Uri(
     path: path,
-    queryParameters: (queryParams != null && queryParams.isNotEmpty) ? queryParams : null,
+    queryParameters: (queryParams != null && queryParams.isNotEmpty)
+        ? queryParams
+        : null,
   );
   // Use HTML5 history API replaceState to update the URL cleanly and prevent duplicate history stacks
   html.window.history.replaceState(null, '', uri.toString());

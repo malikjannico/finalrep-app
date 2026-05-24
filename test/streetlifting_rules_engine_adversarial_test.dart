@@ -5,24 +5,54 @@ void main() {
   group('StreetliftingRulesEngine Adversarial Unit Tests', () {
     group('validateIncrement', () {
       test('Negative weights return validation errors', () {
-        expect(StreetliftingRulesEngine.validateIncrement(-2.5, 'Squat'), isNotNull);
-        expect(StreetliftingRulesEngine.validateIncrement(-1.25, 'Dip'), isNotNull);
+        expect(
+          StreetliftingRulesEngine.validateIncrement(-2.5, 'Squat'),
+          isNotNull,
+        );
+        expect(
+          StreetliftingRulesEngine.validateIncrement(-1.25, 'Dip'),
+          isNotNull,
+        );
       });
 
       test('Zero weight returns validation errors', () {
-        expect(StreetliftingRulesEngine.validateIncrement(0.0, 'Squat'), isNotNull);
-        expect(StreetliftingRulesEngine.validateIncrement(0.0, 'Dip'), isNotNull);
+        expect(
+          StreetliftingRulesEngine.validateIncrement(0.0, 'Squat'),
+          isNotNull,
+        );
+        expect(
+          StreetliftingRulesEngine.validateIncrement(0.0, 'Dip'),
+          isNotNull,
+        );
       });
 
-      test('Calling validateIncrement on NaN/Infinity returns error string instead of crashing', () {
-        expect(StreetliftingRulesEngine.validateIncrement(double.nan, 'Squat'), isNotNull);
-        expect(StreetliftingRulesEngine.validateIncrement(double.infinity, 'Squat'), isNotNull);
-      });
+      test(
+        'Calling validateIncrement on NaN/Infinity returns error string instead of crashing',
+        () {
+          expect(
+            StreetliftingRulesEngine.validateIncrement(double.nan, 'Squat'),
+            isNotNull,
+          );
+          expect(
+            StreetliftingRulesEngine.validateIncrement(
+              double.infinity,
+              'Squat',
+            ),
+            isNotNull,
+          );
+        },
+      );
 
       test('Unexpected discipline names fallback to 1.25kg increment', () {
         // discipline = "Bench Press" defaults minIncrement to 1.25
-        expect(StreetliftingRulesEngine.validateIncrement(1.25, 'Bench Press'), isNull);
-        expect(StreetliftingRulesEngine.validateIncrement(2.0, 'Bench Press'), isNotNull);
+        expect(
+          StreetliftingRulesEngine.validateIncrement(1.25, 'Bench Press'),
+          isNull,
+        );
+        expect(
+          StreetliftingRulesEngine.validateIncrement(2.0, 'Bench Press'),
+          isNotNull,
+        );
       });
     });
 
@@ -32,15 +62,22 @@ void main() {
         expect(plates['25'], 0);
       });
 
-      test('Extremely large weights are calculated without crashing but might overflow integer limit in 32-bit systems', () {
-        final plates = StreetliftingRulesEngine.calculateAllPlates(1e9);
-        expect(plates['25'], 40000000);
-      });
+      test(
+        'Extremely large weights are calculated without crashing but might overflow integer limit in 32-bit systems',
+        () {
+          final plates = StreetliftingRulesEngine.calculateAllPlates(1e9);
+          expect(plates['25'], 40000000);
+        },
+      );
 
       test('NaN/Infinity weight returns zero plates without crashing', () {
-        final nanPlates = StreetliftingRulesEngine.calculateAllPlates(double.nan);
+        final nanPlates = StreetliftingRulesEngine.calculateAllPlates(
+          double.nan,
+        );
         expect(nanPlates['25'], 0);
-        final infPlates = StreetliftingRulesEngine.calculateAllPlates(double.infinity);
+        final infPlates = StreetliftingRulesEngine.calculateAllPlates(
+          double.infinity,
+        );
         expect(infPlates['25'], 0);
       });
     });

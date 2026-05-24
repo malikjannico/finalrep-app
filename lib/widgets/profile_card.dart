@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../models/profile.dart';
 import '../views/profile_page.dart';
 import '../providers/competition_provider.dart';
+import '../utils/mock_safety.dart';
 
 class ProfileCard extends StatefulWidget {
   final Profile profile;
@@ -19,14 +19,20 @@ class _ProfileCardState extends State<ProfileCard> {
   bool _isHovered = false;
 
   String _getBannerUrl() {
+    final userId = widget.profile.id;
     try {
-      return Supabase.instance.client.storage
-          .from('avatars')
-          .getPublicUrl('profiles/${widget.profile.id}/banner.jpg');
+      final competitionProvider = Provider.of<CompetitionProvider>(context, listen: false);
+      final apiBaseUrl = competitionProvider.competitionRepository.baseUrl;
+      if (MockSafety.isMockAllowed) {
+        return '$apiBaseUrl/uploads/profiles-$userId-banner.jpg';
+      }
+      final bucket = 'finalrep-app-media-${MockSafety.env}';
+      return 'https://storage.googleapis.com/$bucket/avatars/profiles-$userId-banner.jpg';
     } catch (_) {
       return '';
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +49,15 @@ class _ProfileCardState extends State<ProfileCard> {
 
     final initials = widget.profile.fullName.isNotEmpty
         ? widget.profile.fullName
-            .trim()
-            .split(' ')
-            .map((e) => e.isEmpty ? '' : e[0])
-            .take(2)
-            .join()
-            .toUpperCase()
+              .trim()
+              .split(' ')
+              .map((e) => e.isEmpty ? '' : e[0])
+              .take(2)
+              .join()
+              .toUpperCase()
         : widget.profile.username.isNotEmpty
-            ? widget.profile.username[0].toUpperCase()
-            : '?';
+        ? widget.profile.username[0].toUpperCase()
+        : '?';
 
     final bannerUrl = _getBannerUrl();
 
@@ -59,17 +65,24 @@ class _ProfileCardState extends State<ProfileCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: widget.onTap ?? () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              settings: RouteSettings(name: '/users/${widget.profile.username}'),
-              builder: (_) => ProfilePage(
-                userId: widget.profile.id,
-                profileRepository: Provider.of<CompetitionProvider>(context, listen: false).profileRepository,
-              ),
-            ),
-          );
-        },
+        onTap:
+            widget.onTap ??
+            () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  settings: RouteSettings(
+                    name: '/users/${widget.profile.username}',
+                  ),
+                  builder: (_) => ProfilePage(
+                    userId: widget.profile.id,
+                    profileRepository: Provider.of<CompetitionProvider>(
+                      context,
+                      listen: false,
+                    ).profileRepository,
+                  ),
+                ),
+              );
+            },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
@@ -113,8 +126,12 @@ class _ProfileCardState extends State<ProfileCard> {
                         ),
                         gradient: LinearGradient(
                           colors: [
-                            theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                            theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                            theme.colorScheme.primaryContainer.withValues(
+                              alpha: 0.5,
+                            ),
+                            theme.colorScheme.secondaryContainer.withValues(
+                              alpha: 0.5,
+                            ),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -138,15 +155,22 @@ class _ProfileCardState extends State<ProfileCard> {
                     ),
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             CircleAvatar(
                               radius: 22,
-                              backgroundColor: theme.colorScheme.primaryContainer,
-                              backgroundImage: widget.profile.profilePictureUrl != null
-                                  ? NetworkImage(widget.profile.profilePictureUrl!)
+                              backgroundColor:
+                                  theme.colorScheme.primaryContainer,
+                              backgroundImage:
+                                  widget.profile.profilePictureUrl != null
+                                  ? NetworkImage(
+                                      widget.profile.profilePictureUrl!,
+                                    )
                                   : null,
                               child: widget.profile.profilePictureUrl == null
                                   ? Text(
@@ -154,7 +178,9 @@ class _ProfileCardState extends State<ProfileCard> {
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.onPrimaryContainer,
+                                        color: theme
+                                            .colorScheme
+                                            .onPrimaryContainer,
                                       ),
                                     )
                                   : null,
@@ -184,14 +210,19 @@ class _ProfileCardState extends State<ProfileCard> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   if (widget.profile.description != null &&
-                                      widget.profile.description!.isNotEmpty) ...[
+                                      widget
+                                          .profile
+                                          .description!
+                                          .isNotEmpty) ...[
                                     const SizedBox(height: 2),
                                     Text(
                                       widget.profile.description!,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                                        fontSize: 11,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.8),
+                                            fontSize: 11,
+                                          ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -202,18 +233,27 @@ class _ProfileCardState extends State<ProfileCard> {
                                       if (widget.profile.gender != null)
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 1.5),
+                                            horizontal: 6,
+                                            vertical: 1.5,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: theme.colorScheme.secondaryContainer,
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: theme
+                                                .colorScheme
+                                                .secondaryContainer,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           child: Text(
                                             widget.profile.gender!,
-                                            style: theme.textTheme.labelSmall?.copyWith(
-                                              color: theme.colorScheme.onSecondaryContainer,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 9,
-                                            ),
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSecondaryContainer,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 9,
+                                                ),
                                           ),
                                         ),
                                       if (widget.profile.gender != null &&
@@ -222,23 +262,38 @@ class _ProfileCardState extends State<ProfileCard> {
                                       if (widget.profile.country != null)
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 1.5),
+                                            horizontal: 6,
+                                            vertical: 1.5,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: theme.colorScheme.tertiaryContainer,
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: theme
+                                                .colorScheme
+                                                .tertiaryContainer,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              const Icon(Icons.location_on, size: 8),
+                                              const Icon(
+                                                Icons.location_on,
+                                                size: 8,
+                                              ),
                                               const SizedBox(width: 1.5),
                                               Text(
                                                 widget.profile.country!,
-                                                style: theme.textTheme.labelSmall?.copyWith(
-                                                  color: theme.colorScheme.onTertiaryContainer,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 9,
-                                                ),
+                                                style: theme
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onTertiaryContainer,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 9,
+                                                    ),
                                               ),
                                             ],
                                           ),
@@ -309,7 +364,9 @@ class _ProfileCardState extends State<ProfileCard> {
                             Text(
                               widget.profile.description!,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.8,
+                                ),
                                 fontSize: 13,
                               ),
                               maxLines: 2,
@@ -324,7 +381,9 @@ class _ProfileCardState extends State<ProfileCard> {
                               if (widget.profile.gender != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.secondaryContainer,
                                     borderRadius: BorderRadius.circular(12),
@@ -332,7 +391,9 @@ class _ProfileCardState extends State<ProfileCard> {
                                   child: Text(
                                     widget.profile.gender!,
                                     style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSecondaryContainer,
+                                      color: theme
+                                          .colorScheme
+                                          .onSecondaryContainer,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 10,
                                     ),
@@ -344,7 +405,9 @@ class _ProfileCardState extends State<ProfileCard> {
                               if (widget.profile.country != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.tertiaryContainer,
                                     borderRadius: BorderRadius.circular(12),
@@ -356,11 +419,14 @@ class _ProfileCardState extends State<ProfileCard> {
                                       const SizedBox(width: 2),
                                       Text(
                                         widget.profile.country!,
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: theme.colorScheme.onTertiaryContainer,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 10,
-                                        ),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onTertiaryContainer,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -375,7 +441,9 @@ class _ProfileCardState extends State<ProfileCard> {
                     Icon(
                       Icons.arrow_forward_ios,
                       size: 16,
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.5,
+                      ),
                     ),
                   ],
                 ),

@@ -59,8 +59,10 @@ class MockProfileRepository implements ProfileRepository {
     final existing = profiles[userId];
     if (existing == null) return null;
     final updated = existing.copyWith(
-      isCompetitionCreator: isCompetitionCreator ?? existing.isCompetitionCreator,
-      isAssociationCreator: isAssociationCreator ?? existing.isAssociationCreator,
+      isCompetitionCreator:
+          isCompetitionCreator ?? existing.isCompetitionCreator,
+      isAssociationCreator:
+          isAssociationCreator ?? existing.isAssociationCreator,
       isAdmin: isAdmin ?? existing.isAdmin,
     );
     profiles[userId] = updated;
@@ -98,34 +100,49 @@ void main() {
       authStateController.close();
     });
 
-    test('AdminRepository applyForPermissions and status update cycle', () async {
-      // Clear or check initial state
-      final initialApps = await adminRepository.getPermissionApplications();
-      final initialCount = initialApps.length;
+    test(
+      'AdminRepository applyForPermissions and status update cycle',
+      () async {
+        // Clear or check initial state
+        final initialApps = await adminRepository.getPermissionApplications();
+        final initialCount = initialApps.length;
 
-      // Apply
-      final app = await adminRepository.applyForPermissions('user-test-1', 'create_competition', 'I want to organize meets');
-      expect(app, isNotNull);
-      expect(app!.userId, 'user-test-1');
-      expect(app.type, 'create_competition');
-      expect(app.status, 'pending');
+        // Apply
+        final app = await adminRepository.applyForPermissions(
+          'user-test-1',
+          'create_competition',
+          'I want to organize meets',
+        );
+        expect(app, isNotNull);
+        expect(app!.userId, 'user-test-1');
+        expect(app.type, 'create_competition');
+        expect(app.status, 'pending');
 
-      // Verify listed
-      final apps = await adminRepository.getPermissionApplications();
-      expect(apps.length, initialCount + 1);
-      expect(apps.any((a) => a.id == app.id), true);
+        // Verify listed
+        final apps = await adminRepository.getPermissionApplications();
+        expect(apps.length, initialCount + 1);
+        expect(apps.any((a) => a.id == app.id), true);
 
-      // Approve
-      final approvedApp = await adminRepository.approvePermissionApplication(app.id);
-      expect(approvedApp, isNotNull);
-      expect(approvedApp!.status, 'approved');
+        // Approve
+        final approvedApp = await adminRepository.approvePermissionApplication(
+          app.id,
+        );
+        expect(approvedApp, isNotNull);
+        expect(approvedApp!.status, 'approved');
 
-      // Reject
-      final anotherApp = await adminRepository.applyForPermissions('user-test-2', 'create_association', 'I want to run a federation');
-      final rejectedApp = await adminRepository.rejectPermissionApplication(anotherApp!.id);
-      expect(rejectedApp, isNotNull);
-      expect(rejectedApp!.status, 'rejected');
-    });
+        // Reject
+        final anotherApp = await adminRepository.applyForPermissions(
+          'user-test-2',
+          'create_association',
+          'I want to run a federation',
+        );
+        final rejectedApp = await adminRepository.rejectPermissionApplication(
+          anotherApp!.id,
+        );
+        expect(rejectedApp, isNotNull);
+        expect(rejectedApp!.status, 'rejected');
+      },
+    );
 
     test('AdminRepository load and save global sports configs', () async {
       final config = await adminRepository.loadSportsConfig();
@@ -133,7 +150,12 @@ void main() {
 
       // Add a new sport
       final updatedSports = List<SportDefinition>.from(config.sports)
-        ..add(SportDefinition(name: 'Powerlifting', description: 'Squat, Bench, Deadlift'));
+        ..add(
+          SportDefinition(
+            name: 'Powerlifting',
+            description: 'Squat, Bench, Deadlift',
+          ),
+        );
       final updatedConfig = SportConfig(
         sports: updatedSports,
         formats: config.formats,
@@ -148,30 +170,33 @@ void main() {
       expect(reloadedConfig.sports.any((s) => s.name == 'Powerlifting'), true);
     });
 
-    test('AuthProvider promote to admin and handle approved permission applications', () async {
-      // Set current user profile in MockProfileRepository
-      final testProfile = Profile(
-        id: 'user-admin-1',
-        username: 'testadmin',
-        fullName: 'Test Admin',
-        email: 'admin@test.com',
-        isCompetitionCreator: false,
-        isAssociationCreator: false,
-        isAdmin: false,
-      );
-      profileRepository.profiles['user-admin-1'] = testProfile;
+    test(
+      'AuthProvider promote to admin and handle approved permission applications',
+      () async {
+        // Set current user profile in MockProfileRepository
+        final testProfile = Profile(
+          id: 'user-admin-1',
+          username: 'testadmin',
+          fullName: 'Test Admin',
+          email: 'admin@test.com',
+          isCompetitionCreator: false,
+          isAssociationCreator: false,
+          isAdmin: false,
+        );
+        profileRepository.profiles['user-admin-1'] = testProfile;
 
-      // Simulate logged in user
-      // We manually override the private fields in AuthProvider by mocking authentication
-      // But we can test promoteToAdmin directly:
-      final updated = await authProvider.promoteToAdmin('user-admin-1');
-      expect(updated, isNotNull);
-      expect(updated!.isAdmin, true);
+        // Simulate logged in user
+        // We manually override the private fields in AuthProvider by mocking authentication
+        // But we can test promoteToAdmin directly:
+        final updated = await authProvider.promoteToAdmin('user-admin-1');
+        expect(updated, isNotNull);
+        expect(updated!.isAdmin, true);
 
-      // Verify in repo
-      final repoProfile = await profileRepository.getProfile('user-admin-1');
-      expect(repoProfile!.isAdmin, true);
-    });
+        // Verify in repo
+        final repoProfile = await profileRepository.getProfile('user-admin-1');
+        expect(repoProfile!.isAdmin, true);
+      },
+    );
   });
 
   group('Milestone 2 - Associations & Management (R4) Tests', () {
@@ -179,7 +204,9 @@ void main() {
     late CompetitionProvider competitionProvider;
 
     setUp(() {
-      associationRepository = AssociationRepository(null); // Force in-memory fallback
+      associationRepository = AssociationRepository(
+        null,
+      ); // Force in-memory fallback
       competitionProvider = CompetitionProvider(
         MockCompetitionRepository(),
         MockProfileRepository(),
@@ -210,13 +237,17 @@ void main() {
       expect(created!.name, 'Deutsche Streetlifting Association');
 
       // Read details
-      final details = await associationRepository.getAssociationDetails('new-assoc-123');
+      final details = await associationRepository.getAssociationDetails(
+        'new-assoc-123',
+      );
       expect(details, isNotNull);
       expect(details!.scope, 'national');
 
       // Update details
       final updatedAssoc = details.copyWith(description: 'Updated Description');
-      final updated = await associationRepository.updateAssociation(updatedAssoc);
+      final updated = await associationRepository.updateAssociation(
+        updatedAssoc,
+      );
       expect(updated, isNotNull);
       expect(updated!.description, 'Updated Description');
 
@@ -238,29 +269,45 @@ void main() {
       expect(member.customTitle, 'Content Editor');
 
       // Get members
-      final members = await associationRepository.getAssociationMembers('assoc-1');
+      final members = await associationRepository.getAssociationMembers(
+        'assoc-1',
+      );
       expect(members.any((m) => m.userId == 'user-new-member'), true);
 
       // Remove member
-      final success = await associationRepository.removeAssociationMember('assoc-1', 'user-new-member');
+      final success = await associationRepository.removeAssociationMember(
+        'assoc-1',
+        'user-new-member',
+      );
       expect(success, true);
 
-      final membersAfterRemove = await associationRepository.getAssociationMembers('assoc-1');
-      expect(membersAfterRemove.any((m) => m.userId == 'user-new-member'), false);
+      final membersAfterRemove = await associationRepository
+          .getAssociationMembers('assoc-1');
+      expect(
+        membersAfterRemove.any((m) => m.userId == 'user-new-member'),
+        false,
+      );
     });
 
     test('Association Ownership Transfer', () async {
       // Initial owner is user-1
-      final assoc = await associationRepository.getAssociationDetails('assoc-1');
+      final assoc = await associationRepository.getAssociationDetails(
+        'assoc-1',
+      );
       expect(assoc!.ownerId, 'user-1');
 
       // Transfer to user-2
-      final updated = await associationRepository.transferAssociationOwnership('assoc-1', 'user-2');
+      final updated = await associationRepository.transferAssociationOwnership(
+        'assoc-1',
+        'user-2',
+      );
       expect(updated, isNotNull);
       expect(updated!.ownerId, 'user-2');
 
       // Check member role updates
-      final members = await associationRepository.getAssociationMembers('assoc-1');
+      final members = await associationRepository.getAssociationMembers(
+        'assoc-1',
+      );
       final oldOwnerMember = members.firstWhere((m) => m.userId == 'user-1');
       final newOwnerMember = members.firstWhere((m) => m.userId == 'user-2');
       expect(oldOwnerMember.role, 'editor');
@@ -279,12 +326,16 @@ void main() {
         isAthleteGroupsRequired: true,
       );
 
-      final createdGroup = await associationRepository.createCompetitionGroup(newGroup);
+      final createdGroup = await associationRepository.createCompetitionGroup(
+        newGroup,
+      );
       expect(createdGroup, isNotNull);
       expect(createdGroup!.name, 'National Championships');
 
       // Load Competition Groups
-      final compGroups = await associationRepository.getCompetitionGroups('assoc-1');
+      final compGroups = await associationRepository.getCompetitionGroups(
+        'assoc-1',
+      );
       expect(compGroups.any((g) => g.id == 'new-group-999'), true);
 
       // Create Athlete Group
@@ -300,12 +351,15 @@ void main() {
         isActive: true,
       );
 
-      final createdAthleteGroup = await associationRepository.createAthleteGroup(newAthleteGroup);
+      final createdAthleteGroup = await associationRepository
+          .createAthleteGroup(newAthleteGroup);
       expect(createdAthleteGroup, isNotNull);
       expect(createdAthleteGroup!.name, '-70kg Male');
 
       // Load Athlete Groups
-      final athleteGroups = await associationRepository.getAthleteGroups('assoc-1');
+      final athleteGroups = await associationRepository.getAthleteGroups(
+        'assoc-1',
+      );
       expect(athleteGroups.any((ag) => ag.id == 'new-ag-999'), true);
     });
   });

@@ -54,6 +54,7 @@ class FakeMapCompetitionRepository implements CompetitionRepository {
     String? query,
     String? sportSubtype,
     String? compGroupName,
+    String? status = 'upcoming',
   }) async {
     return _fakeCompetitions;
   }

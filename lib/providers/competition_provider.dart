@@ -16,7 +16,8 @@ import '../repositories/notification_repository.dart';
 import '../models/system_notification.dart';
 
 enum CompetitionsLayout { grid, list, map }
-enum SearchScope { competitions, users }
+
+enum SearchScope { competitions, users, associations }
 
 class CompetitionProvider extends ChangeNotifier {
   final CompetitionRepository _repository;
@@ -38,7 +39,8 @@ class CompetitionProvider extends ChangeNotifier {
 
   // Layout and sorting
   CompetitionsLayout _layout = CompetitionsLayout.grid;
-  String _sortOrder = 'date_asc'; // 'date_asc', 'date_desc', 'name_asc', 'name_desc'
+  String _sortOrder =
+      'date_asc'; // 'date_asc', 'date_desc', 'name_asc', 'name_desc'
   final Set<String> _selectedSports = {};
 
   // Search scope
@@ -46,6 +48,9 @@ class CompetitionProvider extends ChangeNotifier {
   List<Profile> _searchedUsers = [];
   bool _isLoadingUsers = false;
   String _lastUserQuery = '';
+
+  List<Association> _searchedAssociations = [];
+  String _lastAssociationQuery = '';
 
   bool _isLoading = false;
   List<Competition> _allCompetitions = [];
@@ -60,22 +65,24 @@ class CompetitionProvider extends ChangeNotifier {
     this._profileRepository, {
     AssociationRepository? associationRepository,
     NotificationRepository? notificationRepository,
-  }) : _associationRepository = associationRepository ??
-            (() {
-              try {
-                return AssociationRepository(_repository.client);
-              } catch (_) {
-                return AssociationRepository(null as dynamic);
-              }
-            }()),
-       _notificationRepository = notificationRepository ??
-            (() {
-              try {
-                return NotificationRepository(_repository.client);
-              } catch (_) {
-                return NotificationRepository(null as dynamic);
-              }
-            }()) {
+  }) : _associationRepository =
+           associationRepository ??
+           (() {
+             try {
+               return AssociationRepository(_repository.client);
+             } catch (_) {
+               return AssociationRepository(null as dynamic);
+             }
+           }()),
+       _notificationRepository =
+           notificationRepository ??
+           (() {
+             try {
+               return NotificationRepository(_repository.client);
+             } catch (_) {
+               return NotificationRepository(null as dynamic);
+             }
+           }()) {
     fetchCompetitions();
     fetchAssociations();
   }
@@ -84,6 +91,10 @@ class CompetitionProvider extends ChangeNotifier {
   List<Association> get associations => _associations;
   bool get isLoadingAssociations => _isLoadingAssociations;
   AssociationRepository get associationRepository => _associationRepository;
+  CompetitionRepository get competitionRepository => _repository;
+  NotificationRepository get notificationRepository => _notificationRepository;
+
+
 
   // Getters
   String get query => _query;
@@ -122,6 +133,7 @@ class CompetitionProvider extends ChangeNotifier {
   SearchScope get searchScope => _searchScope;
   List<Profile> get searchedUsers => _searchedUsers;
   bool get isLoadingUsers => _isLoadingUsers;
+  List<Association> get searchedAssociations => _searchedAssociations;
   ProfileRepository get profileRepository => _profileRepository;
 
   void setLayout(CompetitionsLayout newLayout) {
@@ -175,6 +187,8 @@ class CompetitionProvider extends ChangeNotifier {
       _searchScope = scope;
       if (_searchScope == SearchScope.users) {
         searchUsers(_query);
+      } else if (_searchScope == SearchScope.associations) {
+        searchAssociations(_query);
       } else {
         _applyFilters();
       }
@@ -195,6 +209,8 @@ class CompetitionProvider extends ChangeNotifier {
     if (changed) {
       if (_searchScope == SearchScope.users) {
         searchUsers(_query);
+      } else if (_searchScope == SearchScope.associations) {
+        searchAssociations(_query);
       } else {
         _applyFilters();
       }
@@ -254,6 +270,8 @@ class CompetitionProvider extends ChangeNotifier {
       _query = newQuery;
       if (_searchScope == SearchScope.competitions) {
         _applyFilters();
+      } else if (_searchScope == SearchScope.associations) {
+        searchAssociations(newQuery);
       } else {
         searchUsers(newQuery);
       }
@@ -404,14 +422,14 @@ class CompetitionProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchCompetitions() async {
+  Future<void> fetchCompetitions({String? status = 'upcoming'}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
       // Fetch all upcoming competitions
-      final results = await _repository.getUpcomingCompetitions();
+      final results = await _repository.getUpcomingCompetitions(status: status);
       _allCompetitions = results;
       _applyFilters();
     } catch (e) {
@@ -442,6 +460,44 @@ class CompetitionProvider extends ChangeNotifier {
     } finally {
       if (_lastUserQuery == query) {
         _isLoadingUsers = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> searchAssociations(String query) async {
+    _lastAssociationQuery = query;
+    _isLoadingAssociations = true;
+    notifyListeners();
+
+    try {
+      final results = await _associationRepository.getAssociations();
+      if (_lastAssociationQuery == query) {
+        if (query.trim().isEmpty) {
+          _searchedAssociations = results;
+        } else {
+          final q = query.trim().toLowerCase();
+          _searchedAssociations = results
+              .where(
+                (assoc) =>
+                    assoc.name.toLowerCase().contains(q) ||
+                    assoc.scope.toLowerCase().contains(q) ||
+                    assoc.description.toLowerCase().contains(q) ||
+                    assoc.supportedSports.any(
+                      (s) => s.toLowerCase().contains(q),
+                    ),
+              )
+              .toList();
+        }
+      }
+    } catch (e) {
+      if (_lastAssociationQuery == query) {
+        _errorMessage = 'Failed to load associations: $e';
+        _searchedAssociations = [];
+      }
+    } finally {
+      if (_lastAssociationQuery == query) {
+        _isLoadingAssociations = false;
         notifyListeners();
       }
     }
@@ -597,7 +653,9 @@ class CompetitionProvider extends ChangeNotifier {
     _isLoadingAssociations = true;
     notifyListeners();
     try {
-      final result = await _associationRepository.createAssociation(association);
+      final result = await _associationRepository.createAssociation(
+        association,
+      );
       await fetchAssociations();
       return result;
     } catch (e) {
@@ -613,7 +671,9 @@ class CompetitionProvider extends ChangeNotifier {
     _isLoadingAssociations = true;
     notifyListeners();
     try {
-      final result = await _associationRepository.updateAssociation(association);
+      final result = await _associationRepository.updateAssociation(
+        association,
+      );
       await fetchAssociations();
       return result;
     } catch (e) {
@@ -634,7 +694,9 @@ class CompetitionProvider extends ChangeNotifier {
     }
   }
 
-  Future<List<AssociationMember>> getAssociationMembers(String associationId) async {
+  Future<List<AssociationMember>> getAssociationMembers(
+    String associationId,
+  ) async {
     try {
       return await _associationRepository.getAssociationMembers(associationId);
     } catch (e) {
@@ -663,18 +725,30 @@ class CompetitionProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> removeAssociationMember(String associationId, String userId) async {
+  Future<bool> removeAssociationMember(
+    String associationId,
+    String userId,
+  ) async {
     try {
-      return await _associationRepository.removeAssociationMember(associationId, userId);
+      return await _associationRepository.removeAssociationMember(
+        associationId,
+        userId,
+      );
     } catch (e) {
       debugPrint('Error removing association member: $e');
       return false;
     }
   }
 
-  Future<Association?> transferAssociationOwnership(String associationId, String newOwnerId) async {
+  Future<Association?> transferAssociationOwnership(
+    String associationId,
+    String newOwnerId,
+  ) async {
     try {
-      final result = await _associationRepository.transferAssociationOwnership(associationId, newOwnerId);
+      final result = await _associationRepository.transferAssociationOwnership(
+        associationId,
+        newOwnerId,
+      );
       await fetchAssociations();
       return result;
     } catch (e) {
@@ -683,7 +757,9 @@ class CompetitionProvider extends ChangeNotifier {
     }
   }
 
-  Future<List<CompetitionGroup>> getCompetitionGroups(String associationId) async {
+  Future<List<CompetitionGroup>> getCompetitionGroups(
+    String associationId,
+  ) async {
     try {
       return await _associationRepository.getCompetitionGroups(associationId);
     } catch (e) {
@@ -692,7 +768,9 @@ class CompetitionProvider extends ChangeNotifier {
     }
   }
 
-  Future<CompetitionGroup?> createCompetitionGroup(CompetitionGroup group) async {
+  Future<CompetitionGroup?> createCompetitionGroup(
+    CompetitionGroup group,
+  ) async {
     try {
       return await _associationRepository.createCompetitionGroup(group);
     } catch (e) {
@@ -701,7 +779,9 @@ class CompetitionProvider extends ChangeNotifier {
     }
   }
 
-  Future<CompetitionGroup?> updateCompetitionGroup(CompetitionGroup group) async {
+  Future<CompetitionGroup?> updateCompetitionGroup(
+    CompetitionGroup group,
+  ) async {
     try {
       return await _associationRepository.updateCompetitionGroup(group);
     } catch (e) {
@@ -743,8 +823,11 @@ class CompetitionProvider extends ChangeNotifier {
     notifyListeners();
     try {
       Competition compToCreate = competition;
-      if (competition.associationId != null && competition.associationId!.isNotEmpty) {
-        final assoc = await _associationRepository.getAssociationDetails(competition.associationId!);
+      if (competition.associationId != null &&
+          competition.associationId!.isNotEmpty) {
+        final assoc = await _associationRepository.getAssociationDetails(
+          competition.associationId!,
+        );
         if (assoc != null) {
           // Inherit rulebook if not provided
           String? rulebookUrl = competition.rulebookUrl;
@@ -755,9 +838,16 @@ class CompetitionProvider extends ChangeNotifier {
           // Inherit active athlete groups for this sport & format
           List<String>? athleteGroupIds = competition.athleteGroupIds;
           if (athleteGroupIds == null || athleteGroupIds.isEmpty) {
-            final groups = await _associationRepository.getAthleteGroups(competition.associationId!);
+            final groups = await _associationRepository.getAthleteGroups(
+              competition.associationId!,
+            );
             athleteGroupIds = groups
-                .where((g) => g.isActive && g.sport == competition.sportType && g.format == competition.sportSubtype)
+                .where(
+                  (g) =>
+                      g.isActive &&
+                      g.sport == competition.sportType &&
+                      g.format == competition.sportSubtype,
+                )
                 .map((g) => g.id)
                 .toList();
           }
@@ -776,12 +866,16 @@ class CompetitionProvider extends ChangeNotifier {
 
         if (created.requiresFees) {
           final deadline = created.paymentEnd ?? created.registrationEnd;
-          final creatorUserId = _repository.client.auth.currentUser?.id ?? created.associationId ?? '';
+          final creatorUserId =
+              _repository.client.auth.currentUser?.id ??
+              created.associationId ??
+              '';
           final notif = SystemNotification(
             id: 'notif-pay-setup-${DateTime.now().millisecondsSinceEpoch}',
             userId: creatorUserId,
             title: 'Payment Details Formulated',
-            message: 'Competition "${created.title}" created with fee ${created.feeAmount} ${created.feeCurrency}. Deadline: $deadline.',
+            message:
+                'Competition "${created.title}" created with fee ${created.feeAmount} ${created.feeCurrency}. Deadline: $deadline.',
             category: 'payments',
             createdAt: DateTime.now(),
           );
@@ -805,12 +899,13 @@ class CompetitionProvider extends ChangeNotifier {
     final deadline = competition.paymentEnd ?? competition.registrationEnd;
     final currency = competition.feeCurrency ?? 'EUR';
     final amount = competition.feeAmount;
-    
+
     final paymentNotification = SystemNotification(
       id: 'notif-pay-${DateTime.now().millisecondsSinceEpoch}',
       userId: userId,
       title: 'Payment Action Required',
-      message: 'A registration fee of $amount $currency is due for ${competition.title}. Deadline: $deadline.',
+      message:
+          'A registration fee of $amount $currency is due for ${competition.title}. Deadline: $deadline.',
       category: 'payments',
       createdAt: DateTime.now(),
     );
@@ -827,7 +922,9 @@ class CompetitionProvider extends ChangeNotifier {
     try {
       final competition = await _repository.getCompetitionById(competitionId);
       if (competition != null && competition.maxAthletes != null) {
-        final registeredIds = await _repository.getRegisteredAthleteIds(competitionId);
+        final registeredIds = await _repository.getRegisteredAthleteIds(
+          competitionId,
+        );
         if (registeredIds.length >= competition.maxAthletes!) {
           _errorMessage = 'Competition capacity limit reached!';
           return false;
@@ -836,14 +933,16 @@ class CompetitionProvider extends ChangeNotifier {
 
       final success = await _repository.registerAthlete(competitionId, userId);
       if (success) {
-        final comp = competition ?? await _repository.getCompetitionById(competitionId);
+        final comp =
+            competition ?? await _repository.getCompetitionById(competitionId);
         if (comp != null) {
           // Trigger Registration Notification
           final regNotification = SystemNotification(
             id: 'notif-reg-${DateTime.now().millisecondsSinceEpoch}',
             userId: userId,
             title: 'Registration Confirmed',
-            message: 'You have successfully registered for the meet "${comp.title}".',
+            message:
+                'You have successfully registered for the meet "${comp.title}".',
             category: 'registration',
             createdAt: DateTime.now(),
           );
@@ -891,20 +990,21 @@ class CompetitionProvider extends ChangeNotifier {
         'status': 'pending',
         'created_at': DateTime.now().toUtc().toIso8601String(),
       };
-      
+
       try {
         await _repository.client.from('volunteer_applications').insert(payload);
       } catch (e) {
         debugPrint('Error inserting volunteer application: $e');
       }
-      
+
       final competition = await _repository.getCompetitionById(competitionId);
       if (competition != null) {
         final notif = SystemNotification(
           id: 'notif-vol-${DateTime.now().millisecondsSinceEpoch}',
           userId: userId,
           title: "Volunteer Application Submitted",
-          message: "Your application to volunteer for the meet \"${competition.title}\" has been submitted.",
+          message:
+              "Your application to volunteer for the meet \"${competition.title}\" has been submitted.",
           category: "registration",
           createdAt: DateTime.now(),
         );
@@ -971,16 +1071,24 @@ class CompetitionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? selectAttemptWeight(String athleteId, String discipline, int attemptNumber, double weight) {
-    final incrementError = StreetliftingRulesEngine.validateIncrement(weight, discipline);
+  String? selectAttemptWeight(
+    String athleteId,
+    String discipline,
+    int attemptNumber,
+    double weight,
+  ) {
+    final incrementError = StreetliftingRulesEngine.validateIncrement(
+      weight,
+      discipline,
+    );
     if (incrementError != null) {
       return incrementError;
     }
-    
+
     if (!StreetliftingRulesEngine.isAscending(weight, _lastAttemptWeight)) {
       return 'Attempt weight must be ascending!';
     }
-    
+
     _attemptWeight = weight;
     _lastAttemptWeight = weight;
     _attemptDiscipline = discipline;
@@ -1015,7 +1123,7 @@ class CompetitionProvider extends ChangeNotifier {
     if (passed) {
       _submittedAttempts.add(_attemptWeight);
     }
-    
+
     // Regardless of pass/fail, progress attempts
     if (_attemptNum < 3) {
       _attemptNum++;
@@ -1050,12 +1158,12 @@ class CompetitionProvider extends ChangeNotifier {
       _varCredits++;
       _liftPassed = true;
       _disqualified = false;
-      
+
       if (_attemptDiscipline == _activeDiscipline) {
         if (!_submittedAttempts.contains(_attemptWeight)) {
           _submittedAttempts.add(_attemptWeight);
         }
-        
+
         // Advance discipline if they finished the 3rd attempt
         if (_attemptNum == 3) {
           final disciplines = ['Muscle Up', 'Pull Up', 'Dip', 'Squat'];
@@ -1079,16 +1187,21 @@ class CompetitionProvider extends ChangeNotifier {
 
     final competition = await _repository.getCompetitionById(competitionId);
     final compTitle = competition?.title ?? 'Competition';
-    
+
     final numFlights = (athletes.length / 12).ceil();
     final athletesPerFlight = (athletes.length / numFlights).ceil();
-    
+
     for (int i = 0; i < numFlights; i++) {
       final startIndex = i * athletesPerFlight;
-      final endIndex = (startIndex + athletesPerFlight > athletes.length) ? athletes.length : startIndex + athletesPerFlight;
-      final flightAthletes = athletes.sublist(startIndex, endIndex).map((a) => a.id).toList();
+      final endIndex = (startIndex + athletesPerFlight > athletes.length)
+          ? athletes.length
+          : startIndex + athletesPerFlight;
+      final flightAthletes = athletes
+          .sublist(startIndex, endIndex)
+          .map((a) => a.id)
+          .toList();
       final flightName = 'Flight ${String.fromCharCode(65 + i)}';
-      
+
       final flight = Flight(
         id: 'flight-$competitionId-${DateTime.now().millisecondsSinceEpoch}-$i',
         competitionId: competitionId,
@@ -1104,7 +1217,8 @@ class CompetitionProvider extends ChangeNotifier {
           id: 'notif-flight-$competitionId-$athleteId-${DateTime.now().millisecondsSinceEpoch}',
           userId: athleteId,
           title: 'Flight Assignment Updated',
-          message: 'You have been assigned to $flightName for the meet $compTitle.',
+          message:
+              'You have been assigned to $flightName for the meet $compTitle.',
           category: 'flights',
           createdAt: DateTime.now(),
         );
@@ -1114,7 +1228,13 @@ class CompetitionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void recordWeighIn(String athleteId, double weight, String rackHeight, String dipWidth, {bool isDisqualified = false}) {
+  void recordWeighIn(
+    String athleteId,
+    double weight,
+    String rackHeight,
+    String dipWidth, {
+    bool isDisqualified = false,
+  }) {
     if (weight <= 0) {
       throw ArgumentError('Weight must be positive');
     }
@@ -1127,7 +1247,10 @@ class CompetitionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> publishSchedule(String competitionId, {bool isPublic = true}) async {
+  Future<void> publishSchedule(
+    String competitionId, {
+    bool isPublic = true,
+  }) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -1142,13 +1265,16 @@ class CompetitionProvider extends ChangeNotifier {
 
       final comp = await _repository.getCompetitionById(competitionId);
       if (comp != null && isPublic) {
-        final athleteIds = await _repository.getRegisteredAthleteIds(competitionId);
+        final athleteIds = await _repository.getRegisteredAthleteIds(
+          competitionId,
+        );
         for (final athleteId in athleteIds) {
           final notif = SystemNotification(
             id: 'notif-sched-$competitionId-$athleteId-${DateTime.now().millisecondsSinceEpoch}',
             userId: athleteId,
             title: 'Meet Schedule Published',
-            message: 'The official schedule for ${comp.title} has been published. Check the agenda now!',
+            message:
+                'The official schedule for ${comp.title} has been published. Check the agenda now!',
             category: 'schedule',
             createdAt: DateTime.now(),
           );

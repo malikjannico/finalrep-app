@@ -6,6 +6,9 @@ import 'package:finalrep_app/repositories/profile_repository.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:flutter/material.dart';
 
+import 'package:finalrep_app/repositories/association_repository.dart';
+import 'package:finalrep_app/models/association.dart';
+
 class MockProfileRepository implements ProfileRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -13,6 +16,38 @@ class MockProfileRepository implements ProfileRepository {
   @override
   Future<List<Profile>> searchProfiles(String query) async {
     return [];
+  }
+}
+
+class MockAssociationRepository implements AssociationRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<List<Association>> getAssociations() async {
+    return [
+      Association(
+        id: 'assoc-1',
+        name: 'Global Streetlifting Federation (GSF)',
+        scope: 'global',
+        description: 'The main global governing body for streetlifting.',
+        rulebooks: {},
+        socialChannels: {},
+        ownerId: 'user-1',
+        supportedSports: ['Streetlifting'],
+      ),
+      Association(
+        id: 'assoc-2',
+        name: 'European Streetlifting Association (ESA)',
+        scope: 'area',
+        areaName: 'Europe',
+        description: 'Continental governing body for Europe.',
+        rulebooks: {},
+        socialChannels: {},
+        ownerId: 'user-2',
+        supportedSports: ['Calisthenics'],
+      ),
+    ];
   }
 }
 
@@ -99,6 +134,7 @@ class MockCompetitionRepository implements CompetitionRepository {
     String? query,
     String? sportSubtype,
     String? compGroupName,
+    String? status = 'upcoming',
   }) async {
     return _fakeCompetitions.where((comp) {
       if (query != null && query.isNotEmpty) {
@@ -125,6 +161,12 @@ class MockCompetitionRepository implements CompetitionRepository {
       return true;
     }).toList();
   }
+
+  @override
+  String get baseUrl => '';
+
+  @override
+  Future<List<Map<String, dynamic>>> getMeetResults() async => [];
 }
 
 void main() {
@@ -134,7 +176,11 @@ void main() {
 
     setUp(() async {
       repository = MockCompetitionRepository();
-      provider = CompetitionProvider(repository, MockProfileRepository());
+      provider = CompetitionProvider(
+        repository,
+        MockProfileRepository(),
+        associationRepository: MockAssociationRepository(),
+      );
       // Wait for the initial load to complete
       await Future.delayed(Duration.zero);
     });
@@ -159,8 +205,14 @@ void main() {
         true,
       );
       expect(provider.competitions.any((c) => c.title == 'US Qualifier'), true);
-      expect(provider.competitions.any((c) => c.title == 'Underground Munich'), true);
-      expect(provider.competitions.any((c) => c.title == 'Underground Berlin'), true);
+      expect(
+        provider.competitions.any((c) => c.title == 'Underground Munich'),
+        true,
+      );
+      expect(
+        provider.competitions.any((c) => c.title == 'Underground Berlin'),
+        true,
+      );
     });
 
     test('Filter by Group Individual', () {
@@ -255,6 +307,21 @@ void main() {
       provider.clearDateRange();
       expect(provider.selectedDateRange, isNull);
       expect(provider.competitions.length, 5);
+    });
+
+    test('Search Associations with empty query returns all', () async {
+      await provider.searchAssociations('');
+      expect(provider.searchedAssociations.length, 2);
+    });
+
+    test('Search Associations with query returns matching ones', () async {
+      await provider.searchAssociations('Calisthenics');
+      expect(provider.searchedAssociations.length, 1);
+      expect(provider.searchedAssociations.first.id, 'assoc-2');
+
+      await provider.searchAssociations('Global');
+      expect(provider.searchedAssociations.length, 1);
+      expect(provider.searchedAssociations.first.id, 'assoc-1');
     });
   });
 }

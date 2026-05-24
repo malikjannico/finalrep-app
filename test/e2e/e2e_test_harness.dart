@@ -16,7 +16,8 @@ import 'package:finalrep_app/views/competition_handling_page.dart';
 import 'package:finalrep_app/views/rankings_page.dart';
 import 'package:finalrep_app/views/notifications_page.dart';
 import 'package:finalrep_app/views/competition_creation_wizard.dart';
-import 'mock_views.dart' hide CompetitionHandlingPage, RankingsPage, NotificationsPage;
+import 'mock_views.dart'
+    hide CompetitionHandlingPage, RankingsPage, NotificationsPage;
 
 // ==========================================
 // 1. InMemoryDatabase (Fake DB)
@@ -128,7 +129,11 @@ class MockSupabaseClient implements SupabaseClient {
   final MockSupabaseStorageClient storage;
   final InMemoryDatabase db;
 
-  MockSupabaseClient({required this.auth, required this.storage, required this.db});
+  MockSupabaseClient({
+    required this.auth,
+    required this.storage,
+    required this.db,
+  });
 
   @override
   SupabaseQueryBuilder from(String table) {
@@ -151,7 +156,7 @@ class MockUserResponse implements UserResponse {
 class MockGoTrueClient implements GoTrueClient {
   final StreamController<AuthState> _authStateController;
   final InMemoryDatabase db;
-  
+
   User? _currentUser;
   Session? _currentSession;
 
@@ -163,7 +168,9 @@ class MockGoTrueClient implements GoTrueClient {
   Session? get currentSession => _currentSession;
 
   void triggerAuthStateChange(AuthChangeEvent event, Session? session) {
-    debugPrint('DEBUG: triggerAuthStateChange event=$event user=${session?.user.id}');
+    debugPrint(
+      'DEBUG: triggerAuthStateChange event=$event user=${session?.user.id}',
+    );
     _currentSession = session;
     _currentUser = session?.user;
     _authStateController.add(AuthState(event, session));
@@ -174,11 +181,17 @@ class MockGoTrueClient implements GoTrueClient {
     final controller = StreamController<AuthState>.broadcast(sync: true);
     StreamSubscription? sub;
     controller.onListen = () {
-      debugPrint('DEBUG: onAuthStateChange onListen, currentSession=${_currentSession?.user.id}');
-      controller.add(AuthState(AuthChangeEvent.initialSession, _currentSession));
+      debugPrint(
+        'DEBUG: onAuthStateChange onListen, currentSession=${_currentSession?.user.id}',
+      );
+      controller.add(
+        AuthState(AuthChangeEvent.initialSession, _currentSession),
+      );
       sub = _authStateController.stream.listen(
         (data) {
-          debugPrint('DEBUG: onAuthStateChange forward data event=${data.event} user=${data.session?.user.id}');
+          debugPrint(
+            'DEBUG: onAuthStateChange forward data event=${data.event} user=${data.session?.user.id}',
+          );
           if (!controller.isClosed) {
             controller.add(data);
           }
@@ -374,22 +387,40 @@ class MockSupabaseQueryBuilder implements SupabaseQueryBuilder {
   dynamic noSuchMethod(Invocation invocation) {
     final name = invocation.memberName;
     if (name == #select) {
-      return MockPostgrestFilterBuilder<List<Map<String, dynamic>>>(tableName, db, 'select');
+      return MockPostgrestFilterBuilder<List<Map<String, dynamic>>>(
+        tableName,
+        db,
+        'select',
+      );
     }
     if (name == #update) {
       final values = invocation.positionalArguments[0] as Map;
-      return MockPostgrestFilterBuilder<List<Map<String, dynamic>>>(tableName, db, 'update', payload: values);
+      return MockPostgrestFilterBuilder<List<Map<String, dynamic>>>(
+        tableName,
+        db,
+        'update',
+        payload: values,
+      );
     }
     if (name == #insert) {
       final values = invocation.positionalArguments[0];
-      return MockPostgrestFilterBuilder<List<Map<String, dynamic>>>(tableName, db, 'insert', payload: values);
+      return MockPostgrestFilterBuilder<List<Map<String, dynamic>>>(
+        tableName,
+        db,
+        'insert',
+        payload: values,
+      );
     }
     return super.noSuchMethod(invocation);
   }
 }
 
 // ignore: must_be_immutable
-class MockPostgrestFilterBuilder<T> implements PostgrestFilterBuilder<T>, PostgrestTransformBuilder<T>, Future<T> {
+class MockPostgrestFilterBuilder<T>
+    implements
+        PostgrestFilterBuilder<T>,
+        PostgrestTransformBuilder<T>,
+        Future<T> {
   final String tableName;
   final InMemoryDatabase db;
   final String op;
@@ -505,7 +536,9 @@ class MockPostgrestFilterBuilder<T> implements PostgrestFilterBuilder<T>, Postgr
   }
 
   Future<dynamic> _getResultFuture() async {
-    debugPrint('DEBUG: _getResultFuture table=$tableName op=$op eqFilters=$eqFilters isSingle=$isSingle allowNull=$allowNull');
+    debugPrint(
+      'DEBUG: _getResultFuture table=$tableName op=$op eqFilters=$eqFilters isSingle=$isSingle allowNull=$allowNull',
+    );
     final results = _executeFilter();
     debugPrint('DEBUG: _executeFilter results=$results');
     if (op == 'insert') {
@@ -573,18 +606,31 @@ class MockPostgrestFilterBuilder<T> implements PostgrestFilterBuilder<T>, Postgr
   }
 
   @override
-  Future<R> then<R>(FutureOr<R> Function(T value) onValue, {Function? onError}) {
-    return _getResultFuture().then((val) => onValue(val as T), onError: onError);
+  Future<R> then<R>(
+    FutureOr<R> Function(T value) onValue, {
+    Function? onError,
+  }) {
+    return _getResultFuture().then(
+      (val) => onValue(val as T),
+      onError: onError,
+    );
   }
 
   @override
   Future<T> catchError(Function onError, {bool Function(Object error)? test}) {
-    return _getResultFuture().then((val) => val as T).catchError(onError, test: test);
+    return _getResultFuture()
+        .then((val) => val as T)
+        .catchError(onError, test: test);
   }
 
   @override
   Future<T> timeout(Duration timeLimit, {FutureOr<T> Function()? onTimeout}) {
-    return _getResultFuture().then((val) => val as T).timeout(timeLimit, onTimeout: onTimeout != null ? () async => (await onTimeout()) : null);
+    return _getResultFuture()
+        .then((val) => val as T)
+        .timeout(
+          timeLimit,
+          onTimeout: onTimeout != null ? () async => (await onTimeout()) : null,
+        );
   }
 
   @override
@@ -648,7 +694,7 @@ class MockPostgrestFilterBuilder<T> implements PostgrestFilterBuilder<T>, Postgr
 
 class MockFilePicker extends FilePicker {
   PlatformFile? mockFile;
-  
+
   void setMockFile(String name, int size, Uint8List bytes) {
     mockFile = PlatformFile(name: name, size: size, bytes: bytes);
   }
@@ -696,17 +742,23 @@ class E2ETestHarness {
     final authController = StreamController<AuthState>.broadcast(sync: true);
     mockAuth = MockGoTrueClient(authController, db);
     mockStorage = MockSupabaseStorageClient(db);
-    mockClient = MockSupabaseClient(auth: mockAuth, storage: mockStorage, db: db);
+    mockClient = MockSupabaseClient(
+      auth: mockAuth,
+      storage: mockStorage,
+      db: db,
+    );
 
     profileRepository = ProfileRepository(mockClient);
     competitionRepository = CompetitionRepository(mockClient);
 
     authProvider = AuthProvider(mockClient, profileRepository);
-    competitionProvider = CompetitionProvider(competitionRepository, profileRepository);
-    
+    competitionProvider = CompetitionProvider(
+      competitionRepository,
+      profileRepository,
+    );
+
     mockFilePicker = MockFilePicker();
     FilePicker.platform = mockFilePicker;
-
   }
 
   void dispose() {
@@ -718,23 +770,32 @@ class E2ETestHarness {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
-        ChangeNotifierProvider<CompetitionProvider>.value(value: competitionProvider),
+        ChangeNotifierProvider<CompetitionProvider>.value(
+          value: competitionProvider,
+        ),
       ],
       child: MaterialApp(
         onGenerateRoute: (settings) {
           if (settings.name == '/admin') {
-            return MaterialPageRoute(builder: (_) => const AdminDashboardPage());
+            return MaterialPageRoute(
+              builder: (_) => const AdminDashboardPage(),
+            );
           }
           if (settings.name == '/association/create') {
-            return MaterialPageRoute(builder: (_) => const CreateAssociationPage());
+            return MaterialPageRoute(
+              builder: (_) => const CreateAssociationPage(),
+            );
           }
           if (settings.name == '/competition/create') {
-            return MaterialPageRoute(builder: (_) => const CreateCompetitionWizard());
+            return MaterialPageRoute(
+              builder: (_) => const CreateCompetitionWizard(),
+            );
           }
           if (settings.name == '/competition/handling') {
             final args = settings.arguments as Map<String, dynamic>;
             return MaterialPageRoute(
-              builder: (_) => CompetitionHandlingPage(competitionId: args['id']),
+              builder: (_) =>
+                  CompetitionHandlingPage(competitionId: args['id']),
             );
           }
           if (settings.name == '/rankings') {
@@ -751,12 +812,17 @@ class E2ETestHarness {
   }
 
   Future<void> waitForAuthSettle(WidgetTester tester) async {
-    debugPrint('DEBUG: waitForAuthSettle starting. status=${authProvider.status}, error=${authProvider.errorMessage}');
+    debugPrint(
+      'DEBUG: waitForAuthSettle starting. status=${authProvider.status}, error=${authProvider.errorMessage}',
+    );
     for (int i = 0; i < 50; i++) {
       await tester.pump(const Duration(milliseconds: 50));
-      if (authProvider.status == AuthStatus.authenticated || 
-          (authProvider.status == AuthStatus.unauthenticated && authProvider.errorMessage != null)) {
-        debugPrint('DEBUG: waitForAuthSettle loop breaking condition met at i=$i. status=${authProvider.status}, error=${authProvider.errorMessage}');
+      if (authProvider.status == AuthStatus.authenticated ||
+          (authProvider.status == AuthStatus.unauthenticated &&
+              authProvider.errorMessage != null)) {
+        debugPrint(
+          'DEBUG: waitForAuthSettle loop breaking condition met at i=$i. status=${authProvider.status}, error=${authProvider.errorMessage}',
+        );
         break;
       }
     }

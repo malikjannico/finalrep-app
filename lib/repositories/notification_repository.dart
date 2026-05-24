@@ -1,85 +1,130 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/system_notification.dart';
+import '../utils/mock_safety.dart';
+import '../utils/api_client.dart';
 
 class NotificationRepository {
-  final SupabaseClient? _client;
+  final dynamic _client;
+  final ApiClient _api;
 
   // Static mock cache to persist state across operations as fallback
   static final List<SystemNotification> _mockNotifications = [];
 
-  NotificationRepository(this._client);
+  NotificationRepository(dynamic client, {ApiClient? api})
+      : _client = client,
+        _api = api ?? ApiClient();
 
-  SupabaseClient? get client => _client;
+  dynamic get client => _client;
 
-  void _logError(String op, Object e, String table) {
-    if (e is PostgrestException && e.code == 'PGRST205') {
-      debugPrint('[Info] Supabase table "$table" not found. Using local mock fallback for "$op".');
-    } else {
-      debugPrint('Error $op (using mock fallback): $e');
-    }
-  }
+  bool get _useMockFallback => MockSafety.isMockAllowed;
 
   Future<List<SystemNotification>> getNotifications(String userId) async {
+    if (_useMockFallback && _client != null) {
+      try {
+        final response = await _client.from('notifications').select().eq('user_id', userId).order('created_at', ascending: false);
+        final list = (response as List).map((data) => SystemNotification.fromJson(data as Map<String, dynamic>)).toList();
+        _mockNotifications.removeWhere((n) => n.userId == userId);
+        _mockNotifications.addAll(list);
+        return list;
+      } catch (_) {
+        return _mockNotifications.where((n) => n.userId == userId).toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      }
+    }
     try {
-      if (_client == null) throw Exception('No client');
-      final response = await _client!
-          .from('notifications')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
+      final response = await _api.get('/notifications', queryParameters: {'userId': userId});
+      if (response.statusCode == 200) {
+        final list = (jsonDecode(response.body) as List)
+            .map(
+              (data) => SystemNotification.fromJson(data as Map<String, dynamic>),
+            )
+            .toList();
 
-      final list = (response as List)
-          .map((data) => SystemNotification.fromJson(data as Map<String, dynamic>))
-          .toList();
-      
-      // Sync mock list
-      _mockNotifications.removeWhere((n) => n.userId == userId);
-      _mockNotifications.addAll(list);
-      return list;
+        _mockNotifications.removeWhere((n) => n.userId == userId);
+        _mockNotifications.addAll(list);
+        return list;
+      }
+      throw Exception('Failed to fetch notifications: ${response.statusCode} ${response.body}');
     } catch (e) {
-      _logError('fetching notifications', e, 'notifications');
+      if (!_useMockFallback) {
+        rethrow;
+      }
       return _mockNotifications.where((n) => n.userId == userId).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
   }
 
-  Future<SystemNotification?> createNotification(SystemNotification notification) async {
+  Future<SystemNotification?> createNotification(
+    SystemNotification notification,
+  ) async {
+    if (_useMockFallback && _client != null) {
+      try {
+        final response = await _client.from('notifications').insert(notification.toJson()).select().single();
+        final created = SystemNotification.fromJson(response as Map<String, dynamic>);
+        _syncToMock(created);
+        return created;
+      } catch (_) {
+        _syncToMock(notification);
+        return notification;
+      }
+    }
     try {
-      if (_client == null) throw Exception('No client');
-      final response = await _client!
-          .from('notifications')
-          .insert(notification.toJson())
-          .select()
-          .single();
-      final created = SystemNotification.fromJson(response);
-      _syncToMock(created);
-      return created;
+      final response = await _api.post('/notifications', body: notification.toJson());
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final created = SystemNotification.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        _syncToMock(created);
+        return created;
+      }
+      throw Exception('Failed to create notification: ${response.statusCode} ${response.body}');
     } catch (e) {
-      _logError('creating notification', e, 'notifications');
+      if (!_useMockFallback) {
+        rethrow;
+      }
       _syncToMock(notification);
       return notification;
     }
   }
 
   Future<void> markAsRead(String notificationId) async {
-    try {
-      if (_client == null) throw Exception('No client');
-      await _client!
-          .from('notifications')
-          .update({'is_read': true})
-          .eq('id', notificationId);
-          
-      // Sync mock list
-      final idx = _mockNotifications.indexWhere((n) => n.id == notificationId);
-      if (idx != -1) {
-        _mockNotifications[idx] = _mockNotifications[idx].copyWith(isRead: true);
+    if (_useMockFallback && _client != null) {
+      try {
+        await _client.from('notifications').update({'is_read': true}).eq('id', notificationId);
+        final idx = _mockNotifications.indexWhere((n) => n.id == notificationId);
+        if (idx != -1) {
+          _mockNotifications[idx] = _mockNotifications[idx].copyWith(isRead: true);
+        }
+        return;
+      } catch (_) {
+        final idx = _mockNotifications.indexWhere((n) => n.id == notificationId);
+        if (idx != -1) {
+          _mockNotifications[idx] = _mockNotifications[idx].copyWith(isRead: true);
+        }
+        return;
       }
+    }
+    try {
+      final response = await _api.put('/notifications/$notificationId/read');
+      if (response.statusCode == 200) {
+        final idx = _mockNotifications.indexWhere((n) => n.id == notificationId);
+        if (idx != -1) {
+          _mockNotifications[idx] = _mockNotifications[idx].copyWith(
+            isRead: true,
+          );
+        }
+        return;
+      }
+      throw Exception('Failed to mark notification as read: ${response.statusCode} ${response.body}');
     } catch (e) {
-      _logError('marking notification as read', e, 'notifications');
+      if (!_useMockFallback) {
+        rethrow;
+      }
       final idx = _mockNotifications.indexWhere((n) => n.id == notificationId);
       if (idx != -1) {
-        _mockNotifications[idx] = _mockNotifications[idx].copyWith(isRead: true);
+        _mockNotifications[idx] = _mockNotifications[idx].copyWith(
+          isRead: true,
+        );
       }
     }
   }

@@ -8,7 +8,8 @@ class CreateCompetitionWizard extends StatefulWidget {
   const CreateCompetitionWizard({super.key});
 
   @override
-  State<CreateCompetitionWizard> createState() => _CreateCompetitionWizardState();
+  State<CreateCompetitionWizard> createState() =>
+      _CreateCompetitionWizardState();
 }
 
 class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
@@ -28,8 +29,9 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
   final TextEditingController _areaController = TextEditingController();
   final TextEditingController _countryController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
-  final TextEditingController _titleImageUrlController = TextEditingController();
-  
+  final TextEditingController _titleImageUrlController =
+      TextEditingController();
+
   String _sportType = 'Streetlifting';
   String _sportSubtype = 'Modern';
   bool _bannerSafeZoneGuide = false;
@@ -44,11 +46,12 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
   String _registrationMode = 'fcfs'; // 'fcfs' or 'approval'
   bool _enableWaitlist = false;
   final TextEditingController _maxAthletesController = TextEditingController();
-  
+
   // Category capacity
   final Map<String, int> _maxAthletesPerGroup = {};
   final TextEditingController _categoryNameController = TextEditingController();
-  final TextEditingController _categoryLimitController = TextEditingController();
+  final TextEditingController _categoryLimitController =
+      TextEditingController();
 
   // Step 4: Fees & Payment Config
   bool _requiresFees = false;
@@ -64,27 +67,34 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
   final List<String> _volunteerPositions = [];
   final Map<String, List<String>> _volunteerShifts = {};
   final Map<String, int> _maxVolunteersPerPosition = {};
-  final TextEditingController _maxVolunteersController = TextEditingController();
-  
+  final TextEditingController _maxVolunteersController =
+      TextEditingController();
+
   final TextEditingController _newPositionController = TextEditingController();
   final Map<String, TextEditingController> _newShiftControllers = {};
   final Map<String, TextEditingController> _positionLimitControllers = {};
 
   // Step 6: Disclaimers & Custom Fields
   String _disclaimerType = 'none'; // 'none', 'text', 'link', 'both'
-  final TextEditingController _disclaimerTextController = TextEditingController();
-  final TextEditingController _disclaimerUrlController = TextEditingController();
-  
+  final TextEditingController _disclaimerTextController =
+      TextEditingController();
+  final TextEditingController _disclaimerUrlController =
+      TextEditingController();
+
   final List<Map<String, dynamic>> _customAthleteFields = [];
   final List<Map<String, dynamic>> _customVolunteerFields = [];
 
-  final TextEditingController _athleteFieldNameController = TextEditingController();
+  final TextEditingController _athleteFieldNameController =
+      TextEditingController();
   String _athleteFieldType = 'text';
-  final TextEditingController _athleteFieldOptionsController = TextEditingController();
+  final TextEditingController _athleteFieldOptionsController =
+      TextEditingController();
 
-  final TextEditingController _volunteerFieldNameController = TextEditingController();
+  final TextEditingController _volunteerFieldNameController =
+      TextEditingController();
   String _volunteerFieldType = 'text';
-  final TextEditingController _volunteerFieldOptionsController = TextEditingController();
+  final TextEditingController _volunteerFieldOptionsController =
+      TextEditingController();
 
   bool _isSaving = false;
 
@@ -120,7 +130,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
     super.dispose();
   }
 
-  Future<DateTime?> _selectDateTime(BuildContext context, DateTime initial) async {
+  Future<DateTime?> _selectDateTime(
+    BuildContext context,
+    DateTime initial,
+  ) async {
     final date = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -128,14 +141,14 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
       lastDate: DateTime(2030),
     );
     if (date == null) return null;
-    
+
     if (!context.mounted) return null;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
     );
     if (time == null) return DateTime(date.year, date.month, date.day);
-    
+
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
@@ -150,11 +163,16 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
 
   void _updatePaymentDescription() {
     final title = _titleController.text.trim();
-    final userId = Provider.of<AuthProvider>(context, listen: false).currentUserProfile?.id ?? '';
+    final userId =
+        Provider.of<AuthProvider>(
+          context,
+          listen: false,
+        ).currentUserProfile?.id ??
+        '';
     final defaultDesc = 'Entry Fee: $title - User: $userId';
     if (_paymentDescController.text.isEmpty) {
-      _paymentDescController.text = defaultDesc.length > 140 
-          ? defaultDesc.substring(0, 140) 
+      _paymentDescController.text = defaultDesc.length > 140
+          ? defaultDesc.substring(0, 140)
           : defaultDesc;
     }
   }
@@ -180,7 +198,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
   }
 
   Future<void> _submitCompetition() async {
-    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final compProvider = Provider.of<CompetitionProvider>(
+      context,
+      listen: false,
+    );
 
     setState(() {
       _isSaving = true;
@@ -189,42 +210,76 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
     final comp = Competition(
       id: 'comp-${DateTime.now().millisecondsSinceEpoch}',
       title: _titleController.text.trim(),
-      description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+      description: _descController.text.trim().isEmpty
+          ? null
+          : _descController.text.trim(),
       startDate: _startDate,
       endDate: _endDate,
       location: _locationController.text.trim(),
       sportType: _sportType,
       sportSubtype: _sportSubtype,
       status: 'upcoming',
-      area: _areaController.text.trim().isEmpty ? null : _areaController.text.trim(),
-      country: _countryController.text.trim().isEmpty ? null : _countryController.text.trim(),
-      city: _cityController.text.trim().isEmpty ? null : _cityController.text.trim(),
-      titleImageUrl: _titleImageUrlController.text.trim().isEmpty ? null : _titleImageUrlController.text.trim(),
+      area: _areaController.text.trim().isEmpty
+          ? null
+          : _areaController.text.trim(),
+      country: _countryController.text.trim().isEmpty
+          ? null
+          : _countryController.text.trim(),
+      city: _cityController.text.trim().isEmpty
+          ? null
+          : _cityController.text.trim(),
+      titleImageUrl: _titleImageUrlController.text.trim().isEmpty
+          ? null
+          : _titleImageUrlController.text.trim(),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       registrationStart: _registrationStartDate,
       registrationEnd: _registrationEndDate,
       requiresFees: _requiresFees,
-      feeAmount: _requiresFees ? double.tryParse(_feeAmountController.text) : null,
+      feeAmount: _requiresFees
+          ? double.tryParse(_feeAmountController.text)
+          : null,
       feeCurrency: _requiresFees ? _feeCurrency : null,
       bankDetails: _requiresFees ? _bankDetailsController.text.trim() : null,
-      paymentDescription: _requiresFees ? _paymentDescController.text.trim() : null,
+      paymentDescription: _requiresFees
+          ? _paymentDescController.text.trim()
+          : null,
       paymentStart: _requiresFees ? _paymentStartDate : null,
       paymentEnd: _requiresFees ? _paymentEndDate : null,
       registrationMode: _registrationMode,
       enableWaitlist: _enableWaitlist,
       maxAthletes: int.tryParse(_maxAthletesController.text),
-      maxAthletesPerGroup: _maxAthletesPerGroup.isEmpty ? null : Map<String, int>.from(_maxAthletesPerGroup),
+      maxAthletesPerGroup: _maxAthletesPerGroup.isEmpty
+          ? null
+          : Map<String, int>.from(_maxAthletesPerGroup),
       volunteerNeeds: _volunteerNeeds,
-      volunteerPositions: _volunteerNeeds ? List<String>.from(_volunteerPositions) : null,
-      volunteerShifts: _volunteerNeeds ? Map<String, List<String>>.from(_volunteerShifts) : null,
-      maxVolunteers: _volunteerNeeds ? int.tryParse(_maxVolunteersController.text) : null,
-      maxVolunteersPerPosition: _volunteerNeeds ? Map<String, int>.from(_maxVolunteersPerPosition) : null,
+      volunteerPositions: _volunteerNeeds
+          ? List<String>.from(_volunteerPositions)
+          : null,
+      volunteerShifts: _volunteerNeeds
+          ? Map<String, List<String>>.from(_volunteerShifts)
+          : null,
+      maxVolunteers: _volunteerNeeds
+          ? int.tryParse(_maxVolunteersController.text)
+          : null,
+      maxVolunteersPerPosition: _volunteerNeeds
+          ? Map<String, int>.from(_maxVolunteersPerPosition)
+          : null,
       disclaimerType: _disclaimerType == 'none' ? null : _disclaimerType,
-      disclaimerText: _disclaimerType != 'none' && _disclaimerTextController.text.isNotEmpty ? _disclaimerTextController.text : null,
-      disclaimerUrl: _disclaimerType != 'none' && _disclaimerUrlController.text.isNotEmpty ? _disclaimerUrlController.text : null,
-      customAthleteFields: _customAthleteFields.isEmpty ? null : List<Map<String, dynamic>>.from(_customAthleteFields),
-      customVolunteerFields: _customVolunteerFields.isEmpty ? null : List<Map<String, dynamic>>.from(_customVolunteerFields),
+      disclaimerText:
+          _disclaimerType != 'none' && _disclaimerTextController.text.isNotEmpty
+          ? _disclaimerTextController.text
+          : null,
+      disclaimerUrl:
+          _disclaimerType != 'none' && _disclaimerUrlController.text.isNotEmpty
+          ? _disclaimerUrlController.text
+          : null,
+      customAthleteFields: _customAthleteFields.isEmpty
+          ? null
+          : List<Map<String, dynamic>>.from(_customAthleteFields),
+      customVolunteerFields: _customVolunteerFields.isEmpty
+          ? null
+          : List<Map<String, dynamic>>.from(_customVolunteerFields),
       bannerSafeZoneGuide: _bannerSafeZoneGuide,
     );
 
@@ -233,11 +288,16 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
       if (!mounted) return;
       if (created != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Competition created successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Competition created successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.of(context).pop(created);
       } else {
-        throw Exception(compProvider.errorMessage ?? 'Failed to create competition');
+        throw Exception(
+          compProvider.errorMessage ?? 'Failed to create competition',
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -298,9 +358,7 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Competition'),
-      ),
+      appBar: AppBar(title: const Text('Create Competition')),
       body: _isSaving
           ? const Center(
               child: Column(
@@ -343,15 +401,17 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 backgroundColor: isCompleted
                     ? Colors.green
                     : isActive
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outline,
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline,
                 child: isCompleted
                     ? const Icon(Icons.check, size: 14, color: Colors.white)
                     : Text(
                         '${index + 1}',
                         style: TextStyle(
                           fontSize: 11,
-                          color: isActive || isCompleted ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                          color: isActive || isCompleted
+                              ? Colors.white
+                              : theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
               ),
@@ -359,7 +419,9 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 Container(
                   width: 24,
                   height: 2,
-                  color: isCompleted ? Colors.green : theme.colorScheme.outlineVariant,
+                  color: isCompleted
+                      ? Colors.green
+                      : theme.colorScheme.outlineVariant,
                 ),
             ],
           );
@@ -393,7 +455,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Step 1: General Info & Subtypes', style: theme.textTheme.titleLarge),
+          Text(
+            'Step 1: General Info & Subtypes',
+            style: theme.textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           TextFormField(
             key: const Key('comp_name_field'),
@@ -403,7 +468,9 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               hintText: 'Enter competition title',
               border: OutlineInputBorder(),
             ),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Title is required' : null,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Title is required'
+                : null,
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -424,7 +491,9 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               hintText: 'e.g. Fit Gym, Hamburg',
               border: OutlineInputBorder(),
             ),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Location is required' : null,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Location is required'
+                : null,
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
@@ -467,7 +536,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               border: OutlineInputBorder(),
             ),
             items: const [
-              DropdownMenuItem(value: 'Streetlifting', child: Text('Streetlifting')),
+              DropdownMenuItem(
+                value: 'Streetlifting',
+                child: Text('Streetlifting'),
+              ),
             ],
             onChanged: (val) {
               if (val != null) setState(() => _sportType = val);
@@ -481,8 +553,14 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               border: OutlineInputBorder(),
             ),
             items: const [
-              DropdownMenuItem(value: 'Modern', child: Text('Modern (Muscleup, Pullup, Dip, Squat)')),
-              DropdownMenuItem(value: 'Classic', child: Text('Classic (Pullup, Dip)')),
+              DropdownMenuItem(
+                value: 'Modern',
+                child: Text('Modern (Muscleup, Pullup, Dip, Squat)'),
+              ),
+              DropdownMenuItem(
+                value: 'Classic',
+                child: Text('Classic (Pullup, Dip)'),
+              ),
             ],
             onChanged: (val) {
               if (val != null) setState(() => _sportSubtype = val);
@@ -516,19 +594,39 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
         children: [
           Text('Step 2: Dates & Deadlines', style: theme.textTheme.titleLarge),
           const SizedBox(height: 16),
-          _buildDateTimePickerTile('Competition Start Date', _startDate, (val) => setState(() => _startDate = val)),
+          _buildDateTimePickerTile(
+            'Competition Start Date',
+            _startDate,
+            (val) => setState(() => _startDate = val),
+          ),
           const SizedBox(height: 16),
-          _buildDateTimePickerTile('Competition End Date', _endDate, (val) => setState(() => _endDate = val)),
+          _buildDateTimePickerTile(
+            'Competition End Date',
+            _endDate,
+            (val) => setState(() => _endDate = val),
+          ),
           const SizedBox(height: 16),
-          _buildDateTimePickerTile('Registration Start Date', _registrationStartDate, (val) => setState(() => _registrationStartDate = val)),
+          _buildDateTimePickerTile(
+            'Registration Start Date',
+            _registrationStartDate,
+            (val) => setState(() => _registrationStartDate = val),
+          ),
           const SizedBox(height: 16),
-          _buildDateTimePickerTile('Registration End Date', _registrationEndDate, (val) => setState(() => _registrationEndDate = val)),
+          _buildDateTimePickerTile(
+            'Registration End Date',
+            _registrationEndDate,
+            (val) => setState(() => _registrationEndDate = val),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDateTimePickerTile(String label, DateTime value, Function(DateTime) onSelected) {
+  Widget _buildDateTimePickerTile(
+    String label,
+    DateTime value,
+    Function(DateTime) onSelected,
+  ) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -553,7 +651,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Step 3: Registration Mode & Capacity Limits', style: theme.textTheme.titleLarge),
+          Text(
+            'Step 3: Registration Mode & Capacity Limits',
+            style: theme.textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _registrationMode,
@@ -562,8 +663,14 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               border: OutlineInputBorder(),
             ),
             items: const [
-              DropdownMenuItem(value: 'fcfs', child: Text('First Come First Served (FCFS)')),
-              DropdownMenuItem(value: 'approval', child: Text('Manual Approval')),
+              DropdownMenuItem(
+                value: 'fcfs',
+                child: Text('First Come First Served (FCFS)'),
+              ),
+              DropdownMenuItem(
+                value: 'approval',
+                child: Text('Manual Approval'),
+              ),
             ],
             onChanged: (val) {
               if (val != null) setState(() => _registrationMode = val);
@@ -598,7 +705,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
             onChanged: (val) => setState(() => _enableWaitlist = val),
           ),
           const SizedBox(height: 24),
-          Text('Category Limits (Optional)', style: theme.textTheme.titleMedium),
+          Text(
+            'Category Limits (Optional)',
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -629,7 +739,9 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 icon: const Icon(Icons.add_circle, color: Colors.blue),
                 onPressed: () {
                   final name = _categoryNameController.text.trim();
-                  final limit = int.tryParse(_categoryLimitController.text.trim());
+                  final limit = int.tryParse(
+                    _categoryLimitController.text.trim(),
+                  );
                   if (name.isNotEmpty && limit != null) {
                     setState(() {
                       _maxAthletesPerGroup[name] = limit;
@@ -681,7 +793,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Step 4: Fees & Payment Config', style: theme.textTheme.titleLarge),
+          Text(
+            'Step 4: Fees & Payment Config',
+            style: theme.textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           SwitchListBorderRow(
             key: const Key('comp_fees_toggle'),
@@ -692,7 +807,9 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 _requiresFees = val;
                 if (val) {
                   _paymentStartDate ??= DateTime.now();
-                  _paymentEndDate ??= DateTime.now().add(const Duration(days: 7));
+                  _paymentEndDate ??= DateTime.now().add(
+                    const Duration(days: 7),
+                  );
                 }
               });
             },
@@ -742,7 +859,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 hintText: 'Enter IBAN, BIC, Bank Name',
                 border: OutlineInputBorder(),
               ),
-              validator: (value) => _requiresFees && (value == null || value.trim().isEmpty) ? 'Bank details are required' : null,
+              validator: (value) =>
+                  _requiresFees && (value == null || value.trim().isEmpty)
+                  ? 'Bank details are required'
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -753,7 +873,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 hintText: 'Defaults to auto-generated details',
                 border: OutlineInputBorder(),
               ),
-              validator: (value) => _requiresFees && (value == null || value.trim().isEmpty) ? 'Payment description is required' : null,
+              validator: (value) =>
+                  _requiresFees && (value == null || value.trim().isEmpty)
+                  ? 'Payment description is required'
+                  : null,
             ),
             const SizedBox(height: 16),
             _buildDateTimePickerTile(
@@ -798,7 +921,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               ),
             ),
             const SizedBox(height: 24),
-            Text('Volunteer Positions & Shifts', style: theme.textTheme.titleMedium),
+            Text(
+              'Volunteer Positions & Shifts',
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -821,7 +947,8 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                         _volunteerPositions.add(pos);
                         _volunteerShifts[pos] = ['Morning', 'Afternoon'];
                         _newShiftControllers[pos] = TextEditingController();
-                        _positionLimitControllers[pos] = TextEditingController();
+                        _positionLimitControllers[pos] =
+                            TextEditingController();
                         _newPositionController.clear();
                       });
                     }
@@ -841,7 +968,12 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(pos, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          Text(
+                            pos,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
                             onPressed: () {
@@ -888,7 +1020,8 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                           IconButton(
                             icon: const Icon(Icons.add),
                             onPressed: () {
-                              final shName = _newShiftControllers[pos]?.text.trim();
+                              final shName = _newShiftControllers[pos]?.text
+                                  .trim();
                               if (shName != null && shName.isNotEmpty) {
                                 setState(() {
                                   _volunteerShifts[pos]?.add(shName);
@@ -933,7 +1066,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Step 6: Disclaimers & Custom Fields', style: theme.textTheme.titleLarge),
+          Text(
+            'Step 6: Disclaimers & Custom Fields',
+            style: theme.textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _disclaimerType,
@@ -945,7 +1081,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               DropdownMenuItem(value: 'none', child: Text('None')),
               DropdownMenuItem(value: 'text', child: Text('Text Only')),
               DropdownMenuItem(value: 'link', child: Text('Link Only')),
-              DropdownMenuItem(value: 'both', child: Text('Both Text and Link')),
+              DropdownMenuItem(
+                value: 'both',
+                child: Text('Both Text and Link'),
+              ),
             ],
             onChanged: (val) {
               if (val != null) setState(() => _disclaimerType = val);
@@ -961,7 +1100,11 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 hintText: 'Enter disclaimer conditions...',
                 border: OutlineInputBorder(),
               ),
-              validator: (value) => (_disclaimerType == 'text' || _disclaimerType == 'both') && (value == null || value.trim().isEmpty) ? 'Disclaimer text is required' : null,
+              validator: (value) =>
+                  (_disclaimerType == 'text' || _disclaimerType == 'both') &&
+                      (value == null || value.trim().isEmpty)
+                  ? 'Disclaimer text is required'
+                  : null,
             ),
           ],
           if (_disclaimerType == 'link' || _disclaimerType == 'both') ...[
@@ -975,16 +1118,21 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               ),
               validator: (value) {
                 if (_disclaimerType == 'link' || _disclaimerType == 'both') {
-                  if (value == null || value.trim().isEmpty) return 'Disclaimer URL is required';
+                  if (value == null || value.trim().isEmpty)
+                    return 'Disclaimer URL is required';
                   final uri = Uri.tryParse(value);
-                  if (uri == null || !uri.hasAbsolutePath) return 'Enter a valid URL';
+                  if (uri == null || !uri.hasAbsolutePath)
+                    return 'Enter a valid URL';
                 }
                 return null;
               },
             ),
           ],
           const SizedBox(height: 24),
-          Text('Custom Athlete Registration Fields', style: theme.textTheme.titleMedium),
+          Text(
+            'Custom Athlete Registration Fields',
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           _buildCustomFieldsBuilder(
             fields: _customAthleteFields,
@@ -1001,7 +1149,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                     'type': _athleteFieldType,
                   };
                   if (_athleteFieldType == 'dropdown') {
-                    f['options'] = _athleteFieldOptionsController.text.split(',').map((e) => e.trim()).toList();
+                    f['options'] = _athleteFieldOptionsController.text
+                        .split(',')
+                        .map((e) => e.trim())
+                        .toList();
                   }
                   _customAthleteFields.add(f);
                   _athleteFieldNameController.clear();
@@ -1009,10 +1160,14 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 });
               }
             },
-            onDelete: (idx) => setState(() => _customAthleteFields.removeAt(idx)),
+            onDelete: (idx) =>
+                setState(() => _customAthleteFields.removeAt(idx)),
           ),
           const SizedBox(height: 24),
-          Text('Custom Volunteer Application Fields', style: theme.textTheme.titleMedium),
+          Text(
+            'Custom Volunteer Application Fields',
+            style: theme.textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           _buildCustomFieldsBuilder(
             fields: _customVolunteerFields,
@@ -1029,7 +1184,10 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                     'type': _volunteerFieldType,
                   };
                   if (_volunteerFieldType == 'dropdown') {
-                    f['options'] = _volunteerFieldOptionsController.text.split(',').map((e) => e.trim()).toList();
+                    f['options'] = _volunteerFieldOptionsController.text
+                        .split(',')
+                        .map((e) => e.trim())
+                        .toList();
                   }
                   _customVolunteerFields.add(f);
                   _volunteerFieldNameController.clear();
@@ -1037,7 +1195,8 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
                 });
               }
             },
-            onDelete: (idx) => setState(() => _customVolunteerFields.removeAt(idx)),
+            onDelete: (idx) =>
+                setState(() => _customVolunteerFields.removeAt(idx)),
           ),
         ],
       ),
@@ -1092,10 +1251,7 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
           ),
         ],
         const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: onAdd,
-          child: const Text('Add Custom Field'),
-        ),
+        ElevatedButton(onPressed: onAdd, child: const Text('Add Custom Field')),
         if (fields.isNotEmpty) ...[
           const SizedBox(height: 8),
           ListView.builder(
@@ -1106,7 +1262,9 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
               final f = fields[idx];
               return ListTile(
                 title: Text(f['name']),
-                subtitle: Text('Type: ${f['type']} ${f['options'] != null ? "(${f['options']})" : ""}'),
+                subtitle: Text(
+                  'Type: ${f['type']} ${f['options'] != null ? "(${f['options']})" : ""}',
+                ),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () => onDelete(idx),
@@ -1124,16 +1282,15 @@ class _CreateCompetitionWizardState extends State<CreateCompetitionWizard> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if (_currentStep > 0)
-            OutlinedButton(
-              onPressed: _prevStep,
-              child: const Text('BACK'),
-            )
+            OutlinedButton(onPressed: _prevStep, child: const Text('BACK'))
           else
             const SizedBox(),
           ElevatedButton(
@@ -1172,10 +1329,7 @@ class SwitchListBorderRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );

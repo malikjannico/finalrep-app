@@ -8,7 +8,9 @@ import 'package:finalrep_app/views/search_feed_page.dart';
 import 'package:finalrep_app/views/register_page.dart';
 import 'package:finalrep_app/views/profile_page.dart';
 
-final Uint8List transparentPngBytes = File('assets/images/comp_berlin.png').readAsBytesSync();
+final Uint8List transparentPngBytes = File(
+  'assets/images/comp_berlin.png',
+).readAsBytesSync();
 
 void main() {
   group('E2E Tier 4: Real-World Journeys', () {
@@ -22,7 +24,9 @@ void main() {
       harness.dispose();
     });
 
-    testWidgets('Test 4.1: Guest Spectator Competition Discovery Journey', (WidgetTester tester) async {
+    testWidgets('Test 4.1: Guest Spectator Competition Discovery Journey', (
+      WidgetTester tester,
+    ) async {
       await harness.initialize();
       // Set desktop screen resolution
       tester.view.physicalSize = const Size(1200, 1200);
@@ -33,9 +37,11 @@ void main() {
       });
 
       // 1. Open home/search feed
-      await tester.pumpWidget(harness.buildApp(
-        SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
-      ));
+      await tester.pumpWidget(
+        harness.buildApp(
+          SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+        ),
+      );
       await tester.pump();
       await tester.pump(Duration.zero);
 
@@ -57,7 +63,8 @@ void main() {
       // 3. Search for "Berlin"
       await tester.enterText(
         find.byWidgetPredicate(
-          (w) => w is TextField && w.decoration?.hintText == 'Search competitions',
+          (w) =>
+              w is TextField && w.decoration?.hintText == 'Search competitions',
         ),
         'Berlin',
       );
@@ -87,52 +94,73 @@ void main() {
       // If the app simply shows standard feedback, verify redirection.
     });
 
-    testWidgets('Test 4.2: New Athlete Registration, Onboarding & Setup Journey', (WidgetTester tester) async {
-      await harness.initialize();
-      tester.view.physicalSize = const Size(800, 1000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'Test 4.2: New Athlete Registration, Onboarding & Setup Journey',
+      (WidgetTester tester) async {
+        await harness.initialize();
+        tester.view.physicalSize = const Size(800, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      // 1. Athlete starts registration flow
-      await tester.pumpWidget(harness.buildApp(const RegisterPage(isInline: true)));
-      await tester.pumpAndSettle();
+        // 1. Athlete starts registration flow
+        await tester.pumpWidget(
+          harness.buildApp(const RegisterPage(isInline: true)),
+        );
+        await tester.pumpAndSettle();
 
-      // 2. Progress through Account creation step
-      await tester.enterText(find.byKey(const Key('register_username_field')), 'gymbro');
-      await tester.enterText(find.byKey(const Key('register_email_field')), 'gymbro@example.com');
-      await tester.enterText(find.byKey(const Key('register_password_field')), 'GymBro999!');
-      await tester.pumpAndSettle();
+        // 2. Progress through Account creation step
+        await tester.enterText(
+          find.byKey(const Key('register_username_field')),
+          'gymbro',
+        );
+        await tester.enterText(
+          find.byKey(const Key('register_email_field')),
+          'gymbro@example.com',
+        );
+        await tester.enterText(
+          find.byKey(const Key('register_password_field')),
+          'GymBro999!',
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('NEXT'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('NEXT'));
+        await tester.pumpAndSettle();
 
-      // 3. Details step
-      await tester.enterText(find.byKey(const Key('register_fullname_field')), 'Gym Brother');
-      await tester.pumpAndSettle();
+        // 3. Details step
+        await tester.enterText(
+          find.byKey(const Key('register_fullname_field')),
+          'Gym Brother',
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('NEXT'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('NEXT'));
+        await tester.pumpAndSettle();
 
-      // 4. Profile picture custom upload step
-      harness.mockFilePicker.setMockFile('gymbro_avatar.png', 2048, transparentPngBytes);
-      await tester.tap(find.text('UPLOAD CUSTOM PHOTO'));
-      await tester.pumpAndSettle();
+        // 4. Profile picture custom upload step
+        harness.mockFilePicker.setMockFile(
+          'gymbro_avatar.png',
+          2048,
+          transparentPngBytes,
+        );
+        await tester.tap(find.text('UPLOAD CUSTOM PHOTO'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('gymbro_avatar.png'), findsOneWidget);
+        expect(find.text('gymbro_avatar.png'), findsOneWidget);
 
-      // Submit final account creation
-      await tester.tap(find.text('CREATE ACCOUNT'));
-      await harness.waitForAuthSettle(tester);
+        // Submit final account creation
+        await tester.tap(find.text('CREATE ACCOUNT'));
+        await harness.waitForAuthSettle(tester);
 
-      // 5. User is auto-logged in, navigate to profile page to confirm attributes
-      await tester.pumpWidget(harness.buildApp(const ProfilePage()));
-      await tester.pumpAndSettle();
+        // 5. User is auto-logged in, navigate to profile page to confirm attributes
+        await tester.pumpWidget(harness.buildApp(const ProfilePage()));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Gym Brother'), findsOneWidget);
-      expect(find.text('@gymbro'), findsNWidgets(2));
-    });
+        expect(find.text('Gym Brother'), findsOneWidget);
+        expect(find.text('@gymbro'), findsNWidgets(2));
+      },
+    );
   });
 }

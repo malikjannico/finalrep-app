@@ -27,31 +27,38 @@ class _UserCompactRowState extends State<UserCompactRow> {
 
     final initials = widget.profile.fullName.isNotEmpty
         ? widget.profile.fullName
-            .trim()
-            .split(' ')
-            .map((e) => e.isEmpty ? '' : e[0])
-            .take(2)
-            .join()
-            .toUpperCase()
+              .trim()
+              .split(' ')
+              .map((e) => e.isEmpty ? '' : e[0])
+              .take(2)
+              .join()
+              .toUpperCase()
         : widget.profile.username.isNotEmpty
-            ? widget.profile.username[0].toUpperCase()
-            : '?';
+        ? widget.profile.username[0].toUpperCase()
+        : '?';
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: widget.onTap ?? () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              settings: RouteSettings(name: '/users/${widget.profile.username}'),
-              builder: (_) => ProfilePage(
-                userId: widget.profile.id,
-                profileRepository: Provider.of<CompetitionProvider>(context, listen: false).profileRepository,
-              ),
-            ),
-          );
-        },
+        onTap:
+            widget.onTap ??
+            () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  settings: RouteSettings(
+                    name: '/users/${widget.profile.username}',
+                  ),
+                  builder: (_) => ProfilePage(
+                    userId: widget.profile.id,
+                    profileRepository: Provider.of<CompetitionProvider>(
+                      context,
+                      listen: false,
+                    ).profileRepository,
+                  ),
+                ),
+              );
+            },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           margin: const EdgeInsets.symmetric(vertical: 4),
@@ -145,9 +152,14 @@ class _UserCompactRowState extends State<UserCompactRow> {
               // Country flag/badge if present
               if (widget.profile.country != null) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                    color: theme.colorScheme.tertiaryContainer.withValues(
+                      alpha: 0.6,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -166,7 +178,9 @@ class _UserCompactRowState extends State<UserCompactRow> {
               Icon(
                 Icons.chevron_right,
                 size: 16,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.5,
+                ),
               ),
             ],
           ),

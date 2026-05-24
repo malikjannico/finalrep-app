@@ -39,7 +39,12 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _customAvatarExtension;
   String? _customAvatarName;
 
-  final List<String> _genders = ['Male', 'Female', 'Other', 'Prefer not to say'];
+  final List<String> _genders = [
+    'Male',
+    'Female',
+    'Other',
+    'Prefer not to say',
+  ];
   final List<String> _countries = [
     'Germany',
     'Austria',
@@ -52,8 +57,6 @@ class _RegisterPageState extends State<RegisterPage> {
     'Italy',
     'Canada',
   ];
-
-
 
   @override
   void initState() {
@@ -78,10 +81,14 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   bool get _hasMinLength => _regPasswordController.text.length >= 8;
-  bool get _hasUppercase => _regPasswordController.text.contains(RegExp(r'[A-Z]'));
-  bool get _hasLowercase => _regPasswordController.text.contains(RegExp(r'[a-z]'));
+  bool get _hasUppercase =>
+      _regPasswordController.text.contains(RegExp(r'[A-Z]'));
+  bool get _hasLowercase =>
+      _regPasswordController.text.contains(RegExp(r'[a-z]'));
   bool get _hasDigits => _regPasswordController.text.contains(RegExp(r'[0-9]'));
-  bool get _hasSpecialChar => _regPasswordController.text.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:\x27",./<>?]'));
+  bool get _hasSpecialChar => _regPasswordController.text.contains(
+    RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:\x27",./<>?]'),
+  );
 
   bool get _isPasswordValid =>
       _hasMinLength &&
@@ -129,7 +136,7 @@ class _RegisterPageState extends State<RegisterPage> {
   void _nextStep() async {
     if (_currentStep == 0) {
       if (!_step1FormKey.currentState!.validate()) return;
-      
+
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final username = _regUsernameController.text.trim().toLowerCase();
       final email = _regEmailController.text.trim();
@@ -277,7 +284,9 @@ class _RegisterPageState extends State<RegisterPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
                 side: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
+                  ),
                   width: 1.5,
                 ),
               ),
@@ -329,14 +338,18 @@ class _RegisterPageState extends State<RegisterPage> {
                               if (widget.isInline) {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    settings: const RouteSettings(name: '/login'),
+                                    settings: const RouteSettings(
+                                      name: '/login',
+                                    ),
                                     builder: (_) => const LoginPage(),
                                   ),
                                 );
                               } else {
                                 Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(
-                                    settings: const RouteSettings(name: '/login'),
+                                    settings: const RouteSettings(
+                                      name: '/login',
+                                    ),
                                     builder: (_) => const LoginPage(),
                                   ),
                                 );
@@ -401,18 +414,18 @@ class _RegisterPageState extends State<RegisterPage> {
       textColor = theme.colorScheme.onSurfaceVariant;
       child = Text(
         '${stepIndex + 1}',
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          color: textColor,
+        ),
       );
     }
 
     return Expanded(
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: circleColor,
-            child: child,
-          ),
+          CircleAvatar(radius: 16, backgroundColor: circleColor, child: child),
           const SizedBox(height: 6),
           Text(
             label,
@@ -420,7 +433,9 @@ class _RegisterPageState extends State<RegisterPage> {
               color: isActive || isCompleted
                   ? theme.colorScheme.onSurface
                   : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-              fontWeight: isActive || isCompleted ? FontWeight.bold : FontWeight.normal,
+              fontWeight: isActive || isCompleted
+                  ? FontWeight.bold
+                  : FontWeight.normal,
             ),
           ),
         ],
@@ -671,7 +686,11 @@ class _RegisterPageState extends State<RegisterPage> {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                       onPressed: () {
                         setState(() {
                           _customAvatarBytes = null;
@@ -737,7 +756,10 @@ class _RegisterPageState extends State<RegisterPage> {
               icon: const Icon(Icons.upload_file),
               label: const Text('UPLOAD CUSTOM PHOTO'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -801,11 +823,11 @@ class _RegisterPageState extends State<RegisterPage> {
             return Expanded(
               child: Container(
                 height: 6,
-                margin: EdgeInsets.only(
-                  right: index < 2 ? 4.0 : 0.0,
-                ),
+                margin: EdgeInsets.only(right: index < 2 ? 4.0 : 0.0),
                 decoration: BoxDecoration(
-                  color: isFilled ? barColor : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  color: isFilled
+                      ? barColor
+                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -821,10 +843,26 @@ class _RegisterPageState extends State<RegisterPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildPasswordRule('Minimum 8 characters', _hasMinLength, theme),
-        _buildPasswordRule('At least one uppercase letter (A-Z)', _hasUppercase, theme),
-        _buildPasswordRule('At least one lowercase letter (a-z)', _hasLowercase, theme),
-        _buildPasswordRule('At least one numeric digit (0-9)', _hasDigits, theme),
-        _buildPasswordRule('At least one special character (!@#\$%^&*)', _hasSpecialChar, theme),
+        _buildPasswordRule(
+          'At least one uppercase letter (A-Z)',
+          _hasUppercase,
+          theme,
+        ),
+        _buildPasswordRule(
+          'At least one lowercase letter (a-z)',
+          _hasLowercase,
+          theme,
+        ),
+        _buildPasswordRule(
+          'At least one numeric digit (0-9)',
+          _hasDigits,
+          theme,
+        ),
+        _buildPasswordRule(
+          'At least one special character (!@#\$%^&*)',
+          _hasSpecialChar,
+          theme,
+        ),
       ],
     );
   }
@@ -835,14 +873,12 @@ class _RegisterPageState extends State<RegisterPage> {
       child: Row(
         children: [
           isMet
-              ? const Icon(
-                  Icons.check,
-                  color: Color(0xFF4CAF50),
-                  size: 16,
-                )
+              ? const Icon(Icons.check, color: Color(0xFF4CAF50), size: 16)
               : Icon(
                   Icons.fiber_manual_record,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
                   size: 8,
                 ),
           const SizedBox(width: 8),
@@ -871,7 +907,9 @@ class _RegisterPageState extends State<RegisterPage> {
         if (!isFirstStep) ...[
           Expanded(
             child: OutlinedButton(
-              onPressed: authProvider.isLoading || _isCheckingAvailability ? null : _prevStep,
+              onPressed: authProvider.isLoading || _isCheckingAvailability
+                  ? null
+                  : _prevStep,
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -885,7 +923,10 @@ class _RegisterPageState extends State<RegisterPage> {
         ],
         Expanded(
           child: ElevatedButton(
-            onPressed: authProvider.isLoading || _isCheckingAvailability || (isFirstStep && !_isPasswordValid)
+            onPressed:
+                authProvider.isLoading ||
+                    _isCheckingAvailability ||
+                    (isFirstStep && !_isPasswordValid)
                 ? null
                 : (isLastStep ? _handleRegister : _nextStep),
             style: ElevatedButton.styleFrom(
@@ -907,7 +948,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   )
                 : Text(
                     isLastStep ? 'CREATE ACCOUNT' : 'NEXT',
-                    style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
                   ),
           ),
         ),

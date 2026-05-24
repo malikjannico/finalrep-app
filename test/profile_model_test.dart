@@ -115,10 +115,7 @@ void main() {
         'username': 'johndoe',
         'full_name': 'John Doe',
         'email': 'john@example.com',
-        'social_links': {
-          'instagram': 'john_insta',
-          'youtube': 'john_yt',
-        },
+        'social_links': {'instagram': 'john_insta', 'youtube': 'john_yt'},
       };
 
       final profile = Profile.fromJson(json);
@@ -134,9 +131,7 @@ void main() {
         username: 'janedoe',
         fullName: 'Jane Doe',
         email: 'jane@example.com',
-        socialLinks: {
-          'instagram': 'jane_insta',
-        },
+        socialLinks: {'instagram': 'jane_insta'},
       );
 
       final json = profile.toJson();
@@ -159,19 +154,22 @@ void main() {
       expect(profile.socialLinks, isNull);
     });
 
-    test('Parse Profile from JSON with invalid non-map socialLinks (string)', () {
-      final json = {
-        'id': 'user-123',
-        'username': 'johndoe',
-        'full_name': 'John Doe',
-        'email': 'john@example.com',
-        'social_links': 'instagram: john_insta',
-      };
+    test(
+      'Parse Profile from JSON with invalid non-map socialLinks (string)',
+      () {
+        final json = {
+          'id': 'user-123',
+          'username': 'johndoe',
+          'full_name': 'John Doe',
+          'email': 'john@example.com',
+          'social_links': 'instagram: john_insta',
+        };
 
-      final profile = Profile.fromJson(json);
+        final profile = Profile.fromJson(json);
 
-      expect(profile.socialLinks, isNull);
-    });
+        expect(profile.socialLinks, isNull);
+      },
+    );
 
     test('Parse Profile from JSON with notificationPreferences', () {
       final json = {
@@ -190,25 +188,31 @@ void main() {
       expect(profile.notificationPreferences, isNotNull);
       expect(profile.notificationPreferences['registration'], false);
       expect(profile.notificationPreferences['permissions'], true);
-      expect(profile.notificationPreferences['payments'], true); // default fallback
+      expect(
+        profile.notificationPreferences['payments'],
+        true,
+      ); // default fallback
     });
 
-    test('Parse Profile from JSON with invalid non-map notificationPreferences', () {
-      final json = {
-        'id': 'user-123',
-        'username': 'johndoe',
-        'full_name': 'John Doe',
-        'email': 'john@example.com',
-        'notification_preferences': 'invalid-string',
-      };
+    test(
+      'Parse Profile from JSON with invalid non-map notificationPreferences',
+      () {
+        final json = {
+          'id': 'user-123',
+          'username': 'johndoe',
+          'full_name': 'John Doe',
+          'email': 'john@example.com',
+          'notification_preferences': 'invalid-string',
+        };
 
-      final profile = Profile.fromJson(json);
+        final profile = Profile.fromJson(json);
 
-      // Should fallback to default map
-      expect(profile.notificationPreferences, isNotNull);
-      expect(profile.notificationPreferences['registration'], true);
-      expect(profile.notificationPreferences['permissions'], true);
-    });
+        // Should fallback to default map
+        expect(profile.notificationPreferences, isNotNull);
+        expect(profile.notificationPreferences['registration'], true);
+        expect(profile.notificationPreferences['permissions'], true);
+      },
+    );
 
     test('Convert Profile to JSON with notificationPreferences', () {
       final profile = Profile(
@@ -216,10 +220,7 @@ void main() {
         username: 'janedoe',
         fullName: 'Jane Doe',
         email: 'jane@example.com',
-        notificationPreferences: {
-          'registration': false,
-          'payments': false,
-        },
+        notificationPreferences: {'registration': false, 'payments': false},
       );
 
       final json = profile.toJson();
@@ -238,10 +239,7 @@ void main() {
       );
 
       final updated = profile.copyWith(
-        notificationPreferences: {
-          'flights': false,
-          'schedule': false,
-        },
+        notificationPreferences: {'flights': false, 'schedule': false},
       );
 
       expect(updated.notificationPreferences['flights'], false);

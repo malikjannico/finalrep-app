@@ -69,43 +69,46 @@ void main() {
   });
 
   group('NotificationRepository Fallback Tests', () {
-    test('NotificationRepository works as an in-memory database fallback when client is null', () async {
-      // Create repository with null client
-      final repo = NotificationRepository(null);
-      final userId = 'fallback-user-123';
+    test(
+      'NotificationRepository works as an in-memory database fallback when client is null',
+      () async {
+        // Create repository with null client
+        final repo = NotificationRepository(null);
+        final userId = 'fallback-user-123';
 
-      // 1. Initial notifications list should be empty
-      final initialList = await repo.getNotifications(userId);
-      expect(initialList, isEmpty);
+        // 1. Initial notifications list should be empty
+        final initialList = await repo.getNotifications(userId);
+        expect(initialList, isEmpty);
 
-      // 2. Create notification
-      final notif = SystemNotification(
-        id: 'notif-fallback-1',
-        userId: userId,
-        title: 'Local Alert',
-        message: 'This is a mock notification.',
-        category: 'permissions',
-        isRead: false,
-        createdAt: DateTime.now(),
-      );
+        // 2. Create notification
+        final notif = SystemNotification(
+          id: 'notif-fallback-1',
+          userId: userId,
+          title: 'Local Alert',
+          message: 'This is a mock notification.',
+          category: 'permissions',
+          isRead: false,
+          createdAt: DateTime.now(),
+        );
 
-      final created = await repo.createNotification(notif);
-      expect(created, isNotNull);
-      expect(created!.id, 'notif-fallback-1');
+        final created = await repo.createNotification(notif);
+        expect(created, isNotNull);
+        expect(created!.id, 'notif-fallback-1');
 
-      // 3. Retrieve notifications list
-      final fetchedList = await repo.getNotifications(userId);
-      expect(fetchedList.length, 1);
-      expect(fetchedList.first.id, 'notif-fallback-1');
-      expect(fetchedList.first.isRead, false);
+        // 3. Retrieve notifications list
+        final fetchedList = await repo.getNotifications(userId);
+        expect(fetchedList.length, 1);
+        expect(fetchedList.first.id, 'notif-fallback-1');
+        expect(fetchedList.first.isRead, false);
 
-      // 4. Mark notification as read
-      await repo.markAsRead('notif-fallback-1');
+        // 4. Mark notification as read
+        await repo.markAsRead('notif-fallback-1');
 
-      // 5. Verify status was updated in cache
-      final updatedList = await repo.getNotifications(userId);
-      expect(updatedList.length, 1);
-      expect(updatedList.first.isRead, true);
-    });
+        // 5. Verify status was updated in cache
+        final updatedList = await repo.getNotifications(userId);
+        expect(updatedList.length, 1);
+        expect(updatedList.first.isRead, true);
+      },
+    );
   });
 }

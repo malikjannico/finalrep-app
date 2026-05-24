@@ -22,64 +22,102 @@ void main() {
     });
 
     group('Feature Area 1: Authentication Boundaries', () {
-      testWidgets('Test 2.1.1: Trim leading and trailing whitespace from login fields', (WidgetTester tester) async {
+      testWidgets(
+        'Test 2.1.1: Trim leading and trailing whitespace from login fields',
+        (WidgetTester tester) async {
+          await harness.initialize();
+          await tester.pumpWidget(
+            harness.buildApp(const LoginPage(isInline: true)),
+          );
+          await tester.pumpAndSettle();
+
+          // Switch to Username login
+          await tester.tap(find.text('Username'));
+          await tester.pumpAndSettle();
+
+          // Enter correct username with leading/trailing spaces
+          await tester.enterText(
+            find.byKey(const Key('login_id_field')),
+            '   mariesmith   ',
+          );
+          await tester.enterText(
+            find.byKey(const Key('login_password_field')),
+            'password123',
+          );
+          await tester.pumpAndSettle();
+
+          // Click SIGN IN
+          await tester.tap(find.text('SIGN IN'));
+          await harness.waitForAuthSettle(tester);
+
+          // Verify authenticated successfully (meaning username was trimmed and lowercased)
+          expect(harness.authProvider.isAuthenticated, true);
+          expect(
+            harness.authProvider.currentUserProfile?.username,
+            'mariesmith',
+          );
+        },
+      );
+
+      testWidgets(
+        'Test 2.1.2: Password strength validator constraints on Registration',
+        (WidgetTester tester) async {
+          await harness.initialize();
+          tester.view.physicalSize = const Size(800, 1000);
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(() {
+            tester.view.resetPhysicalSize();
+            tester.view.resetDevicePixelRatio();
+          });
+
+          await tester.pumpWidget(
+            harness.buildApp(const RegisterPage(isInline: true)),
+          );
+          await tester.pumpAndSettle();
+
+          // Enter valid user/email but weak password (no uppercase, no special char)
+          await tester.enterText(
+            find.byKey(const Key('register_username_field')),
+            'newathlete',
+          );
+          await tester.enterText(
+            find.byKey(const Key('register_email_field')),
+            'new@example.com',
+          );
+          await tester.enterText(
+            find.byKey(const Key('register_password_field')),
+            'weakpw123',
+          );
+          await tester.pumpAndSettle();
+
+          // Tap NEXT. Password requirements are not met, so validation fails and we remain on step 1.
+          await tester.tap(find.text('NEXT'));
+          await tester.pumpAndSettle();
+
+          expect(
+            find.byKey(const Key('register_username_field')),
+            findsOneWidget,
+          ); // still on step 1
+        },
+      );
+
+      testWidgets('Test 2.1.3: Forgot password invalid/empty email feedback', (
+        WidgetTester tester,
+      ) async {
         await harness.initialize();
-        await tester.pumpWidget(harness.buildApp(const LoginPage(isInline: true)));
-        await tester.pumpAndSettle();
-
-        // Switch to Username login
-        await tester.tap(find.text('Username'));
-        await tester.pumpAndSettle();
-
-        // Enter correct username with leading/trailing spaces
-        await tester.enterText(find.byKey(const Key('login_id_field')), '   mariesmith   ');
-        await tester.enterText(find.byKey(const Key('login_password_field')), 'password123');
-        await tester.pumpAndSettle();
-
-        // Click SIGN IN
-        await tester.tap(find.text('SIGN IN'));
-        await harness.waitForAuthSettle(tester);
-
-        // Verify authenticated successfully (meaning username was trimmed and lowercased)
-        expect(harness.authProvider.isAuthenticated, true);
-        expect(harness.authProvider.currentUserProfile?.username, 'mariesmith');
-      });
-
-      testWidgets('Test 2.1.2: Password strength validator constraints on Registration', (WidgetTester tester) async {
-        await harness.initialize();
-        tester.view.physicalSize = const Size(800, 1000);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
-
-        await tester.pumpWidget(harness.buildApp(const RegisterPage(isInline: true)));
-        await tester.pumpAndSettle();
-
-        // Enter valid user/email but weak password (no uppercase, no special char)
-        await tester.enterText(find.byKey(const Key('register_username_field')), 'newathlete');
-        await tester.enterText(find.byKey(const Key('register_email_field')), 'new@example.com');
-        await tester.enterText(find.byKey(const Key('register_password_field')), 'weakpw123');
-        await tester.pumpAndSettle();
-
-        // Tap NEXT. Password requirements are not met, so validation fails and we remain on step 1.
-        await tester.tap(find.text('NEXT'));
-        await tester.pumpAndSettle();
-
-        expect(find.byKey(const Key('register_username_field')), findsOneWidget); // still on step 1
-      });
-
-      testWidgets('Test 2.1.3: Forgot password invalid/empty email feedback', (WidgetTester tester) async {
-        await harness.initialize();
-        await tester.pumpWidget(harness.buildApp(const LoginPage(isInline: true)));
+        await tester.pumpWidget(
+          harness.buildApp(const LoginPage(isInline: true)),
+        );
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('Forgot Password?'));
         await tester.pumpAndSettle();
 
         // Enter invalid email format
-        await tester.enterText(find.byKey(const Key('forgot_password_email_field')), 'notanemail');
+        await tester.enterText(
+          find.byKey(const Key('forgot_password_email_field')),
+          'notanemail',
+        );
         await tester.pumpAndSettle();
 
         // Tap SEND RESET LINK - dialog/validation should reject
@@ -89,7 +127,9 @@ void main() {
         expect(harness.authProvider.isPasswordRecoveryActive, isFalse);
       });
 
-      testWidgets('Test 2.1.4: Database profile fetch retry logic on latency', (WidgetTester tester) async {
+      testWidgets('Test 2.1.4: Database profile fetch retry logic on latency', (
+        WidgetTester tester,
+      ) async {
         await harness.initialize();
         // We will simulate a user signing up, but their profile row in database takes time to be inserted
         // through the Postgres trigger. So the first two profile fetches will return null, and the third will succeed.
@@ -124,8 +164,11 @@ void main() {
         });
 
         // Trigger sign in
-        harness.mockAuth.triggerAuthStateChange(AuthChangeEvent.signedIn, session);
-        
+        harness.mockAuth.triggerAuthStateChange(
+          AuthChangeEvent.signedIn,
+          session,
+        );
+
         // Wait for the AuthProvider init flow (which does retries with 500ms delays)
         // 1st fetch (0ms) -> fails.
         // 2nd fetch (500ms) -> fails.
@@ -138,7 +181,9 @@ void main() {
     });
 
     group('Feature Area 5: Competition Handling (Streetlifting Rules)', () {
-      testWidgets('Test 2.5.1: Attempt weight increments and validations', (WidgetTester tester) async {
+      testWidgets('Test 2.5.1: Attempt weight increments and validations', (
+        WidgetTester tester,
+      ) async {
         await harness.initialize();
         final comp = Competition(
           id: 'test-rules-comp',
@@ -151,7 +196,9 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        await tester.pumpWidget(harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)));
+        await tester.pumpWidget(
+          harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+        );
         await tester.pumpAndSettle();
 
         // 1. Enter +1.0kg invalid weight (modern disciplines like Muscle Up require multiple of 1.25kg)
@@ -174,7 +221,9 @@ void main() {
         expect(find.text('Standard Plates: 0x25kg, 0x20kg'), findsOneWidget);
       });
 
-      testWidgets('Test 2.5.2: Decreasing weight attempts are blocked', (WidgetTester tester) async {
+      testWidgets('Test 2.5.2: Decreasing weight attempts are blocked', (
+        WidgetTester tester,
+      ) async {
         await harness.initialize();
         final comp = Competition(
           id: 'test-rules-comp',
@@ -187,11 +236,13 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        await tester.pumpWidget(harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)));
+        await tester.pumpWidget(
+          harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+        );
         await tester.pumpAndSettle();
 
         final weightInput = find.byKey(const Key('attempt_weight_input'));
-        
+
         // Submit first attempt with 10kg
         await tester.enterText(weightInput, '10.0');
         await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -212,7 +263,9 @@ void main() {
         expect(find.text('Attempt weight must be ascending!'), findsOneWidget);
       });
 
-      testWidgets('Test 2.5.3: Platform Judging majority vs unanimous voting', (WidgetTester tester) async {
+      testWidgets('Test 2.5.3: Platform Judging majority vs unanimous voting', (
+        WidgetTester tester,
+      ) async {
         await harness.initialize();
         final comp = Competition(
           id: 'test-rules-comp',
@@ -225,7 +278,9 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        await tester.pumpWidget(harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)));
+        await tester.pumpWidget(
+          harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+        );
         await tester.pumpAndSettle();
 
         // Active discipline is Muscle Up. Requires UNANIMOUS 3:0 for some failure reasons.
@@ -235,7 +290,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // Set J1 and J2 to Good, J3 to No Lift (2 Good, 1 Bad)
-        await tester.tap(find.byKey(const Key('judge_3_toggle'))); // Toggle J3 from Good to No
+        await tester.tap(
+          find.byKey(const Key('judge_3_toggle')),
+        ); // Toggle J3 from Good to No
         await tester.pumpAndSettle();
 
         // Select failure reason "Chicken Wing" (which triggers Unanimous check)
@@ -252,7 +309,63 @@ void main() {
         expect(find.text('LIFT FAILED'), findsOneWidget);
       });
 
-      testWidgets('Test 2.5.4: Video Assisted Referee (VAR) overrules and credit restore', (WidgetTester tester) async {
+      testWidgets(
+        'Test 2.5.4: Video Assisted Referee (VAR) overrules and credit restore',
+        (WidgetTester tester) async {
+          await harness.initialize();
+          final comp = Competition(
+            id: 'test-rules-comp',
+            title: 'Test Rules Competition',
+            location: 'Berlin, Germany',
+            sportSubtype: 'Modern',
+            startDate: DateTime.now(),
+            endDate: DateTime.now(),
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+
+          await tester.pumpWidget(
+            harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+          );
+          await tester.pumpAndSettle();
+
+          // Submit a lift attempt
+          final weightInput = find.byKey(const Key('attempt_weight_input'));
+          await tester.enterText(weightInput, '5.0');
+          await tester.testTextInput.receiveAction(TextInputAction.done);
+          await tester.pumpAndSettle();
+
+          // Set J1, J2, J3 to No Lift
+          await tester.tap(find.byKey(const Key('judge_1_toggle')));
+          await tester.tap(find.byKey(const Key('judge_2_toggle')));
+          await tester.tap(find.byKey(const Key('judge_3_toggle')));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byKey(const Key('judge_submit')));
+          await tester.pumpAndSettle();
+
+          expect(find.text('LIFT FAILED'), findsOneWidget);
+
+          // Tap Request VAR
+          final varBtn = find.byKey(const Key('var_request_btn'));
+          expect(varBtn, findsOneWidget);
+          await tester.tap(varBtn);
+          await tester.pumpAndSettle();
+
+          // Overrule to Good Lift
+          final overruleBtn = find.byKey(const Key('var_overrule_pass'));
+          expect(overruleBtn, findsOneWidget);
+          await tester.tap(overruleBtn);
+          await tester.pumpAndSettle();
+
+          // Verify lift is now PASSED
+          expect(find.text('LIFT PASSED'), findsOneWidget);
+        },
+      );
+
+      testWidgets('Test 2.5.5: Athlete disqualified on three failed attempts', (
+        WidgetTester tester,
+      ) async {
         await harness.initialize();
         final comp = Competition(
           id: 'test-rules-comp',
@@ -265,56 +378,9 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        await tester.pumpWidget(harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)));
-        await tester.pumpAndSettle();
-
-        // Submit a lift attempt
-        final weightInput = find.byKey(const Key('attempt_weight_input'));
-        await tester.enterText(weightInput, '5.0');
-        await tester.testTextInput.receiveAction(TextInputAction.done);
-        await tester.pumpAndSettle();
-
-        // Set J1, J2, J3 to No Lift
-        await tester.tap(find.byKey(const Key('judge_1_toggle')));
-        await tester.tap(find.byKey(const Key('judge_2_toggle')));
-        await tester.tap(find.byKey(const Key('judge_3_toggle')));
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byKey(const Key('judge_submit')));
-        await tester.pumpAndSettle();
-
-        expect(find.text('LIFT FAILED'), findsOneWidget);
-
-        // Tap Request VAR
-        final varBtn = find.byKey(const Key('var_request_btn'));
-        expect(varBtn, findsOneWidget);
-        await tester.tap(varBtn);
-        await tester.pumpAndSettle();
-
-        // Overrule to Good Lift
-        final overruleBtn = find.byKey(const Key('var_overrule_pass'));
-        expect(overruleBtn, findsOneWidget);
-        await tester.tap(overruleBtn);
-        await tester.pumpAndSettle();
-
-        // Verify lift is now PASSED
-        expect(find.text('LIFT PASSED'), findsOneWidget);
-      });
-
-      testWidgets('Test 2.5.5: Athlete disqualified on three failed attempts', (WidgetTester tester) async {
-        await harness.initialize();
-        final comp = Competition(
-          id: 'test-rules-comp',
-          title: 'Test Rules Competition',
-          location: 'Berlin, Germany',
-          sportSubtype: 'Modern',
-          startDate: DateTime.now(),
-          endDate: DateTime.now(),
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+        await tester.pumpWidget(
+          harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
         );
-
-        await tester.pumpWidget(harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)));
         await tester.pumpAndSettle();
 
         final weightInput = find.byKey(const Key('attempt_weight_input'));

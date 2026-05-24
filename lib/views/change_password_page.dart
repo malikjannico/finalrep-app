@@ -40,10 +40,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   }
 
   bool get _hasMinLength => _newPasswordController.text.length >= 8;
-  bool get _hasUppercase => _newPasswordController.text.contains(RegExp(r'[A-Z]'));
-  bool get _hasLowercase => _newPasswordController.text.contains(RegExp(r'[a-z]'));
+  bool get _hasUppercase =>
+      _newPasswordController.text.contains(RegExp(r'[A-Z]'));
+  bool get _hasLowercase =>
+      _newPasswordController.text.contains(RegExp(r'[a-z]'));
   bool get _hasDigits => _newPasswordController.text.contains(RegExp(r'[0-9]'));
-  bool get _hasSpecialChar => _newPasswordController.text.contains(RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:\x27",./<>?]'));
+  bool get _hasSpecialChar => _newPasswordController.text.contains(
+    RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:\x27",./<>?]'),
+  );
 
   bool get _isPasswordValid =>
       _hasMinLength &&
@@ -114,11 +118,11 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             return Expanded(
               child: Container(
                 height: 6,
-                margin: EdgeInsets.only(
-                  right: index < 2 ? 6.0 : 0.0,
-                ),
+                margin: EdgeInsets.only(right: index < 2 ? 6.0 : 0.0),
                 decoration: BoxDecoration(
-                  color: isFilled ? barColor : theme.colorScheme.outlineVariant.withAlpha(50),
+                  color: isFilled
+                      ? barColor
+                      : theme.colorScheme.outlineVariant.withAlpha(50),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -136,7 +140,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         children: [
           Icon(
             met ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: met ? const Color(0xFF4CAF50) : theme.colorScheme.onSurfaceVariant.withAlpha(128),
+            color: met
+                ? const Color(0xFF4CAF50)
+                : theme.colorScheme.onSurfaceVariant.withAlpha(128),
             size: 16,
           ),
           const SizedBox(width: 8),
@@ -144,7 +150,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             child: Text(
               text,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: met ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant.withAlpha(178),
+                color: met
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurfaceVariant.withAlpha(178),
               ),
             ),
           ),
@@ -153,13 +161,18 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     );
   }
 
-  Future<void> _updatePassword(AuthProvider authProvider, ThemeData theme) async {
+  Future<void> _updatePassword(
+    AuthProvider authProvider,
+    ThemeData theme,
+  ) async {
     if (!_passwordFormKey.currentState!.validate()) return;
 
     if (_currentPasswordController.text == _newPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('New password must be different from current password.'),
+          content: const Text(
+            'New password must be different from current password.',
+          ),
           backgroundColor: theme.colorScheme.error,
         ),
       );
@@ -169,7 +182,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     if (!_isPasswordValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('New password does not meet all the security rules.'),
+          content: const Text(
+            'New password does not meet all the security rules.',
+          ),
           backgroundColor: theme.colorScheme.error,
         ),
       );
@@ -211,7 +226,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     } catch (e) {
       if (mounted) {
         String msg = e.toString();
-        if (msg.contains('AuthException') || msg.contains('invalid_credentials') || msg.contains('Invalid login credentials')) {
+        if (msg.contains('AuthException') ||
+            msg.contains('invalid_credentials') ||
+            msg.contains('Invalid login credentials')) {
           msg = 'Invalid current password. Re-authentication failed.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
@@ -230,7 +247,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     }
   }
 
-  void _showForgotPasswordConfirmDialog(AuthProvider authProvider, String email) {
+  void _showForgotPasswordConfirmDialog(
+    AuthProvider authProvider,
+    String email,
+  ) {
     final theme = Theme.of(context);
     showDialog(
       context: context,
@@ -246,7 +266,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: localLoading ? null : () => Navigator.of(context).pop(),
+                  onPressed: localLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text('CANCEL'),
                 ),
                 ElevatedButton(
@@ -262,7 +284,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                               Navigator.of(context).pop();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Password reset link sent to $email!'),
+                                  content: Text(
+                                    'Password reset link sent to $email!',
+                                  ),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -290,7 +314,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           width: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text('CONFIRM'),
@@ -312,14 +338,19 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     if (profile == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Change Password')),
-        body: const Center(child: Text('Please log in to change your password.')),
+        body: const Center(
+          child: Text('Please log in to change your password.'),
+        ),
       );
     }
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Change Password',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -349,11 +380,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureCurrentPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                _obscureCurrentPassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
                               ),
                               onPressed: () {
                                 setState(() {
-                                  _obscureCurrentPassword = !_obscureCurrentPassword;
+                                  _obscureCurrentPassword =
+                                      !_obscureCurrentPassword;
                                 });
                               },
                             ),
@@ -370,7 +404,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () => _showForgotPasswordConfirmDialog(authProvider, profile.email),
+                            onPressed: () => _showForgotPasswordConfirmDialog(
+                              authProvider,
+                              profile.email,
+                            ),
                             child: Text(
                               'Forgot Password?',
                               style: TextStyle(
@@ -390,7 +427,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                             prefixIcon: const Icon(Icons.lock_reset_outlined),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureNewPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                _obscureNewPassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -417,11 +456,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                _obscureConfirmPassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
                               ),
                               onPressed: () {
                                 setState(() {
-                                  _obscureConfirmPassword = !_obscureConfirmPassword;
+                                  _obscureConfirmPassword =
+                                      !_obscureConfirmPassword;
                                 });
                               },
                             ),
@@ -447,11 +489,31 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        _buildRuleItem('At least 8 characters', _hasMinLength, theme),
-                        _buildRuleItem('At least 1 uppercase letter (A-Z)', _hasUppercase, theme),
-                        _buildRuleItem('At least 1 lowercase letter (a-z)', _hasLowercase, theme),
-                        _buildRuleItem('At least 1 number (0-9)', _hasDigits, theme),
-                        _buildRuleItem('At least 1 special character (e.g. !@#\$%^&*)', _hasSpecialChar, theme),
+                        _buildRuleItem(
+                          'At least 8 characters',
+                          _hasMinLength,
+                          theme,
+                        ),
+                        _buildRuleItem(
+                          'At least 1 uppercase letter (A-Z)',
+                          _hasUppercase,
+                          theme,
+                        ),
+                        _buildRuleItem(
+                          'At least 1 lowercase letter (a-z)',
+                          _hasLowercase,
+                          theme,
+                        ),
+                        _buildRuleItem(
+                          'At least 1 number (0-9)',
+                          _hasDigits,
+                          theme,
+                        ),
+                        _buildRuleItem(
+                          'At least 1 special character (e.g. !@#\$%^&*)',
+                          _hasSpecialChar,
+                          theme,
+                        ),
                         const SizedBox(height: 20),
 
                         _buildPasswordStrengthBar(theme),
@@ -467,7 +529,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text('UPDATE PASSWORD', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'UPDATE PASSWORD',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),

@@ -1,0 +1,10 @@
+{
+  "ENV": "prod",
+  "API_BASE_URL": "https://backend-prod-775534547890.europe-west3.run.app",
+  "FIREBASE_API_KEY": "AIzaSyFakeKeyProd1234567890",
+  "FIREBASE_AUTH_DOMAIN": "finalrep-app.firebaseapp.com",
+  "FIREBASE_PROJECT_ID": "finalrep-app",
+  "FIREBASE_STORAGE_BUCKET": "finalrep-app-media-prod",
+  "FIREBASE_MESSAGING_SENDER_ID": "775534547890",
+  "FIREBASE_APP_ID": "1:775534547890:web:prod1234567890"
+}

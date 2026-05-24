@@ -27,7 +27,9 @@ class _WorldMapViewState extends State<WorldMapView>
       vsync: this,
       duration: const Duration(seconds: 2),
     );
-    final isTesting = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    final isTesting = WidgetsBinding.instance.runtimeType.toString().contains(
+      'Test',
+    );
     if (!isTesting) {
       _pulseController.repeat();
     }
@@ -339,7 +341,8 @@ class _WorldMapViewState extends State<WorldMapView>
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
                                             settings: RouteSettings(
-                                              name: '/competitions/${_selectedCompetition!.id}',
+                                              name:
+                                                  '/competitions/${_selectedCompetition!.id}',
                                             ),
                                             builder: (_) =>
                                                 CompetitionDetailPage(

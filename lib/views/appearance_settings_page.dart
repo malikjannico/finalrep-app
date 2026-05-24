@@ -21,14 +21,19 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     if (profile == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Appearance')),
-        body: const Center(child: Text('Please log in to view appearance settings.')),
+        body: const Center(
+          child: Text('Please log in to view appearance settings.'),
+        ),
       );
     }
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Appearance', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Appearance',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -65,9 +70,18 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                           value: profile.colorMode,
                           underline: Container(),
                           items: const [
-                            DropdownMenuItem(value: 'system', child: Text('System')),
-                            DropdownMenuItem(value: 'light', child: Text('Light')),
-                            DropdownMenuItem(value: 'dark', child: Text('Dark')),
+                            DropdownMenuItem(
+                              value: 'system',
+                              child: Text('System'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'light',
+                              child: Text('Light'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'dark',
+                              child: Text('Dark'),
+                            ),
                           ],
                           onChanged: (val) async {
                             if (val == null) return;
@@ -86,7 +100,11 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                               );
                             } catch (e) {
                               messenger.showSnackBar(
-                                SnackBar(content: Text('Failed to update color mode: $e')),
+                                SnackBar(
+                                  content: Text(
+                                    'Failed to update color mode: $e',
+                                  ),
+                                ),
                               );
                             } finally {
                               if (mounted) {
