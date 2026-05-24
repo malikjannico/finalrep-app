@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     is_competition_creator BOOLEAN DEFAULT false,
     is_association_creator BOOLEAN DEFAULT false,
     is_admin BOOLEAN DEFAULT false,
-    notification_preferences JSONB DEFAULT '{"flights": true, "payments": true, "schedule": true, "permissions": true, "registration": true}'::jsonb
+    notification_preferences JSONB DEFAULT '{"flights": true, "payments": true, "schedule": true, "permissions": true, "registration": true}'::jsonb,
+    social_links JSONB DEFAULT '{}'::jsonb
 );
 
 -- 2. Competitions Table
@@ -173,6 +174,11 @@ CREATE TABLE IF NOT EXISTS public.meet_results (
     id TEXT PRIMARY KEY,
     profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     competition_id UUID NOT NULL REFERENCES public.competitions(id) ON DELETE CASCADE,
+    competition_class TEXT,
+    total_score DOUBLE PRECISION,
+    rank INTEGER,
+    best_lifts JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     UNIQUE(profile_id, competition_id)
 );
 
