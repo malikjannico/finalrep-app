@@ -13,6 +13,7 @@ import '../repositories/notification_repository.dart';
 import '../models/system_notification.dart';
 import '../utils/mock_safety.dart';
 import '../utils/api_client.dart';
+import '../utils/uuid_helper.dart';
 
 enum AuthStatus { unauthenticated, authenticating, authenticated }
 
@@ -156,7 +157,8 @@ class AuthProvider extends ChangeNotifier {
           );
           if (user != null) {
             _status = AuthStatus.authenticating;
-            final profile = await _fetchProfileWithRetry(user.uid);
+            final mappedUuid = UuidHelper.getDeterministicUuid(user.uid);
+            final profile = await _fetchProfileWithRetry(mappedUuid);
             if (profile != null) {
               _currentUserProfile = profile;
               _status = AuthStatus.authenticated;
@@ -286,8 +288,9 @@ class AuthProvider extends ChangeNotifier {
               finalPicUrl = json['url'] as String;
             }
           }
+          final mappedUuid = UuidHelper.getDeterministicUuid(user.uid);
           final newProfile = Profile(
-            id: user.uid,
+            id: mappedUuid,
             username: cleanUsername,
             fullName: fullName,
             email: email.trim(),
