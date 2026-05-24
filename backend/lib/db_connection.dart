@@ -5,7 +5,7 @@ class DbConnection {
   static Connection? _connection;
 
   static Future<Connection> get connection async {
-    if (_connection != null && !_connection!.isClosed) {
+    if (_connection != null) {
       return _connection!;
     }
 
