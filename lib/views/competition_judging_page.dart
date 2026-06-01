@@ -3,16 +3,16 @@ import 'package:provider/provider.dart';
 import '../providers/competition_provider.dart';
 import '../utils/streetlifting_rules_engine.dart';
 
-class CompetitionHandlingPage extends StatefulWidget {
+class CompetitionJudgingPage extends StatefulWidget {
   final String? competitionId;
-  const CompetitionHandlingPage({super.key, this.competitionId});
+  const CompetitionJudgingPage({super.key, this.competitionId});
 
   @override
-  State<CompetitionHandlingPage> createState() =>
-      _CompetitionHandlingPageState();
+  State<CompetitionJudgingPage> createState() =>
+      _CompetitionJudgingPageState();
 }
 
-class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
+class _CompetitionJudgingPageState extends State<CompetitionJudgingPage> {
   final _weightController = TextEditingController();
 
   @override
@@ -73,7 +73,7 @@ class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Competition Handling: ${widget.competitionId}'),
+        title: Text('Competition Judging: ${widget.competitionId}'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

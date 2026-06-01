@@ -3,7 +3,7 @@ class Profile {
   final String username;
   final String fullName;
   final String email;
-  final String? gender;
+  final String? sex;
   final String? country;
   final String? profilePictureUrl;
   final String? description;
@@ -21,7 +21,7 @@ class Profile {
     required this.username,
     required this.fullName,
     required this.email,
-    this.gender,
+    this.sex,
     this.country,
     this.profilePictureUrl,
     this.description,
@@ -47,7 +47,7 @@ class Profile {
       username: json['username'] as String? ?? '',
       fullName: json['full_name'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      gender: json['gender'] as String?,
+      sex: json['sex'] as String?,
       country: json['country'] as String?,
       profilePictureUrl: json['profile_picture_url'] as String?,
       description: json['description'] as String?,
@@ -91,7 +91,7 @@ class Profile {
       'username': username,
       'full_name': fullName,
       'email': email,
-      'gender': gender,
+      'sex': sex,
       'country': country,
       'profile_picture_url': profilePictureUrl,
       'description': description,
@@ -111,7 +111,7 @@ class Profile {
     String? username,
     String? fullName,
     String? email,
-    String? gender,
+    String? sex,
     String? country,
     String? profilePictureUrl,
     String? description,
@@ -129,7 +129,7 @@ class Profile {
       username: username ?? this.username,
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,
-      gender: gender ?? this.gender,
+      sex: sex ?? this.sex,
       country: country ?? this.country,
       profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
       description: description ?? this.description,

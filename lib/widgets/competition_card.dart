@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/competition.dart';
+import '../providers/competition_provider.dart';
 import '../views/competition_detail_page.dart';
 
 class CompetitionCard extends StatefulWidget {
@@ -37,15 +40,16 @@ class _CompetitionCardState extends State<CompetitionCard> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              settings: RouteSettings(
-                name: '/competitions/${widget.competition.id}',
+          try {
+            context.push('/competitions/${widget.competition.id}');
+          } catch (_) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CompetitionDetailPage(competitionId: widget.competition.id),
               ),
-              builder: (_) =>
-                  CompetitionDetailPage(competition: widget.competition),
-            ),
-          );
+            );
+          }
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -346,9 +350,30 @@ class _CompetitionCardState extends State<CompetitionCard> {
       return _buildDefaultGradient(theme);
     }
 
-    if (path.startsWith('http')) {
+    if (path.startsWith('http') || path.startsWith('https')) {
       return Image.network(
         path,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildDefaultGradient(theme),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: theme.colorScheme.surfaceContainerHighest,
+            child: const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        },
+      );
+    } else if (path.startsWith('/')) {
+      final apiBaseUrl = Provider.of<CompetitionProvider>(context, listen: false).competitionRepository.baseUrl;
+      return Image.network(
+        '$apiBaseUrl$path',
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) =>
             _buildDefaultGradient(theme),

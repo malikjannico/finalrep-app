@@ -100,24 +100,22 @@ class AssociationRepository {
     AthleteGroup(
       id: 'ag-1',
       associationId: 'assoc-1',
-      competitionGroupId: 'group-1',
       name: '-80kg Male',
       sport: 'Streetlifting',
       format: 'Modern',
-      gender: 'Male',
-      maxWeight: 80.0,
+      gender: 'men',
       isActive: true,
+      sortOrder: 0,
     ),
     AthleteGroup(
       id: 'ag-2',
       associationId: 'assoc-1',
-      competitionGroupId: 'group-1',
       name: '+80kg Male',
       sport: 'Streetlifting',
       format: 'Modern',
-      gender: 'Male',
-      maxWeight: null,
+      gender: 'men',
       isActive: true,
+      sortOrder: 1,
     ),
   ];
 
@@ -128,9 +126,24 @@ class AssociationRepository {
   dynamic get client => _client;
 
   bool get _useMockFallback => MockSafety.isMockAllowed;
+  bool get _isTesting => MockSafety.isTesting;
 
   /// Create a new association.
   Future<Association?> createAssociation(Association association) async {
+    final ownerMember = AssociationMember(
+      id: 'member-owner-${association.id}-${association.ownerId}',
+      associationId: association.id,
+      userId: association.ownerId,
+      role: 'owner',
+    );
+    if (!_mockMembers.any((m) => m.associationId == association.id && m.userId == association.ownerId)) {
+      _mockMembers.add(ownerMember);
+    }
+
+    if (_isTesting && _useMockFallback) {
+      _syncAssociationToMock(association);
+      return association;
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('associations').insert(association.toJson()).select().single();
@@ -161,6 +174,14 @@ class AssociationRepository {
 
   /// Update an existing association.
   Future<Association?> updateAssociation(Association association) async {
+    if (_isTesting && _useMockFallback) {
+      final idx = _mockAssociations.indexWhere((element) => element.id == association.id);
+      if (idx != -1) {
+        _mockAssociations[idx] = association;
+        return association;
+      }
+      return null;
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('associations').update(association.toJson()).eq('id', association.id).select().single();
@@ -201,6 +222,13 @@ class AssociationRepository {
 
   /// Fetch single association details.
   Future<Association?> getAssociationDetails(String id) async {
+    if (_isTesting && _useMockFallback) {
+      final idx = _mockAssociations.indexWhere((element) => element.id == id);
+      if (idx != -1) {
+        return _mockAssociations[idx];
+      }
+      return null;
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('associations').select().eq('id', id).maybeSingle();
@@ -237,6 +265,9 @@ class AssociationRepository {
 
   /// Fetch all approved associations.
   Future<List<Association>> getAssociations() async {
+    if (_isTesting && _useMockFallback) {
+      return List.from(_mockAssociations);
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('associations').select();
@@ -271,6 +302,9 @@ class AssociationRepository {
   Future<List<AssociationMember>> getAssociationMembers(
     String associationId,
   ) async {
+    if (_isTesting && _useMockFallback) {
+      return _mockMembers.where((element) => element.associationId == associationId).toList();
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('association_members').select().eq('association_id', associationId);
@@ -320,6 +354,12 @@ class AssociationRepository {
       customTitle: customTitle,
     );
 
+    if (_isTesting && _useMockFallback) {
+      _mockMembers.removeWhere((m) => m.associationId == associationId && m.userId == userId);
+      _mockMembers.add(member);
+      return member;
+    }
+
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('association_members').insert(member.toJson()).select().single();
@@ -327,6 +367,7 @@ class AssociationRepository {
         _syncMemberToMock(created);
         return created;
       } catch (_) {
+        _mockMembers.removeWhere((m) => m.associationId == associationId && m.userId == userId);
         _mockMembers.add(member);
         return member;
       }
@@ -343,6 +384,7 @@ class AssociationRepository {
       if (!_useMockFallback) {
         rethrow;
       }
+      _mockMembers.removeWhere((m) => m.associationId == associationId && m.userId == userId);
       _mockMembers.add(member);
       return member;
     }
@@ -351,29 +393,52 @@ class AssociationRepository {
   /// Remove member from association.
   Future<bool> removeAssociationMember(
     String associationId,
-    String userId,
-  ) async {
+    String userId, {
+    String? role,
+  }) async {
+    if (_isTesting && _useMockFallback) {
+      _mockMembers.removeWhere(
+        (element) =>
+            element.associationId == associationId &&
+            element.userId == userId &&
+            (role == null || element.role == role),
+      );
+      return true;
+    }
     if (_useMockFallback && _client != null) {
       try {
-        await _client.from('association_members').delete().eq('association_id', associationId).eq('user_id', userId);
+        var query = _client.from('association_members').delete().eq('association_id', associationId).eq('user_id', userId);
+        if (role != null) {
+          query = query.eq('role', role);
+        }
+        await query;
         _mockMembers.removeWhere(
-          (element) => element.associationId == associationId && element.userId == userId,
+          (element) =>
+              element.associationId == associationId &&
+              element.userId == userId &&
+              (role == null || element.role == role),
         );
         return true;
       } catch (_) {
         _mockMembers.removeWhere(
-          (element) => element.associationId == associationId && element.userId == userId,
+          (element) =>
+              element.associationId == associationId &&
+              element.userId == userId &&
+              (role == null || element.role == role),
         );
         return true;
       }
     }
     try {
-      final response = await _api.delete('/associations/$associationId/members?userId=$userId');
+      final roleQuery = role != null ? '&role=$role' : '';
+      final response = await _api.delete('/associations/$associationId/members?userId=$userId$roleQuery');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         _mockMembers.removeWhere(
           (element) =>
-              element.associationId == associationId && element.userId == userId,
+              element.associationId == associationId &&
+              element.userId == userId &&
+              (role == null || element.role == role),
         );
         return body['success'] == true;
       }
@@ -384,7 +449,9 @@ class AssociationRepository {
       }
       _mockMembers.removeWhere(
         (element) =>
-            element.associationId == associationId && element.userId == userId,
+            element.associationId == associationId &&
+            element.userId == userId &&
+            (role == null || element.role == role),
       );
       return true;
     }
@@ -393,13 +460,70 @@ class AssociationRepository {
   /// Transfer ownership of association.
   Future<Association?> transferAssociationOwnership(
     String associationId,
-    String newOwnerId,
-  ) async {
+    String newOwnerId, {
+    String? customTitle,
+  }) async {
+    if (_isTesting && _useMockFallback) {
+      final idx = _mockAssociations.indexWhere((element) => element.id == associationId);
+      if (idx != -1) {
+        final current = _mockAssociations[idx];
+        final updated = current.copyWith(ownerId: newOwnerId);
+        _mockAssociations[idx] = updated;
+        final oldOwnerId = current.ownerId;
+        
+        _mockMembers.removeWhere((element) =>
+            element.associationId == associationId &&
+            element.userId == oldOwnerId &&
+            element.role == 'owner');
+
+        final oIdx = _mockMembers.indexWhere((element) =>
+            element.associationId == associationId &&
+            element.userId == newOwnerId &&
+            element.role == 'owner');
+        if (oIdx != -1) {
+          _mockMembers[oIdx] = _mockMembers[oIdx].copyWith(customTitle: customTitle);
+        } else {
+          _mockMembers.add(AssociationMember(
+            id: 'member-$associationId-$newOwnerId-owner',
+            associationId: associationId,
+            userId: newOwnerId,
+            role: 'owner',
+            customTitle: customTitle,
+          ));
+        }
+        return updated;
+      }
+      return null;
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('associations').update({'owner_id': newOwnerId}).eq('id', associationId).select().single();
         final updated = Association.fromJson(response as Map<String, dynamic>);
         _syncAssociationToMock(updated);
+        
+        final assocIdx = _mockAssociations.indexWhere((element) => element.id == associationId);
+        if (assocIdx != -1) {
+          final oldOwnerId = _mockAssociations[assocIdx].ownerId;
+          _mockMembers.removeWhere((element) =>
+              element.associationId == associationId &&
+              element.userId == oldOwnerId &&
+              element.role == 'owner');
+        }
+        final oIdx = _mockMembers.indexWhere((element) =>
+            element.associationId == associationId &&
+            element.userId == newOwnerId &&
+            element.role == 'owner');
+        if (oIdx != -1) {
+          _mockMembers[oIdx] = _mockMembers[oIdx].copyWith(customTitle: customTitle);
+        } else {
+          _mockMembers.add(AssociationMember(
+            id: 'member-$associationId-$newOwnerId-owner',
+            associationId: associationId,
+            userId: newOwnerId,
+            role: 'owner',
+            customTitle: customTitle,
+          ));
+        }
         return updated;
       } catch (_) {
         final idx = _mockAssociations.indexWhere((element) => element.id == associationId);
@@ -408,14 +532,26 @@ class AssociationRepository {
           final updated = current.copyWith(ownerId: newOwnerId);
           _mockAssociations[idx] = updated;
           final oldOwnerId = current.ownerId;
-          for (var i = 0; i < _mockMembers.length; i++) {
-            if (_mockMembers[i].associationId == associationId) {
-              if (_mockMembers[i].userId == newOwnerId) {
-                _mockMembers[i] = _mockMembers[i].copyWith(role: 'owner');
-              } else if (_mockMembers[i].userId == oldOwnerId) {
-                _mockMembers[i] = _mockMembers[i].copyWith(role: 'editor');
-              }
-            }
+          
+          _mockMembers.removeWhere((element) =>
+              element.associationId == associationId &&
+              element.userId == oldOwnerId &&
+              element.role == 'owner');
+
+          final oIdx = _mockMembers.indexWhere((element) =>
+              element.associationId == associationId &&
+              element.userId == newOwnerId &&
+              element.role == 'owner');
+          if (oIdx != -1) {
+            _mockMembers[oIdx] = _mockMembers[oIdx].copyWith(customTitle: customTitle);
+          } else {
+            _mockMembers.add(AssociationMember(
+              id: 'member-$associationId-$newOwnerId-owner',
+              associationId: associationId,
+              userId: newOwnerId,
+              role: 'owner',
+              customTitle: customTitle,
+            ));
           }
           return updated;
         }
@@ -423,10 +559,35 @@ class AssociationRepository {
       }
     }
     try {
-      final response = await _api.put('/associations/$associationId/transfer-ownership?newOwnerId=$newOwnerId');
+      final customTitleQuery = customTitle != null ? '&customTitle=${Uri.encodeComponent(customTitle)}' : '';
+      final response = await _api.put('/associations/$associationId/transfer-ownership?newOwnerId=$newOwnerId$customTitleQuery');
       if (response.statusCode == 200) {
         final updated = Association.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
         _syncAssociationToMock(updated);
+        
+        final assocIdx = _mockAssociations.indexWhere((element) => element.id == associationId);
+        if (assocIdx != -1) {
+          final oldOwnerId = _mockAssociations[assocIdx].ownerId;
+          _mockMembers.removeWhere((element) =>
+              element.associationId == associationId &&
+              element.userId == oldOwnerId &&
+              element.role == 'owner');
+        }
+        final oIdx = _mockMembers.indexWhere((element) =>
+            element.associationId == associationId &&
+            element.userId == newOwnerId &&
+            element.role == 'owner');
+        if (oIdx != -1) {
+          _mockMembers[oIdx] = _mockMembers[oIdx].copyWith(customTitle: customTitle);
+        } else {
+          _mockMembers.add(AssociationMember(
+            id: 'member-$associationId-$newOwnerId-owner',
+            associationId: associationId,
+            userId: newOwnerId,
+            role: 'owner',
+            customTitle: customTitle,
+          ));
+        }
         return updated;
       }
       throw Exception('Failed to transfer association ownership: ${response.statusCode} ${response.body}');
@@ -441,18 +602,27 @@ class AssociationRepository {
         final current = _mockAssociations[idx];
         final updated = current.copyWith(ownerId: newOwnerId);
         _mockAssociations[idx] = updated;
-
-        // Update members role: find the member entry for newOwnerId, promote to owner.
-        // Also demote the old owner to editor.
         final oldOwnerId = current.ownerId;
-        for (var i = 0; i < _mockMembers.length; i++) {
-          if (_mockMembers[i].associationId == associationId) {
-            if (_mockMembers[i].userId == newOwnerId) {
-              _mockMembers[i] = _mockMembers[i].copyWith(role: 'owner');
-            } else if (_mockMembers[i].userId == oldOwnerId) {
-              _mockMembers[i] = _mockMembers[i].copyWith(role: 'editor');
-            }
-          }
+        
+        _mockMembers.removeWhere((element) =>
+            element.associationId == associationId &&
+            element.userId == oldOwnerId &&
+            element.role == 'owner');
+
+        final oIdx = _mockMembers.indexWhere((element) =>
+            element.associationId == associationId &&
+            element.userId == newOwnerId &&
+            element.role == 'owner');
+        if (oIdx != -1) {
+          _mockMembers[oIdx] = _mockMembers[oIdx].copyWith(customTitle: customTitle);
+        } else {
+          _mockMembers.add(AssociationMember(
+            id: 'member-$associationId-$newOwnerId-owner',
+            associationId: associationId,
+            userId: newOwnerId,
+            role: 'owner',
+            customTitle: customTitle,
+          ));
         }
         return updated;
       }
@@ -460,10 +630,60 @@ class AssociationRepository {
     }
   }
 
+  /// Delete an association.
+  Future<bool> deleteAssociation(String id) async {
+    if (_isTesting && _useMockFallback) {
+      _mockAssociations.removeWhere((element) => element.id == id);
+      _mockMembers.removeWhere((element) => element.associationId == id);
+      _mockCompGroups.removeWhere((element) => element.associationId == id);
+      _mockAthleteGroups.removeWhere((element) => element.associationId == id);
+      return true;
+    }
+    if (_useMockFallback && _client != null) {
+      try {
+        await _client.from('associations').delete().eq('id', id);
+        _mockAssociations.removeWhere((element) => element.id == id);
+        _mockMembers.removeWhere((element) => element.associationId == id);
+        _mockCompGroups.removeWhere((element) => element.associationId == id);
+        _mockAthleteGroups.removeWhere((element) => element.associationId == id);
+        return true;
+      } catch (_) {
+        _mockAssociations.removeWhere((element) => element.id == id);
+        _mockMembers.removeWhere((element) => element.associationId == id);
+        _mockCompGroups.removeWhere((element) => element.associationId == id);
+        _mockAthleteGroups.removeWhere((element) => element.associationId == id);
+        return true;
+      }
+    }
+    try {
+      final response = await _api.delete('/associations/$id');
+      if (response.statusCode == 200) {
+        _mockAssociations.removeWhere((element) => element.id == id);
+        _mockMembers.removeWhere((element) => element.associationId == id);
+        _mockCompGroups.removeWhere((element) => element.associationId == id);
+        _mockAthleteGroups.removeWhere((element) => element.associationId == id);
+        return true;
+      }
+      throw Exception('Failed to delete association: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      if (!_useMockFallback) {
+        rethrow;
+      }
+      _mockAssociations.removeWhere((element) => element.id == id);
+      _mockMembers.removeWhere((element) => element.associationId == id);
+      _mockCompGroups.removeWhere((element) => element.associationId == id);
+      _mockAthleteGroups.removeWhere((element) => element.associationId == id);
+      return true;
+    }
+  }
+
   /// Load competition groups for an association.
   Future<List<CompetitionGroup>> getCompetitionGroups(
     String associationId,
   ) async {
+    if (_isTesting && _useMockFallback) {
+      return _mockCompGroups.where((element) => element.associationId == associationId).toList();
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('competition_groups').select().eq('association_id', associationId);
@@ -502,6 +722,10 @@ class AssociationRepository {
   Future<CompetitionGroup?> createCompetitionGroup(
     CompetitionGroup group,
   ) async {
+    if (_isTesting && _useMockFallback) {
+      _mockCompGroups.add(group);
+      return group;
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('competition_groups').insert(group.toJson()).select().single();
@@ -534,6 +758,14 @@ class AssociationRepository {
   Future<CompetitionGroup?> updateCompetitionGroup(
     CompetitionGroup group,
   ) async {
+    if (_isTesting && _useMockFallback) {
+      final idx = _mockCompGroups.indexWhere((element) => element.id == group.id);
+      if (idx != -1) {
+        _mockCompGroups[idx] = group;
+        return group;
+      }
+      return null;
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('competition_groups').update(group.toJson()).eq('id', group.id).select().single();
@@ -574,6 +806,9 @@ class AssociationRepository {
 
   /// Load athlete groups for an association.
   Future<List<AthleteGroup>> getAthleteGroups(String associationId) async {
+    if (_isTesting && _useMockFallback) {
+      return _mockAthleteGroups.where((element) => element.associationId == associationId).toList();
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('athlete_groups').select().eq('association_id', associationId);
@@ -610,6 +845,10 @@ class AssociationRepository {
 
   /// Create an athlete group.
   Future<AthleteGroup?> createAthleteGroup(AthleteGroup group) async {
+    if (_isTesting && _useMockFallback) {
+      _mockAthleteGroups.add(group);
+      return group;
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('athlete_groups').insert(group.toJson()).select().single();
@@ -640,6 +879,14 @@ class AssociationRepository {
 
   /// Update an athlete group.
   Future<AthleteGroup?> updateAthleteGroup(AthleteGroup group) async {
+    if (_isTesting && _useMockFallback) {
+      final idx = _mockAthleteGroups.indexWhere((element) => element.id == group.id);
+      if (idx != -1) {
+        _mockAthleteGroups[idx] = group;
+        return group;
+      }
+      return null;
+    }
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client.from('athlete_groups').update(group.toJson()).eq('id', group.id).select().single();
@@ -674,7 +921,70 @@ class AssociationRepository {
         _mockAthleteGroups[idx] = group;
         return group;
       }
-      return null;
+    }
+  }
+
+  /// Delete a competition group.
+  Future<bool> deleteCompetitionGroup(String id) async {
+    if (_isTesting && _useMockFallback) {
+      _mockCompGroups.removeWhere((element) => element.id == id);
+      return true;
+    }
+    if (_useMockFallback && _client != null) {
+      try {
+        await _client.from('competition_groups').delete().eq('id', id);
+        _mockCompGroups.removeWhere((element) => element.id == id);
+        return true;
+      } catch (_) {
+        _mockCompGroups.removeWhere((element) => element.id == id);
+        return true;
+      }
+    }
+    try {
+      final response = await _api.delete('/competition-groups/$id');
+      if (response.statusCode == 200) {
+        _mockCompGroups.removeWhere((element) => element.id == id);
+        return true;
+      }
+      throw Exception('Failed to delete competition group');
+    } catch (e) {
+      if (!_useMockFallback) {
+        rethrow;
+      }
+      _mockCompGroups.removeWhere((element) => element.id == id);
+      return true;
+    }
+  }
+
+  /// Delete an athlete group.
+  Future<bool> deleteAthleteGroup(String id) async {
+    if (_isTesting && _useMockFallback) {
+      _mockAthleteGroups.removeWhere((element) => element.id == id);
+      return true;
+    }
+    if (_useMockFallback && _client != null) {
+      try {
+        await _client.from('athlete_groups').delete().eq('id', id);
+        _mockAthleteGroups.removeWhere((element) => element.id == id);
+        return true;
+      } catch (_) {
+        _mockAthleteGroups.removeWhere((element) => element.id == id);
+        return true;
+      }
+    }
+    try {
+      final response = await _api.delete('/athlete-groups/$id');
+      if (response.statusCode == 200) {
+        _mockAthleteGroups.removeWhere((element) => element.id == id);
+        return true;
+      }
+      throw Exception('Failed to delete athlete group');
+    } catch (e) {
+      if (!_useMockFallback) {
+        rethrow;
+      }
+      _mockAthleteGroups.removeWhere((element) => element.id == id);
+      return true;
     }
   }
 

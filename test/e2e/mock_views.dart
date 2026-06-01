@@ -231,16 +231,16 @@ class _CreateCompetitionPageState extends State<CreateCompetitionPage> {
   }
 }
 
-class CompetitionHandlingPage extends StatefulWidget {
+class CompetitionJudgingPage extends StatefulWidget {
   final String? competitionId;
-  const CompetitionHandlingPage({super.key, this.competitionId});
+  const CompetitionJudgingPage({super.key, this.competitionId});
 
   @override
-  State<CompetitionHandlingPage> createState() =>
-      _CompetitionHandlingPageState();
+  State<CompetitionJudgingPage> createState() =>
+      _CompetitionJudgingPageState();
 }
 
-class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
+class _CompetitionJudgingPageState extends State<CompetitionJudgingPage> {
   final List<String> _disciplines = ['Muscle Up', 'Pull Up', 'Dip', 'Squat'];
   String _activeDiscipline = 'Muscle Up';
   int _attemptNum = 1;
@@ -365,7 +365,7 @@ class _CompetitionHandlingPageState extends State<CompetitionHandlingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Competition Handling: ${widget.competitionId}'),
+        title: Text('Competition Judging: ${widget.competitionId}'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -526,7 +526,7 @@ class _RankingsPageState extends State<RankingsPage> {
 
   // Filter States
   String _searchQuery = '';
-  String _selectedGender = 'All'; // 'All', 'Male', 'Female'
+  String _selectedSex = 'All'; // 'All', 'Male', 'Female'
   String _selectedSubtype = 'All'; // 'All', 'Modern', 'Classic'
 
   @override
@@ -542,7 +542,7 @@ class _RankingsPageState extends State<RankingsPage> {
 
     try {
       final response = await _client
-          .from('meet_results')
+          .from('competition_results')
           .select('*, profile:profiles(*)');
 
       final list =
@@ -555,7 +555,7 @@ class _RankingsPageState extends State<RankingsPage> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error fetching rankings from meet_results: $e');
+      debugPrint('Error fetching rankings from competition_results: $e');
       setState(() {
         _results = [];
         _isLoading = false;
@@ -566,7 +566,7 @@ class _RankingsPageState extends State<RankingsPage> {
   List<Map<String, dynamic>> get _fallbackData => [
     {
       'id': 'fallback-1',
-      'profile': {'full_name': 'John Doe', 'gender': 'Male'},
+      'profile': {'full_name': 'John Doe', 'sex': 'male'},
       'competition_class': 'Male -83kg (Modern)',
       'total_score': 420.0,
       'rank': 1,
@@ -580,7 +580,7 @@ class _RankingsPageState extends State<RankingsPage> {
     },
     {
       'id': 'fallback-2',
-      'profile': {'full_name': 'Jane Smith', 'gender': 'Female'},
+      'profile': {'full_name': 'Jane Smith', 'sex': 'female'},
       'competition_class': 'Female -63kg (Classic)',
       'total_score': 390.0,
       'rank': 2,
@@ -610,7 +610,8 @@ class _RankingsPageState extends State<RankingsPage> {
     final parsedList = sourceList.map((item) {
       final profile = item['profile'] as Map<String, dynamic>? ?? {};
       final athleteName = profile['full_name'] as String? ?? 'Unknown Athlete';
-      final gender = profile['gender'] as String? ?? 'Male';
+      final sexRaw = (profile['sex'] as String? ?? 'male').toLowerCase();
+      final sex = sexRaw == 'female' ? 'Female' : 'Male';
 
       // Determine subtype from competition_class or key
       String subtype = item['subtype'] as String? ?? 'Modern';
@@ -641,7 +642,7 @@ class _RankingsPageState extends State<RankingsPage> {
       return {
         'id': item['id'],
         'athleteName': athleteName,
-        'gender': gender,
+        'sex': sex,
         'subtype': subtype,
         'totalScore': totalScore,
         'rank': rank,
@@ -661,9 +662,9 @@ class _RankingsPageState extends State<RankingsPage> {
         if (!name.contains(query)) return false;
       }
 
-      // 2. Gender
-      if (_selectedGender != 'All') {
-        if (item['gender'].toLowerCase() != _selectedGender.toLowerCase())
+      // 2. Sex
+      if (_selectedSex != 'All') {
+        if (item['sex'].toLowerCase() != _selectedSex.toLowerCase())
           return false;
       }
 
@@ -720,9 +721,9 @@ class _RankingsPageState extends State<RankingsPage> {
                               Expanded(
                                 child: DropdownButtonFormField<String>(
                                   key: const Key('gender_filter_dropdown'),
-                                  value: _selectedGender,
+                                  value: _selectedSex,
                                   decoration: const InputDecoration(
-                                    labelText: 'Gender',
+                                    labelText: 'Sex',
                                   ),
                                   items: ['All', 'Male', 'Female']
                                       .map(
@@ -734,7 +735,7 @@ class _RankingsPageState extends State<RankingsPage> {
                                       .toList(),
                                   onChanged: (val) {
                                     setState(() {
-                                      _selectedGender = val ?? 'All';
+                                      _selectedSex = val ?? 'All';
                                     });
                                   },
                                 ),

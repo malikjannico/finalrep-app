@@ -6,6 +6,7 @@ import '../widgets/profile_card.dart';
 import '../widgets/user_compact_row.dart';
 import '../widgets/competition_card.dart';
 import '../widgets/competition_compact_row.dart';
+import '../widgets/association_card.dart';
 import 'competition_detail_page.dart';
 import 'association_detail_page.dart';
 
@@ -86,7 +87,10 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
           controller: _searchController,
           autofocus: true,
           style: theme.textTheme.bodyMedium?.copyWith(fontSize: 16),
+          textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
             hintText: _selectedScope == SearchScope.users
                 ? 'Search users...'
                 : _selectedScope == SearchScope.associations
@@ -95,9 +99,105 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
             border: InputBorder.none,
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
+            prefixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PopupMenuButton<SearchScope>(
+                  initialValue: _selectedScope,
+                  tooltip: 'Search scope',
+                  offset: const Offset(-12, 32),
+                  onSelected: (val) {
+                    setState(() {
+                      _selectedScope = val;
+                    });
+                    if (val == SearchScope.competitions) {
+                      _updateSuggestions(_searchController.text, provider.allCompetitions);
+                    } else if (val == SearchScope.associations) {
+                      provider.searchAssociations(_searchController.text);
+                    } else {
+                      provider.searchUsers(_searchController.text);
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    PopupMenuItem(
+                      value: SearchScope.competitions,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.emoji_events, size: 18, color: theme.colorScheme.primary),
+                          const SizedBox(width: 8),
+                          const Text('Competitions'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: SearchScope.users,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person, size: 18, color: theme.colorScheme.primary),
+                          const SizedBox(width: 8),
+                          const Text('Users'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: SearchScope.associations,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.business, size: 18, color: theme.colorScheme.primary),
+                          const SizedBox(width: 8),
+                          const Text('Associations'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _selectedScope == SearchScope.competitions
+                              ? Icons.emoji_events
+                              : _selectedScope == SearchScope.users
+                                  ? Icons.person
+                                  : Icons.business,
+                          size: 20,
+                          color: theme.colorScheme.primary,
+                        ),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          size: 18,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  height: 20,
+                  width: 1,
+                  color: theme.colorScheme.outlineVariant,
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 0,
+              minHeight: 0,
+            ),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (_searchController.text.isNotEmpty) ...[
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     onPressed: () {
                       _searchController.clear();
                       if (_selectedScope == SearchScope.competitions) {
@@ -109,8 +209,13 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                       }
                       setState(() {});
                     },
-                  )
-                : null,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Icon(Icons.search, size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+              ],
+            ),
           ),
           onChanged: (val) {
             if (_selectedScope == SearchScope.competitions) {
@@ -127,104 +232,31 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
           },
         ),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52.0),
-          child: Column(
+          preferredSize: const Size.fromHeight(2.0),
+          child: Stack(
             children: [
-              Padding(
-                padding: const EdgeInsets.only(
-                  bottom: 8.0,
-                  left: 16.0,
-                  right: 16.0,
-                ),
-                child: Center(
-                  child: SizedBox(
-                    width: 320,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.brightness == Brightness.dark
-                            ? const Color(0xFF1E1715)
-                            : const Color(0xFFF3EDEB),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<SearchScope>(
-                          value: _selectedScope,
-                          isExpanded: true,
-                          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFE94E1B)),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          dropdownColor: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          items: const [
-                            DropdownMenuItem(
-                              value: SearchScope.competitions,
-                              child: Text('Competitions'),
-                            ),
-                            DropdownMenuItem(
-                              value: SearchScope.users,
-                              child: Text('Users'),
-                            ),
-                            DropdownMenuItem(
-                              value: SearchScope.associations,
-                              child: Text('Associations'),
-                            ),
-                          ],
-                          onChanged: (SearchScope? scope) {
-                            if (scope != null) {
-                              setState(() {
-                                _selectedScope = scope;
-                              });
-                              if (scope == SearchScope.competitions) {
-                                _updateSuggestions(
-                                  _searchController.text,
-                                  provider.allCompetitions,
-                                );
-                              } else if (scope == SearchScope.associations) {
-                                provider.searchAssociations(_searchController.text);
-                              } else {
-                                provider.searchUsers(_searchController.text);
-                              }
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
+              Divider(
+                height: 1.0,
+                color: theme.colorScheme.outlineVariant.withValues(
+                  alpha: 0.5,
                 ),
               ),
-              Stack(
-                children: [
-                  Divider(
-                    height: 1.0,
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                  ),
-                  if (provider.isLoadingUsers &&
-                      _selectedScope == SearchScope.users)
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: LinearProgressIndicator(minHeight: 2),
-                    ),
-                  if (provider.isLoadingAssociations &&
-                      _selectedScope == SearchScope.associations)
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: LinearProgressIndicator(minHeight: 2),
-                    ),
-                ],
-              ),
+              if (provider.isLoadingUsers &&
+                  _selectedScope == SearchScope.users)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+              if (provider.isLoadingAssociations &&
+                  _selectedScope == SearchScope.associations)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
             ],
           ),
         ),
@@ -448,7 +480,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.grid_view_outlined,
+              Icons.search,
               size: 64,
               color: theme.colorScheme.outline.withValues(alpha: 0.5),
             ),
@@ -628,6 +660,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
+                              settings: RouteSettings(name: '/associations/${assoc.id}'),
                               builder: (_) => AssociationDetailPage(
                                 associationId: assoc.id,
                               ),
@@ -638,117 +671,22 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                     );
                   },
                 )
-              : ListView.builder(
+              : GridView.builder(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
                   ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 1,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    mainAxisExtent: 250,
+                  ),
                   itemCount: provider.searchedAssociations.length,
                   itemBuilder: (context, index) {
                     final assoc = provider.searchedAssociations[index];
-                    return Card(
-                      clipBehavior: Clip.antiAlias,
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AssociationDetailPage(
-                                associationId: assoc.id,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor:
-                                        theme.colorScheme.primaryContainer,
-                                    child: Text(
-                                      assoc.name.isNotEmpty
-                                          ? assoc.name[0].toUpperCase()
-                                          : '?',
-                                      style: TextStyle(
-                                        color: theme
-                                            .colorScheme
-                                            .onPrimaryContainer,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      assoc.name,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                assoc.description.isEmpty
-                                    ? 'No description provided.'
-                                    : assoc.description,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          theme.colorScheme.secondaryContainer,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      assoc.scope.toUpperCase(),
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSecondaryContainer,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 10,
-                                          ),
-                                    ),
-                                  ),
-                                  Text(
-                                    assoc.supportedSports.join(', '),
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.primary,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    return AssociationCard(
+                      association: assoc,
                     );
                   },
                 ),
@@ -764,7 +702,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.people_outline,
+              Icons.search,
               size: 64,
               color: theme.colorScheme.outline.withValues(alpha: 0.5),
             ),
@@ -920,7 +858,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                     crossAxisCount: 1, // On mobile, grid crossAxisCount is 1
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    mainAxisExtent: 150,
+                    mainAxisExtent: 250,
                   ),
                   itemCount: provider.searchedUsers.length,
                   itemBuilder: (context, index) {
@@ -930,6 +868,64 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMobileScopeChip(
+    BuildContext context,
+    SearchScope scope,
+    String label,
+    IconData icon,
+    CompetitionProvider provider,
+  ) {
+    final isSelected = _selectedScope == scope;
+    final theme = Theme.of(context);
+    final activeColor = const Color(0xFFE94E1B); // Brand orange
+
+    return ChoiceChip(
+      showCheckmark: false,
+      avatar: Icon(
+        icon,
+        size: 16,
+        color: isSelected ? Colors.white : theme.colorScheme.onSurfaceVariant,
+      ),
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (bool selected) {
+        if (selected) {
+          setState(() {
+            _selectedScope = scope;
+          });
+          if (scope == SearchScope.competitions) {
+            _updateSuggestions(
+              _searchController.text,
+              provider.allCompetitions,
+            );
+          } else if (scope == SearchScope.associations) {
+            provider.searchAssociations(_searchController.text);
+          } else {
+            provider.searchUsers(_searchController.text);
+          }
+        }
+      },
+      selectedColor: activeColor,
+      backgroundColor: theme.brightness == Brightness.dark
+          ? const Color(0xFF1E1715)
+          : const Color(0xFFF3EDEB),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: isSelected ? Colors.white : theme.colorScheme.onSurfaceVariant,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isSelected
+              ? activeColor
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../models/profile.dart';
 import '../views/profile_page.dart';
 import '../providers/competition_provider.dart';
@@ -41,23 +42,18 @@ class _UserCompactRowState extends State<UserCompactRow> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap:
-            widget.onTap ??
+        onTap: widget.onTap ??
             () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  settings: RouteSettings(
-                    name: '/users/${widget.profile.username}',
+              try {
+                context.push('/users/${widget.profile.username}');
+              } catch (_) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProfilePage(username: widget.profile.username),
                   ),
-                  builder: (_) => ProfilePage(
-                    userId: widget.profile.id,
-                    profileRepository: Provider.of<CompetitionProvider>(
-                      context,
-                      listen: false,
-                    ).profileRepository,
-                  ),
-                ),
-              );
+                );
+              }
             },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
@@ -83,10 +79,14 @@ class _UserCompactRowState extends State<UserCompactRow> {
               CircleAvatar(
                 radius: 18,
                 backgroundColor: theme.colorScheme.primaryContainer,
-                backgroundImage: widget.profile.profilePictureUrl != null
+                backgroundImage:
+                    widget.profile.profilePictureUrl != null &&
+                        widget.profile.profilePictureUrl!.isNotEmpty
                     ? NetworkImage(widget.profile.profilePictureUrl!)
                     : null,
-                child: widget.profile.profilePictureUrl == null
+                child:
+                    widget.profile.profilePictureUrl == null ||
+                        widget.profile.profilePictureUrl!.isEmpty
                     ? Text(
                         initials,
                         style: TextStyle(
@@ -100,53 +100,30 @@ class _UserCompactRowState extends State<UserCompactRow> {
               const SizedBox(width: 12),
 
               Expanded(
-                child: isMobileLayout
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.profile.fullName,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '@${widget.profile.username}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          Text(
-                            widget.profile.fullName,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '@${widget.profile.username}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.profile.fullName,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '@${widget.profile.username}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
 
               // Country flag/badge if present
@@ -162,10 +139,49 @@ class _UserCompactRowState extends State<UserCompactRow> {
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 10,
+                        color: theme.colorScheme.onTertiaryContainer,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.profile.country!,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (widget.profile.sex != null) const SizedBox(width: 8) else const SizedBox(width: 12),
+              ],
+
+              // Sex badge if present
+              if (widget.profile.sex != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Text(
-                    widget.profile.country!,
+                    widget.profile.sex == 'prefer not to say'
+                        ? 'Prefer not to say'
+                        : (widget.profile.sex!.isEmpty
+                            ? ''
+                            : widget.profile.sex![0].toUpperCase() +
+                                widget.profile.sex!.substring(1)),
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onTertiaryContainer,
+                      color: theme.colorScheme.onSecondaryContainer,
                       fontWeight: FontWeight.bold,
                       fontSize: 10,
                     ),

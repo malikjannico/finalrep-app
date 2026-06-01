@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/auth_provider.dart';
+import '../router.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -228,7 +230,18 @@ class _LoginPageState extends State<LoginPage> {
             ? null
             : IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  } else {
+                    try {
+                      GoRouter.of(context);
+                      goRouter.go('/');
+                    } catch (_) {
+                      Navigator.of(context).pop();
+                    }
+                  }
+                },
               ),
       ),
       body: Center(
@@ -436,25 +449,33 @@ class _LoginPageState extends State<LoginPage> {
                           GestureDetector(
                             onTap: () {
                               if (widget.isInline) {
-                                // If inline, push full screen RegisterPage
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    settings: const RouteSettings(
-                                      name: '/register',
+                                try {
+                                  GoRouter.of(context);
+                                  goRouter.push('/register');
+                                } catch (_) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      settings: const RouteSettings(
+                                        name: '/register',
+                                      ),
+                                      builder: (_) => const RegisterPage(),
                                     ),
-                                    builder: (_) => const RegisterPage(),
-                                  ),
-                                );
+                                  );
+                                }
                               } else {
-                                // If already pushing pages, push replacement or push new page
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    settings: const RouteSettings(
-                                      name: '/register',
+                                try {
+                                  GoRouter.of(context);
+                                  goRouter.pushReplacement('/register');
+                                } catch (_) {
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(
+                                      settings: const RouteSettings(
+                                        name: '/register',
+                                      ),
+                                      builder: (_) => const RegisterPage(),
                                     ),
-                                    builder: (_) => const RegisterPage(),
-                                  ),
-                                );
+                                  );
+                                }
                               }
                             },
                             child: MouseRegion(

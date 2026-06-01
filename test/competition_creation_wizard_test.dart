@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finalrep_app/models/competition.dart';
-import 'package:finalrep_app/views/competition_creation_wizard.dart';
+import 'package:finalrep_app/views/competition_creation_page.dart';
 import 'package:finalrep_app/views/competition_detail_page.dart';
 import 'e2e/e2e_test_harness.dart';
 
@@ -111,15 +111,17 @@ void main() {
         final harness = E2ETestHarness();
         await harness.initialize();
 
-        tester.view.physicalSize = const Size(800, 600);
+        tester.view.physicalSize = const Size(1200, 1200);
         tester.view.devicePixelRatio = 1.0;
+        await tester.binding.setSurfaceSize(const Size(1200, 1200));
         addTearDown(() {
           tester.view.resetPhysicalSize();
           tester.view.resetDevicePixelRatio();
+          tester.binding.setSurfaceSize(null);
         });
 
         await tester.pumpWidget(
-          harness.buildApp(const CreateCompetitionWizard()),
+          harness.buildApp(const CompetitionCreationPage()),
         );
         await tester.pumpAndSettle();
 
@@ -133,14 +135,21 @@ void main() {
         // Should show 'Title is required' validation error
         expect(find.text('Title is required'), findsOneWidget);
 
-        // Fill in title & location
+        // Fill in title (Step 1)
         await tester.enterText(
           find.byKey(const Key('comp_name_field')),
           'Mega Streetlifting Meet',
         );
+        await tester.pumpAndSettle();
+
+        // Tap Next -> Go to Step 2 (Location)
+        await tester.tap(nextButton);
+        await tester.pumpAndSettle();
+
+        // Fill in Location details
         await tester.enterText(
           find.byKey(const Key('comp_location_field')),
-          'Hamburg Gym',
+          'Rütersbarg 50, 22529 Hamburg, Germany',
         );
         await tester.pumpAndSettle();
 
@@ -151,6 +160,7 @@ void main() {
         );
         expect(verifyLocBtn, findsOneWidget);
         await tester.tap(verifyLocBtn);
+        await tester.pump(const Duration(milliseconds: 550));
         await tester.pumpAndSettle();
         expect(
           find.text('Location verified successfully! coordinates set.'),
@@ -162,19 +172,29 @@ void main() {
         ScaffoldMessenger.of(context).clearSnackBars();
         await tester.pumpAndSettle();
 
-        // Now click Next again to proceed to Step 2: Dates
+        // Tap Next -> Go to Step 3 (Sport & Format)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
-        expect(find.text('Step 2: Dates & Deadlines'), findsOneWidget);
+        expect(find.text('Step 3 of 11'), findsOneWidget);
 
-        // Go to Step 3: Registration
+        // Tap Next -> Go to Step 4 (Banner Image)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
-        expect(
-          find.text('Step 3: Registration Mode & Capacity Limits'),
-          findsOneWidget,
-        );
+
+        expect(find.text('Step 4 of 11'), findsOneWidget);
+
+        // Tap Next -> Go to Step 5 (Dates & Deadlines)
+        await tester.tap(nextButton);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Step 5 of 11'), findsOneWidget);
+
+        // Tap Next -> Go to Step 6 (Registration Settings)
+        await tester.tap(nextButton);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Step 6 of 11'), findsOneWidget);
 
         // Find and tap waitlist toggle Switch
         final waitlistToggle = find.byKey(const Key('comp_waitlist_toggle'));
@@ -192,10 +212,17 @@ void main() {
         await tester.enterText(maxAthletesField, '50');
         await tester.pumpAndSettle();
 
-        // Go to Step 4: Fees
+        // Tap Next -> Go to Step 7 (Athlete Groups)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
-        expect(find.text('Step 4: Fees & Payment Config'), findsOneWidget);
+
+        expect(find.text('Step 7 of 11'), findsOneWidget);
+
+        // Tap Next -> Go to Step 8 (Fees & Bank Details)
+        await tester.tap(nextButton);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Step 8 of 11'), findsOneWidget);
 
         // Fees switch toggle Switch
         final feesToggle = find.byKey(const Key('comp_fees_toggle'));
@@ -207,7 +234,7 @@ void main() {
 
         // Fee amount field and IBAN field should now be visible and required
         expect(find.text('Fee Amount *'), findsOneWidget);
-        expect(find.text('IBAN / Bank Details *'), findsOneWidget);
+        expect(find.text('IBAN *'), findsOneWidget);
 
         harness.dispose();
       },

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     username TEXT NOT NULL UNIQUE,
     full_name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
-    gender TEXT,
+    sex TEXT,
     country TEXT,
     profile_picture_url TEXT,
     description TEXT,
@@ -69,7 +69,8 @@ CREATE TABLE IF NOT EXISTS public.competitions (
     disclaimer_url TEXT,
     disclaimer_type TEXT,
     banner_safe_zone_guide BOOLEAN NOT NULL DEFAULT false,
-    schedule_published BOOLEAN NOT NULL DEFAULT false
+    schedule_published BOOLEAN NOT NULL DEFAULT false,
+    ranking_type TEXT NOT NULL DEFAULT 'open'
 );
 
 -- 3. Associations Table
@@ -90,6 +91,8 @@ CREATE TABLE IF NOT EXISTS public.associations (
     owner_id TEXT NOT NULL,
     supported_sports JSONB NOT NULL DEFAULT '[]'::jsonb,
     supported_formats JSONB NOT NULL DEFAULT '[]'::jsonb,
+    rulebooks_sharing JSONB NOT NULL DEFAULT '{}'::jsonb,
+    applied_shared_resources JSONB NOT NULL DEFAULT '{"rulebooks": {}, "competition_groups": [], "athlete_groups": []}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
@@ -111,20 +114,21 @@ CREATE TABLE IF NOT EXISTS public.competition_groups (
     sport TEXT NOT NULL,
     format TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT true,
-    is_athlete_groups_required BOOLEAN NOT NULL DEFAULT false
+    is_athlete_groups_required BOOLEAN NOT NULL DEFAULT false,
+    sharing_config JSONB NOT NULL DEFAULT '{"mode": "private", "targets": []}'::jsonb
 );
 
 -- 6. Athlete Groups Table
 CREATE TABLE IF NOT EXISTS public.athlete_groups (
     id TEXT PRIMARY KEY,
     association_id TEXT NOT NULL REFERENCES public.associations(id) ON DELETE CASCADE,
-    competition_group_id TEXT REFERENCES public.competition_groups(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     sport TEXT NOT NULL,
     format TEXT NOT NULL,
     gender TEXT NOT NULL DEFAULT 'Mixed',
-    max_weight DOUBLE PRECISION,
-    is_active BOOLEAN NOT NULL DEFAULT true
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    sharing_config JSONB NOT NULL DEFAULT '{"mode": "private", "targets": []}'::jsonb
 );
 
 -- 7. Attempts Table
@@ -159,8 +163,8 @@ CREATE TABLE IF NOT EXISTS public.highest_rankings (
     competition TEXT NOT NULL
 );
 
--- 10. Meet Registrations Table
-CREATE TABLE IF NOT EXISTS public.meet_registrations (
+-- 10. Athlete Registrations Table
+CREATE TABLE IF NOT EXISTS public.athlete_registrations (
     id TEXT PRIMARY KEY,
     competition_id UUID NOT NULL REFERENCES public.competitions(id) ON DELETE CASCADE,
     profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -169,8 +173,8 @@ CREATE TABLE IF NOT EXISTS public.meet_registrations (
     UNIQUE(profile_id, competition_id)
 );
 
--- 11. Meet Results Table
-CREATE TABLE IF NOT EXISTS public.meet_results (
+-- 11. Competition Results Table
+CREATE TABLE IF NOT EXISTS public.competition_results (
     id TEXT PRIMARY KEY,
     profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     competition_id UUID NOT NULL REFERENCES public.competitions(id) ON DELETE CASCADE,

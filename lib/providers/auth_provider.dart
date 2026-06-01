@@ -44,6 +44,8 @@ class AuthProvider extends ChangeNotifier {
     _init();
   }
 
+  String _timeFormat = '24h';
+
   // Getters
   ProfileRepository get profileRepository => _profileRepository;
   AdminRepository get adminRepository => _adminRepository;
@@ -56,6 +58,12 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   Session? get session => _session;
   bool get isPasswordRecoveryActive => _isPasswordRecoveryActive;
+  String get timeFormat => _timeFormat;
+
+  void setTimeFormat(String format) {
+    _timeFormat = format;
+    notifyListeners();
+  }
 
   bool get isAdmin => _currentUserProfile?.isAdmin ?? false;
   bool get isCompetitionCreator =>
@@ -208,7 +216,7 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     required String username,
     required String fullName,
-    String? gender,
+    String? sex,
     String? country,
     String? profilePictureUrl,
     Uint8List? customAvatarBytes,
@@ -234,7 +242,7 @@ class AuthProvider extends ChangeNotifier {
           data: {
             'username': cleanUsername,
             'full_name': fullName,
-            'gender': gender,
+            'sex': sex,
             'country': country,
             'profile_picture_url': profilePictureUrl,
           },
@@ -294,7 +302,7 @@ class AuthProvider extends ChangeNotifier {
             username: cleanUsername,
             fullName: fullName,
             email: email.trim(),
-            gender: gender ?? '',
+            sex: sex ?? '',
             country: country ?? '',
             profilePictureUrl: finalPicUrl,
             colorMode: 'system',
@@ -396,7 +404,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> updateProfile({
     required String fullName,
     required String email,
-    String? gender,
+    String? sex,
     String? country,
     String? description,
     required String colorMode,
@@ -420,7 +428,7 @@ class AuthProvider extends ChangeNotifier {
       final updatedProfile = _currentUserProfile!.copyWith(
         fullName: fullName,
         email: email,
-        gender: gender,
+        sex: sex,
         country: country,
         description: description,
         colorMode: colorMode,

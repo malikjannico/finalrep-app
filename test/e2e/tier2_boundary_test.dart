@@ -7,7 +7,7 @@ import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/views/login_page.dart';
 import 'package:finalrep_app/views/register_page.dart';
-import 'package:finalrep_app/views/competition_handling_page.dart';
+import 'package:finalrep_app/views/competition_judging_page.dart';
 
 void main() {
   group('E2E Tier 2: Boundary & Corner Cases', () {
@@ -197,7 +197,7 @@ void main() {
         );
 
         await tester.pumpWidget(
-          harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+          harness.buildApp(CompetitionJudgingPage(competitionId: comp.id)),
         );
         await tester.pumpAndSettle();
 
@@ -237,7 +237,7 @@ void main() {
         );
 
         await tester.pumpWidget(
-          harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+          harness.buildApp(CompetitionJudgingPage(competitionId: comp.id)),
         );
         await tester.pumpAndSettle();
 
@@ -279,7 +279,7 @@ void main() {
         );
 
         await tester.pumpWidget(
-          harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+          harness.buildApp(CompetitionJudgingPage(competitionId: comp.id)),
         );
         await tester.pumpAndSettle();
 
@@ -325,7 +325,7 @@ void main() {
           );
 
           await tester.pumpWidget(
-            harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+            harness.buildApp(CompetitionJudgingPage(competitionId: comp.id)),
           );
           await tester.pumpAndSettle();
 
@@ -379,7 +379,7 @@ void main() {
         );
 
         await tester.pumpWidget(
-          harness.buildApp(CompetitionHandlingPage(competitionId: comp.id)),
+          harness.buildApp(CompetitionJudgingPage(competitionId: comp.id)),
         );
         await tester.pumpAndSettle();
 

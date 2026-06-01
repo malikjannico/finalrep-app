@@ -6,6 +6,7 @@ class CompetitionGroup {
   final String format;
   final bool isActive;
   final bool isAthleteGroupsRequired;
+  final Map<String, dynamic> sharingConfig;
 
   CompetitionGroup({
     required this.id,
@@ -15,6 +16,7 @@ class CompetitionGroup {
     required this.format,
     this.isActive = true,
     this.isAthleteGroupsRequired = false,
+    this.sharingConfig = const {'mode': 'private', 'targets': []},
   });
 
   factory CompetitionGroup.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,9 @@ class CompetitionGroup {
       isActive: json['is_active'] as bool? ?? true,
       isAthleteGroupsRequired:
           json['is_athlete_groups_required'] as bool? ?? false,
+      sharingConfig: json['sharing_config'] != null
+          ? Map<String, dynamic>.from(json['sharing_config'] as Map)
+          : const {'mode': 'private', 'targets': []},
     );
   }
 
@@ -39,6 +44,7 @@ class CompetitionGroup {
       'format': format,
       'is_active': isActive,
       'is_athlete_groups_required': isAthleteGroupsRequired,
+      'sharing_config': sharingConfig,
     };
   }
 
@@ -50,6 +56,7 @@ class CompetitionGroup {
     String? format,
     bool? isActive,
     bool? isAthleteGroupsRequired,
+    Map<String, dynamic>? sharingConfig,
   }) {
     return CompetitionGroup(
       id: id ?? this.id,
@@ -60,6 +67,7 @@ class CompetitionGroup {
       isActive: isActive ?? this.isActive,
       isAthleteGroupsRequired:
           isAthleteGroupsRequired ?? this.isAthleteGroupsRequired,
+      sharingConfig: sharingConfig ?? this.sharingConfig,
     );
   }
 }

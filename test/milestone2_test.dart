@@ -109,12 +109,12 @@ void main() {
 
         // Apply
         final app = await adminRepository.applyForPermissions(
-          'user-test-1',
+          '00000000-0000-0000-0000-000000000001',
           'create_competition',
           'I want to organize meets',
         );
         expect(app, isNotNull);
-        expect(app!.userId, 'user-test-1');
+        expect(app!.userId, '00000000-0000-0000-0000-000000000001');
         expect(app.type, 'create_competition');
         expect(app.status, 'pending');
 
@@ -132,7 +132,7 @@ void main() {
 
         // Reject
         final anotherApp = await adminRepository.applyForPermissions(
-          'user-test-2',
+          '00000000-0000-0000-0000-000000000002',
           'create_association',
           'I want to run a federation',
         );
@@ -148,14 +148,16 @@ void main() {
       final config = await adminRepository.loadSportsConfig();
       expect(config, isNotNull);
 
-      // Add a new sport
-      final updatedSports = List<SportDefinition>.from(config.sports)
-        ..add(
+      // Add a new sport only if it doesn't already exist to prevent duplicates
+      final updatedSports = List<SportDefinition>.from(config.sports);
+      if (!updatedSports.any((s) => s.name == 'Powerlifting')) {
+        updatedSports.add(
           SportDefinition(
             name: 'Powerlifting',
             description: 'Squat, Bench, Deadlift',
           ),
         );
+      }
       final updatedConfig = SportConfig(
         sports: updatedSports,
         formats: config.formats,
@@ -168,6 +170,16 @@ void main() {
 
       final reloadedConfig = await adminRepository.loadSportsConfig();
       expect(reloadedConfig.sports.any((s) => s.name == 'Powerlifting'), true);
+
+      // Clean up/remove Powerlifting so that it is not left in the configuration
+      final cleanedSports = List<SportDefinition>.from(reloadedConfig.sports)..removeWhere((s) => s.name == 'Powerlifting');
+      final cleanedConfig = SportConfig(
+        sports: cleanedSports,
+        formats: reloadedConfig.formats,
+        disciplines: reloadedConfig.disciplines,
+        links: reloadedConfig.links,
+      );
+      await adminRepository.saveSportsConfig(cleanedConfig);
     });
 
     test(
@@ -308,10 +320,14 @@ void main() {
       final members = await associationRepository.getAssociationMembers(
         'assoc-1',
       );
-      final oldOwnerMember = members.firstWhere((m) => m.userId == 'user-1');
-      final newOwnerMember = members.firstWhere((m) => m.userId == 'user-2');
-      expect(oldOwnerMember.role, 'editor');
+      final hasOldOwner = members.any((m) => m.userId == 'user-1');
+      expect(hasOldOwner, false); // user-1 is removed since they had no other roles
+
+      final newOwnerMember = members.firstWhere((m) => m.userId == 'user-2' && m.role == 'owner');
       expect(newOwnerMember.role, 'owner');
+
+      final newOwnerEditorMember = members.any((m) => m.userId == 'user-2' && m.role == 'editor');
+      expect(newOwnerEditorMember, true); // user-2's existing editor role is preserved
     });
 
     test('Competition Groups & Athlete Weight Class Groups', () async {
@@ -342,12 +358,10 @@ void main() {
       final newAthleteGroup = AthleteGroup(
         id: 'new-ag-999',
         associationId: 'assoc-1',
-        competitionGroupId: 'new-group-999',
         name: '-70kg Male',
         sport: 'Streetlifting',
         format: 'Modern',
-        gender: 'Male',
-        maxWeight: 70.0,
+        gender: 'men',
         isActive: true,
       );
 

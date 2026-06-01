@@ -20,169 +20,7 @@ import 'package:finalrep_app/providers/auth_provider.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/views/notifications_page.dart';
 
-// --- Direct Mocks for Adversarial Testing ---
-
-class MockSupabaseClient implements SupabaseClient {
-  @override
-  final MockGoTrueClient auth;
-
-  MockSupabaseClient({required this.auth});
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockGoTrueClient implements GoTrueClient {
-  final StreamController<AuthState> _authStateController;
-  MockGoTrueClient(this._authStateController);
-
-  @override
-  Stream<AuthState> get onAuthStateChange => _authStateController.stream;
-
-  @override
-  User? get currentUser => null;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockProfileRepository implements ProfileRepository {
-  final Map<String, Profile> profiles = {};
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<Profile?> getProfile(String id) async {
-    return profiles[id];
-  }
-
-  @override
-  Future<Profile?> updateProfile(Profile profile) async {
-    profiles[profile.id] = profile;
-    return profile;
-  }
-
-  @override
-  Future<Profile?> updatePermissions(
-    String userId, {
-    bool? isCompetitionCreator,
-    bool? isAssociationCreator,
-    bool? isAdmin,
-  }) async {
-    final current = profiles[userId];
-    if (current == null) return null;
-    final updated = current.copyWith(
-      isCompetitionCreator: isCompetitionCreator,
-      isAssociationCreator: isAssociationCreator,
-      isAdmin: isAdmin,
-    );
-    profiles[userId] = updated;
-    return updated;
-  }
-}
-
-class MockCompetitionRepository implements CompetitionRepository {
-  final Map<String, Competition> competitions = {};
-  final List<Profile> athletes = [];
-  final List<String> registeredAthleteIds = [];
-  final List<Flight> createdFlights = [];
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  SupabaseClient get client => MockSupabaseClient(
-    auth: MockGoTrueClient(StreamController<AuthState>.broadcast()),
-  );
-
-  @override
-  Future<Competition?> getCompetitionById(String id) async {
-    return competitions[id];
-  }
-
-  @override
-  Future<List<Profile>> getCompetitionAthletes(String competitionId) async {
-    return athletes;
-  }
-
-  @override
-  Future<bool> registerAthlete(String competitionId, String userId) async {
-    if (!registeredAthleteIds.contains(userId)) {
-      registeredAthleteIds.add(userId);
-    }
-    return true;
-  }
-
-  @override
-  Future<List<String>> getRegisteredAthleteIds(String competitionId) async {
-    return registeredAthleteIds;
-  }
-
-  @override
-  Future<Flight?> createFlight(Flight flight) async {
-    createdFlights.add(flight);
-    return flight;
-  }
-
-  @override
-  Future<Competition?> createCompetition(Competition competition) async {
-    competitions[competition.id] = competition;
-    return competition;
-  }
-
-  @override
-  String get baseUrl => '';
-
-  @override
-  Future<List<Map<String, dynamic>>> getMeetResults() async => [];
-}
-
-class MockAdminRepository implements AdminRepository {
-  final Map<String, PermissionApplication> applications = {};
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<PermissionApplication?> approvePermissionApplication(
-    String applicationId,
-  ) async {
-    final app = applications[applicationId];
-    if (app == null) return null;
-    return app.copyWith(status: 'approved');
-  }
-
-  @override
-  Future<PermissionApplication?> rejectPermissionApplication(
-    String applicationId,
-  ) async {
-    final app = applications[applicationId];
-    if (app == null) return null;
-    return app.copyWith(status: 'rejected');
-  }
-}
-
-class FakeAssociationRepository implements AssociationRepository {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<List<Association>> getAssociations() async => [];
-
-  @override
-  Future<Association?> getAssociationDetails(String id) async {
-    return Association(
-      id: id,
-      name: 'Test Association',
-      description: 'Test Description',
-      scope: 'global',
-      rulebooks: const {'Streetlifting': 'https://example.com/rulebook'},
-      socialChannels: const {},
-      ownerId: 'owner-1',
-    );
-  }
-}
+import 'mocks/shared_mocks.dart';
 
 class WidgetMockAuthProvider extends ChangeNotifier implements AuthProvider {
   Profile? _currentUserProfile;
@@ -314,7 +152,7 @@ void main() {
 
         // 2. Registrations & Payments
         final mockCompRepo = MockCompetitionRepository();
-        final mockAssocRepo = FakeAssociationRepository();
+        final mockAssocRepo = MockAssociationRepository();
         final compProvider = CompetitionProvider(
           mockCompRepo,
           mockProfileRepo,
@@ -353,14 +191,15 @@ void main() {
         );
 
         // Register Athlete (fires registration confirmation + payment action required)
-        mockCompRepo.athletes.add(
-          Profile(
-            id: 'athlete-adversary',
-            username: 'ath1',
-            fullName: 'Athlete One',
-            email: 'a1@test.com',
-          ),
+        final athleteProfile = Profile(
+          id: 'athlete-adversary',
+          username: 'ath1',
+          fullName: 'Athlete One',
+          email: 'a1@test.com',
+          sex: 'male',
         );
+        mockProfileRepo.profiles['athlete-adversary'] = athleteProfile;
+        mockCompRepo.athletes.add(athleteProfile);
         final regSuccess = await compProvider.registerAthlete(
           competitionId: 'comp-1',
           userId: 'athlete-adversary',

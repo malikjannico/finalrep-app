@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,13 +8,121 @@ import '../models/competition.dart';
 import '../providers/auth_provider.dart';
 import '../providers/competition_provider.dart';
 
-class CompetitionDetailPage extends StatelessWidget {
-  final Competition competition;
+class CompetitionDetailPage extends StatefulWidget {
+  final Competition? competition;
+  final String? competitionId;
 
-  const CompetitionDetailPage({super.key, required this.competition});
+  const CompetitionDetailPage({
+    super.key,
+    this.competition,
+    this.competitionId,
+  });
+
+  @override
+  State<CompetitionDetailPage> createState() => _CompetitionDetailPageState();
+}
+
+class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
+  Competition? _competition;
+  bool _isLoading = false;
+  List<Map<String, dynamic>> _allResults = [];
+  bool _isLoadingResults = false;
+  String _selectedRankingsFilter = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.competition != null) {
+      _competition = widget.competition;
+      if (_competition!.status == 'completed') {
+        _loadMeetResults();
+      }
+    } else if (widget.competitionId != null) {
+      _loadCompetition().then((_) {
+        if (_competition != null && _competition!.status == 'completed') {
+          _loadMeetResults();
+        }
+      });
+    }
+  }
+
+  Future<void> _loadMeetResults() async {
+    if (_competition == null) return;
+    setState(() {
+      _isLoadingResults = true;
+    });
+    try {
+      final provider = Provider.of<CompetitionProvider>(context, listen: false);
+      final list = await provider.competitionRepository.getMeetResults();
+      final filtered = list.where((item) {
+        final compMap = item['competition'] as Map? ?? {};
+        final cId = compMap['id'] as String? ?? item['competition_id'] as String? ?? '';
+        return cId == _competition!.id;
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _allResults = filtered;
+          _isLoadingResults = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading meet results: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingResults = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadCompetition() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final provider = Provider.of<CompetitionProvider>(context, listen: false);
+      final comp = await provider.getCompetitionById(widget.competitionId!);
+      if (mounted) {
+        setState(() {
+          _competition = comp;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading competition details: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE94E1B)),
+          ),
+        ),
+      );
+    }
+
+    final provider = Provider.of<CompetitionProvider>(context);
+    final compId = _competition?.id ?? widget.competitionId;
+    final competition = provider.competitions.firstWhere(
+      (c) => c.id == compId,
+      orElse: () => _competition ?? widget.competition!,
+    );
+
     final theme = Theme.of(context);
 
     final dateFormat = DateFormat('EEEE, MMMM dd, yyyy');
@@ -77,7 +186,7 @@ class CompetitionDetailPage extends StatelessWidget {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildHeroImage(theme),
+                  _buildHeroImage(context, theme),
                   // Bottom gradient overlay
                   Container(
                     decoration: BoxDecoration(
@@ -272,19 +381,119 @@ class CompetitionDetailPage extends StatelessWidget {
                   const SizedBox(height: 32),
 
                   // CTA Buttons (Actions placeholder)
+                  (() {
+                    final authProvider = Provider.of<AuthProvider>(context);
+                    final compProvider = Provider.of<CompetitionProvider>(context);
+                    final currentUser = authProvider.currentUserProfile;
+                    final bool ownsAssociation = competition.associationId != null &&
+                        compProvider.associations.any(
+                          (assoc) =>
+                              assoc.id == competition.associationId &&
+                              assoc.ownerId == currentUser?.id,
+                        );
+                    final bool canManageIndividual =
+                        competition.associationId == null && currentUser?.isCompetitionCreator == true;
+                    final bool isOrganizer = currentUser != null && (currentUser.isAdmin || ownsAssociation || canManageIndividual);
+                    final bool registrationEnded = DateTime.now().isAfter(competition.registrationEnd);
+
+                    if (competition.registrationMode == 'random' && isOrganizer) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  key: const Key('run_random_draw_btn'),
+                                  icon: const Icon(Icons.shuffle),
+                                  label: const Text('Run Random Draw'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.tertiary,
+                                    foregroundColor: theme.colorScheme.onTertiary,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: registrationEnded
+                                      ? () async {
+                                          final success = await compProvider.runRandomDraw(competition.id);
+                                          if (context.mounted) {
+                                            if (success) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Random draw completed successfully!'),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(compProvider.errorMessage ?? 'Random draw failed'),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        }
+                                      : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (!registrationEnded) ...[
+                            const SizedBox(height: 4),
+                            Center(
+                              child: Text(
+                                'Draw can only be run after registration ends.',
+                                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  })(),
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Registration for ${competition.title} is not active yet!',
+                          onPressed: () async {
+                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                            final currentUser = authProvider.currentUserProfile;
+                            if (currentUser == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please log in to register.'),
+                                  backgroundColor: Colors.red,
                                 ),
-                                backgroundColor: theme.colorScheme.primary,
-                              ),
+                              );
+                              return;
+                            }
+                            final success = await compProvider.registerAthlete(
+                              competitionId: competition.id,
+                              userId: currentUser.id,
                             );
+                            if (context.mounted) {
+                              if (success) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Successfully registered as athlete!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(compProvider.errorMessage ?? 'Registration failed'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.colorScheme.primary,
@@ -379,6 +588,10 @@ class CompetitionDetailPage extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (competition.status == 'completed') ...[
+                    const SizedBox(height: 32),
+                    _buildRankingsSection(theme, competition),
+                  ],
                   const SizedBox(height: 48),
                 ],
               ),
@@ -389,8 +602,159 @@ class CompetitionDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHeroImage(ThemeData theme) {
-    final path = competition.titleImageUrl;
+  Widget _buildFilterChips(List<String> tabs) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: tabs.map((tab) {
+        final isSelected = _selectedRankingsFilter == tab;
+        return ChoiceChip(
+          label: Text(tab),
+          selected: isSelected,
+          onSelected: (selected) {
+            if (selected) {
+              setState(() {
+                _selectedRankingsFilter = tab;
+              });
+            }
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRankingsSection(ThemeData theme, Competition competition) {
+    final List<String> tabs = ['All'];
+    if (competition.rankingType == 'gender') {
+      tabs.addAll(['Men', 'Women']);
+    } else if (competition.rankingType == 'athlete_group') {
+      final classes = _allResults
+          .map((e) => e['competition_class'] as String? ?? '')
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList();
+      classes.sort();
+      tabs.addAll(classes);
+    }
+
+    final filtered = _allResults.where((item) {
+      final profile = item['profile'] as Map? ?? {};
+      final sexVal = (profile['sex'] ?? profile['gender'] as String? ?? 'male').toString().toLowerCase();
+      final compClass = item['competition_class'] as String? ?? '';
+
+      if (_selectedRankingsFilter == 'All') return true;
+      if (_selectedRankingsFilter == 'Men') return sexVal == 'male';
+      if (_selectedRankingsFilter == 'Women') return sexVal == 'female';
+      return compClass == _selectedRankingsFilter;
+    }).toList();
+
+    filtered.sort((a, b) {
+      final scoreA = (a['total_score'] as num?)?.toDouble() ?? 0.0;
+      final scoreB = (b['total_score'] as num?)?.toDouble() ?? 0.0;
+      return scoreB.compareTo(scoreA);
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Rankings & Results',
+          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        if (competition.rankingType != 'open' && tabs.length > 1) ...[
+          _buildFilterChips(tabs),
+          const SizedBox(height: 16),
+        ],
+        if (_isLoadingResults)
+          const Center(child: CircularProgressIndicator())
+        else if (filtered.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24.0),
+              child: Text('No results recorded matching this filter.'),
+            ),
+          )
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Table(
+              defaultColumnWidth: const IntrinsicColumnWidth(),
+              border: TableBorder.symmetric(
+                inside: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  ),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Text('Rank', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Text('Athlete', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Text('Division / Class', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                ...List.generate(filtered.length, (index) {
+                  final item = filtered[index];
+                  final profile = item['profile'] as Map? ?? {};
+                  final athleteName = profile['full_name'] as String? ?? 'Unknown Athlete';
+                  final username = profile['username'] as String? ?? '';
+                  final compClass = item['competition_class'] as String? ?? '';
+                  final totalScore = (item['total_score'] as num?)?.toDouble() ?? 0.0;
+
+                  return TableRow(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(athleteName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            if (username.isNotEmpty)
+                              Text('@$username', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Text(compClass.isNotEmpty ? compClass : 'Open'),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Text('${totalScore.toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFE94E1B))),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildHeroImage(BuildContext context, ThemeData theme) {
+    final path = _competition?.titleImageUrl;
     if (path == null || path.trim().isEmpty) {
       return Container(
         decoration: BoxDecoration(
@@ -410,8 +774,30 @@ class CompetitionDetailPage extends StatelessWidget {
       );
     }
 
-    if (path.startsWith('http')) {
+    if (path.startsWith('http') || path.startsWith('https')) {
       return Image.network(path, fit: BoxFit.cover);
+    } else if (path.startsWith('/')) {
+      final apiBaseUrl = Provider.of<CompetitionProvider>(context, listen: false).competitionRepository.baseUrl;
+      return Image.network(
+        '$apiBaseUrl$path',
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.fitness_center_outlined,
+              size: 64,
+              color: theme.colorScheme.onPrimary.withValues(alpha: 0.3),
+            ),
+          ),
+        ),
+      );
     } else {
       return Image.asset(path, fit: BoxFit.cover);
     }
@@ -790,10 +1176,44 @@ class _VolunteerApplicationBottomSheetState
             if (hasDisclaimer) ...[
               Text('Disclaimer / Terms', style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
-              if (widget.competition.disclaimerText != null)
-                Text(widget.competition.disclaimerText!),
-              if (widget.competition.disclaimerUrl != null)
-                Text('Link: ${widget.competition.disclaimerUrl}'),
+              (() {
+                final text = widget.competition.disclaimerText;
+                if (text == null) return const SizedBox();
+                try {
+                  final decoded = jsonDecode(text);
+                  if (decoded is List) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: decoded.map<Widget>((item) {
+                        final dText = (item['text'] ?? '').toString();
+                        final dUrl = (item['url'] ?? '').toString();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (dText.isNotEmpty) Text(dText),
+                              if (dUrl.isNotEmpty)
+                                Text(
+                                  'Link: $dUrl',
+                                  style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline),
+                                ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }
+                } catch (_) {}
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(text),
+                    if (widget.competition.disclaimerUrl != null)
+                      Text('Link: ${widget.competition.disclaimerUrl}'),
+                  ],
+                );
+              }()),
               const SizedBox(height: 8),
               CheckboxListTile(
                 key: const Key('comp_disclaimer'),

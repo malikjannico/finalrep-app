@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'e2e_test_harness.dart';
 import 'dart:io';
-import 'package:finalrep_app/views/search_feed_page.dart';
+import 'package:finalrep_app/views/home_navigation_shell.dart';
 import 'package:finalrep_app/views/register_page.dart';
 import 'package:finalrep_app/views/profile_page.dart';
 
@@ -39,7 +39,7 @@ void main() {
       // 1. Open home/search feed
       await tester.pumpWidget(
         harness.buildApp(
-          SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+          HomeNavigationShell(onToggleTheme: () {}, isDarkMode: true),
         ),
       );
       await tester.pump();

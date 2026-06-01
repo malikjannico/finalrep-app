@@ -6,10 +6,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response(statusCode: 405);
   }
   final newOwnerId = context.request.uri.queryParameters['newOwnerId'];
+  final customTitle = context.request.uri.queryParameters['customTitle'];
   if (newOwnerId == null) {
     return Response(statusCode: 400, body: 'Missing newOwnerId parameter');
   }
-  final result = await DbHelper.transferAssociationOwnership(id, newOwnerId);
+  final result = await DbHelper.transferAssociationOwnership(id, newOwnerId, customTitle: customTitle);
   if (result == null) {
     return Response(statusCode: 404, body: 'Association not found');
   }

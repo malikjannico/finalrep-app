@@ -12,12 +12,12 @@ import 'package:finalrep_app/providers/auth_provider.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/repositories/profile_repository.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
-import 'package:finalrep_app/views/competition_handling_page.dart';
+import 'package:finalrep_app/views/competition_judging_page.dart';
 import 'package:finalrep_app/views/rankings_page.dart';
 import 'package:finalrep_app/views/notifications_page.dart';
-import 'package:finalrep_app/views/competition_creation_wizard.dart';
+import 'package:finalrep_app/views/competition_creation_page.dart';
 import 'mock_views.dart'
-    hide CompetitionHandlingPage, RankingsPage, NotificationsPage;
+    hide CompetitionJudgingPage, RankingsPage, NotificationsPage;
 
 // ==========================================
 // 1. InMemoryDatabase (Fake DB)
@@ -30,6 +30,9 @@ class InMemoryDatabase {
   final List<Map<String, dynamic>> applications = [];
   final List<Map<String, dynamic>> attempts = [];
   final List<Map<String, dynamic>> volunteerApplications = [];
+  final List<Map<String, dynamic>> athleteGroups = [];
+  final List<Map<String, dynamic>> athleteRegistrations = [];
+  final List<Map<String, dynamic>> competitionGroups = [];
   final Map<String, Uint8List> storage = {}; // bucket/path -> data
 
   void reset() {
@@ -39,6 +42,9 @@ class InMemoryDatabase {
     applications.clear();
     attempts.clear();
     volunteerApplications.clear();
+    athleteGroups.clear();
+    athleteRegistrations.clear();
+    competitionGroups.clear();
     storage.clear();
     seedDefaultData();
   }
@@ -50,7 +56,7 @@ class InMemoryDatabase {
       username: 'system_admin',
       fullName: 'System Administrator',
       email: 'admin@finalrep.com',
-      gender: 'Male',
+      sex: 'male',
       country: 'Germany',
       description: 'System admin bio.',
       colorMode: 'dark',
@@ -61,7 +67,7 @@ class InMemoryDatabase {
       username: 'johndoe',
       fullName: 'John Doe',
       email: 'john@example.com',
-      gender: 'Male',
+      sex: 'male',
       country: 'Germany',
       description: 'Lifting is life.',
       colorMode: 'dark',
@@ -72,7 +78,7 @@ class InMemoryDatabase {
       username: 'mariesmith',
       fullName: 'Marie Smith',
       email: 'marie@example.com',
-      gender: 'Female',
+      sex: 'Female',
       country: 'USA',
       description: 'Classic pull and dip specialist.',
       colorMode: 'light',
@@ -114,6 +120,9 @@ class InMemoryDatabase {
     if (table == 'associations') return associations;
     if (table == 'applications') return applications;
     if (table == 'volunteer_applications') return volunteerApplications;
+    if (table == 'athlete_groups') return athleteGroups;
+    if (table == 'athlete_registrations') return athleteRegistrations;
+    if (table == 'competition_groups') return competitionGroups;
     return attempts;
   }
 }
@@ -243,7 +252,7 @@ class MockGoTrueClient implements GoTrueClient {
         username: username.toLowerCase(),
         fullName: fullName,
         email: email,
-        gender: data?['gender'] as String?,
+        sex: data?['sex'] as String?,
         country: data?['country'] as String?,
         profilePictureUrl: data?['profile_picture_url'] as String?,
       );
@@ -788,14 +797,14 @@ class E2ETestHarness {
           }
           if (settings.name == '/competition/create') {
             return MaterialPageRoute(
-              builder: (_) => const CreateCompetitionWizard(),
+              builder: (_) => const CompetitionCreationPage(),
             );
           }
           if (settings.name == '/competition/handling') {
             final args = settings.arguments as Map<String, dynamic>;
             return MaterialPageRoute(
               builder: (_) =>
-                  CompetitionHandlingPage(competitionId: args['id']),
+                  CompetitionJudgingPage(competitionId: args['id']),
             );
           }
           if (settings.name == '/rankings') {

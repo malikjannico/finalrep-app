@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/auth_provider.dart';
+import '../router.dart';
 import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -31,7 +33,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _obscureRegPassword = true;
 
   // Selected values
-  String? _selectedGender = 'Male';
+  String? _selectedSex = 'male';
   String? _selectedCountry = 'Germany';
 
   // Custom avatar upload variables
@@ -39,11 +41,11 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _customAvatarExtension;
   String? _customAvatarName;
 
-  final List<String> _genders = [
-    'Male',
-    'Female',
-    'Other',
-    'Prefer not to say',
+  final List<String> _sexes = [
+    'male',
+    'female',
+    'other',
+    'prefer not to say',
   ];
   final List<String> _countries = [
     'Germany',
@@ -218,7 +220,7 @@ class _RegisterPageState extends State<RegisterPage> {
         password: _regPasswordController.text,
         username: _regUsernameController.text.trim(),
         fullName: _regFullNameController.text.trim(),
-        gender: _selectedGender,
+        sex: _selectedSex,
         country: _selectedCountry,
         profilePictureUrl: null,
         customAvatarBytes: _customAvatarBytes,
@@ -249,6 +251,12 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  String _capitalizeSex(String s) {
+    if (s == 'prefer not to say') return 'Prefer not to say';
+    if (s.isEmpty) return '';
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -270,7 +278,18 @@ class _RegisterPageState extends State<RegisterPage> {
             ? null
             : IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  } else {
+                    try {
+                      GoRouter.of(context);
+                      goRouter.go('/');
+                    } catch (_) {
+                      Navigator.of(context).pop();
+                    }
+                  }
+                },
               ),
       ),
       body: Center(
@@ -336,23 +355,33 @@ class _RegisterPageState extends State<RegisterPage> {
                           GestureDetector(
                             onTap: () {
                               if (widget.isInline) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    settings: const RouteSettings(
-                                      name: '/login',
+                                try {
+                                  GoRouter.of(context);
+                                  goRouter.push('/login');
+                                } catch (_) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      settings: const RouteSettings(
+                                        name: '/login',
+                                      ),
+                                      builder: (_) => const LoginPage(),
                                     ),
-                                    builder: (_) => const LoginPage(),
-                                  ),
-                                );
+                                  );
+                                }
                               } else {
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    settings: const RouteSettings(
-                                      name: '/login',
+                                try {
+                                  GoRouter.of(context);
+                                  goRouter.pushReplacement('/login');
+                                } catch (_) {
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(
+                                      settings: const RouteSettings(
+                                        name: '/login',
+                                      ),
+                                      builder: (_) => const LoginPage(),
                                     ),
-                                    builder: (_) => const LoginPage(),
-                                  ),
-                                );
+                                  );
+                                }
                               }
                             },
                             child: MouseRegion(
@@ -585,29 +614,60 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           const SizedBox(height: 16),
 
-          // Gender
+          // Sex
           Text(
-            'Gender',
+            'Sex',
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            value: _selectedGender,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.people_outline),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          Theme(
+            data: theme.copyWith(
+              cardColor: theme.colorScheme.surface,
             ),
-            items: _genders.map((g) {
-              return DropdownMenuItem(value: g, child: Text(g));
-            }).toList(),
-            onChanged: (val) {
-              setState(() {
-                _selectedGender = val;
-              });
-            },
+            child: PopupMenuButton<String>(
+              tooltip: 'Sex',
+              offset: const Offset(0, 48),
+              onSelected: (val) {
+                setState(() {
+                  _selectedSex = val;
+                });
+              },
+              itemBuilder: (BuildContext context) {
+                return _sexes.map((s) {
+                  return PopupMenuItem<String>(
+                    value: s,
+                    child: Text(_capitalizeSex(s)),
+                  );
+                }).toList();
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.people_outline),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedSex != null ? _capitalizeSex(_selectedSex!) : '',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_drop_down,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -620,23 +680,103 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           ),
           const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            value: _selectedCountry,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.public),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          InkWell(
+            onTap: () => _showCountrySelectorDialog(theme),
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.public),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _selectedCountry ?? '',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
-            items: _countries.map((c) {
-              return DropdownMenuItem(value: c, child: Text(c));
-            }).toList(),
-            onChanged: (val) {
-              setState(() {
-                _selectedCountry = val;
-              });
-            },
           ),
         ],
       ),
+    );
+  }
+
+  void _showCountrySelectorDialog(ThemeData theme) {
+    String searchQuery = '';
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _countries.where((c) {
+              return c.toLowerCase().contains(searchQuery.toLowerCase());
+            }).toList();
+
+            return AlertDialog(
+              title: const Text('Select Country'),
+              content: SizedBox(
+                width: 400,
+                height: 500,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Search Country',
+                        hintText: 'e.g. Germany, France...',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (val) {
+                        setModalState(() {
+                          searchQuery = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, idx) {
+                          final c = filtered[idx];
+                          return ListTile(
+                            title: Text(c),
+                            trailing: _selectedCountry == c
+                                ? Icon(Icons.check, color: theme.colorScheme.primary)
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _selectedCountry = c;
+                              });
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('CANCEL'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

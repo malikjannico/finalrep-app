@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/competition.dart';
@@ -512,7 +513,7 @@ class CompetitionRepository {
   Future<List<Profile>> getCompetitionAthletes(String competitionId) async {
     if (_useMockFallback && _client != null) {
       try {
-        final response = await _client.from('meet_registrations').select('*, profile:profiles(*)').eq('competition_id', competitionId);
+        final response = await _client.from('athlete_registrations').select('*, profile:profiles(*)').eq('competition_id', competitionId);
         final list = response as List? ?? [];
         return list
             .map((data) => data['profile'])
@@ -539,15 +540,15 @@ class CompetitionRepository {
     }
   }
 
-  Future<bool> registerAthlete(String competitionId, String userId) async {
+  Future<bool> registerAthlete(String competitionId, String userId, {String status = 'registered'}) async {
     if (_useMockFallback && _client != null) {
       try {
         final regId = 'reg-${DateTime.now().millisecondsSinceEpoch}';
-        await _client.from('meet_registrations').insert({
+        await _client.from('athlete_registrations').insert({
           'id': regId,
           'competition_id': competitionId,
           'profile_id': userId,
-          'status': 'registered',
+          'status': status,
         });
         return true;
       } catch (_) {
@@ -555,7 +556,7 @@ class CompetitionRepository {
       }
     }
     try {
-      final response = await _api.post('/competitions/$competitionId/register', body: {'userId': userId});
+      final response = await _api.post('/competitions/$competitionId/register', body: {'userId': userId, 'status': status});
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         return body['success'] == true;
@@ -573,7 +574,7 @@ class CompetitionRepository {
   Future<List<String>> getRegisteredAthleteIds(String competitionId) async {
     if (_useMockFallback && _client != null) {
       try {
-        final response = await _client.from('meet_registrations').select('profile_id').eq('competition_id', competitionId);
+        final response = await _client.from('athlete_registrations').select('profile_id').eq('competition_id', competitionId);
         final list = response as List? ?? [];
         return list.map((data) => data['profile_id'] as String).toList();
       } catch (_) {
@@ -599,7 +600,7 @@ class CompetitionRepository {
   Future<List<Map<String, dynamic>>> getMeetResults() async {
     if (_useMockFallback && _client != null) {
       try {
-        final response = await _client.from('meet_results').select('*, competition:competitions(*), profile:profiles(*)');
+        final response = await _client.from('competition_results').select('*, competition:competitions(*), profile:profiles(*)');
         final list = response as List? ?? [];
         return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       } catch (_) {
@@ -621,6 +622,131 @@ class CompetitionRepository {
       }
       debugPrint('Error getting meet results: $e');
       return [];
+    }
+  }
+
+  Future<bool> runRandomDraw(String competitionId) async {
+    if (_useMockFallback && _client != null) {
+      try {
+        final compJson = await _client.from('competitions').select().eq('id', competitionId).maybeSingle();
+        if (compJson == null) return false;
+        
+        final competition = Competition.fromJson(compJson as Map<String, dynamic>);
+        if (competition.registrationMode != 'random') return false;
+        
+        final regs = await _client.from('athlete_registrations').select().eq('competition_id', competitionId) as List? ?? [];
+        if (regs.isEmpty) return true;
+        
+        final profilesRes = await _client.from('profiles').select() as List? ?? [];
+        final profilesMap = {for (final p in profilesRes) p['id'] as String: Profile.fromJson(p as Map<String, dynamic>)};
+        
+        final assignedStatus = <String, String>{};
+        final random = Random();
+        
+        List<dynamic> groupLimits = competition.maxAthletesPerGroup ?? [];
+        
+        if (groupLimits.isNotEmpty) {
+          for (final group in groupLimits) {
+            final groupGender = (group['gender'] as String? ?? 'open').toLowerCase();
+            final groupLimit = group['limit'] as int?;
+            
+            final candidates = regs.where((reg) {
+              final regId = reg['id'] as String;
+              if (assignedStatus[regId] == 'registered') return false;
+              
+              final profileId = reg['profile_id'] as String;
+              final userSex = (profilesMap[profileId]?.sex ?? '').toLowerCase();
+              
+              if (groupGender == 'open' || groupGender == 'mixed') return true;
+              if ((groupGender == 'men' || groupGender == 'male') && (userSex == 'male' || userSex == 'other')) return true;
+              if ((groupGender == 'women' || groupGender == 'female' || groupGender == 'woman') && (userSex == 'female' || userSex == 'other')) return true;
+              
+              return false;
+            }).toList();
+            
+            candidates.shuffle(random);
+            
+            if (groupLimit != null) {
+              final limit = groupLimit < candidates.length ? groupLimit : candidates.length;
+              for (int i = 0; i < limit; i++) {
+                final regId = candidates[i]['id'] as String;
+                assignedStatus[regId] = 'registered';
+              }
+              for (int i = limit; i < candidates.length; i++) {
+                final regId = candidates[i]['id'] as String;
+                if (assignedStatus[regId] != 'registered') {
+                  if (competition.enableWaitlist) {
+                    assignedStatus[regId] = 'waitlisted';
+                  } else {
+                    assignedStatus[regId] = 'pending';
+                  }
+                }
+              }
+            } else {
+              for (final cand in candidates) {
+                final regId = cand['id'] as String;
+                assignedStatus[regId] = 'registered';
+              }
+            }
+          }
+        } else {
+          final candidates = List<dynamic>.from(regs);
+          candidates.shuffle(random);
+          
+          if (competition.maxAthletes != null) {
+            final limit = competition.maxAthletes! < candidates.length ? competition.maxAthletes! : candidates.length;
+            for (int i = 0; i < limit; i++) {
+              final regId = candidates[i]['id'] as String;
+              assignedStatus[regId] = 'registered';
+            }
+            for (int i = limit; i < candidates.length; i++) {
+              final regId = candidates[i]['id'] as String;
+              if (competition.enableWaitlist) {
+                assignedStatus[regId] = 'waitlisted';
+              } else {
+                assignedStatus[regId] = 'pending';
+              }
+            }
+          } else {
+            for (final cand in candidates) {
+              final regId = cand['id'] as String;
+              assignedStatus[regId] = 'registered';
+            }
+          }
+        }
+        
+        for (final reg in regs) {
+          final regId = reg['id'] as String;
+          if (!assignedStatus.containsKey(regId)) {
+            if (competition.enableWaitlist) {
+              assignedStatus[regId] = 'waitlisted';
+            } else {
+              assignedStatus[regId] = 'pending';
+            }
+          }
+        }
+        
+        for (final entry in assignedStatus.entries) {
+          await _client.from('athlete_registrations').update({'status': entry.value}).eq('id', entry.key);
+        }
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    
+    try {
+      final response = await _api.post('/competitions/$competitionId/draw');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return body['success'] == true;
+      }
+      throw Exception('Failed to run random draw: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      if (!_useMockFallback) {
+        rethrow;
+      }
+      return false;
     }
   }
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finalrep_app/models/competition.dart';
-import 'package:finalrep_app/views/competition_creation_wizard.dart';
+import 'package:finalrep_app/models/profile.dart';
+import 'package:finalrep_app/views/competition_creation_page.dart';
 import 'e2e/e2e_test_harness.dart';
 
 void main() {
@@ -33,6 +34,29 @@ void main() {
           updatedAt: DateTime.now(),
         );
         harness.db.competitions[comp.id] = comp;
+        
+        // Seed user profiles in mock database
+        harness.db.profiles['athlete-1'] = Profile(
+          id: 'athlete-1',
+          username: 'athlete1',
+          fullName: 'Athlete One',
+          email: 'athlete1@example.com',
+          sex: 'male',
+        );
+        harness.db.profiles['athlete-2'] = Profile(
+          id: 'athlete-2',
+          username: 'athlete2',
+          fullName: 'Athlete Two',
+          email: 'athlete2@example.com',
+          sex: 'male',
+        );
+        harness.db.profiles['athlete-3'] = Profile(
+          id: 'athlete-3',
+          username: 'athlete3',
+          fullName: 'Athlete Three',
+          email: 'athlete3@example.com',
+          sex: 'male',
+        );
 
         // Register Athlete 1 -> Should succeed
         bool reg1 = await harness.competitionProvider.registerAthlete(
@@ -64,6 +88,94 @@ void main() {
       },
     );
 
+    testWidgets(
+      'Adversarial Test 3b: Athlete sex eligibility validation during registration',
+      (tester) async {
+        // Seed a competition belonging to assoc-1, which has Men-only athlete groups seeded
+        final comp = Competition(
+          id: 'comp-sex-test',
+          title: 'Sex Restricted Meet',
+          location: 'Berlin Gym',
+          sportType: 'Streetlifting',
+          sportSubtype: 'Modern',
+          associationId: 'assoc-1',
+          startDate: DateTime.now().add(const Duration(days: 2)),
+          endDate: DateTime.now().add(const Duration(days: 3)),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        harness.db.competitions[comp.id] = comp;
+
+        // 1. Register user with Male sex -> Should succeed
+        harness.db.profiles['user-male'] = Profile(
+          id: 'user-male',
+          username: 'maleuser',
+          fullName: 'Male User',
+          email: 'male@example.com',
+          sex: 'male',
+        );
+        bool regMale = await harness.competitionProvider.registerAthlete(
+          competitionId: comp.id,
+          userId: 'user-male',
+        );
+        expect(regMale, isTrue);
+
+        // 2. Register user with Female sex -> Should fail (only Men groups exist)
+        harness.db.profiles['user-female'] = Profile(
+          id: 'user-female',
+          username: 'femaleuser',
+          fullName: 'Female User',
+          email: 'female@example.com',
+          sex: 'female',
+        );
+        bool regFemale = await harness.competitionProvider.registerAthlete(
+          competitionId: comp.id,
+          userId: 'user-female',
+        );
+        expect(regFemale, isFalse);
+        expect(
+          harness.competitionProvider.errorMessage,
+          'You are not eligible to register for this competition based on your sex',
+        );
+
+        // 3. Register user with "Prefer not to say" -> Should fail with "Sex must be set..."
+        harness.db.profiles['user-prefer-not'] = Profile(
+          id: 'user-prefer-not',
+          username: 'prefernotuser',
+          fullName: 'Prefer Not User',
+          email: 'prefernot@example.com',
+          sex: 'prefer not to say',
+        );
+        bool regPreferNot = await harness.competitionProvider.registerAthlete(
+          competitionId: comp.id,
+          userId: 'user-prefer-not',
+        );
+        expect(regPreferNot, isFalse);
+        expect(
+          harness.competitionProvider.errorMessage,
+          'Sex must be set in order to register as an athlete',
+        );
+
+        // 4. Register user with null/unset sex -> Should fail with "Sex must be set..."
+        harness.db.profiles['user-unset'] = Profile(
+          id: 'user-unset',
+          username: 'unsetuser',
+          fullName: 'Unset User',
+          email: 'unset@example.com',
+          sex: null,
+        );
+        bool regUnset = await harness.competitionProvider.registerAthlete(
+          competitionId: comp.id,
+          userId: 'user-unset',
+        );
+        expect(regUnset, isFalse);
+        expect(
+          harness.competitionProvider.errorMessage,
+          'Sex must be set in order to register as an athlete',
+        );
+      },
+    );
+
     testWidgets('Adversarial Test 4: Wizard permits negative entry fee amounts', (
       tester,
     ) async {
@@ -77,49 +189,81 @@ void main() {
       });
 
       await tester.pumpWidget(
-        harness.buildApp(const CreateCompetitionWizard()),
+        harness.buildApp(const CompetitionCreationPage()),
       );
       await tester.pumpAndSettle();
 
-      // Step 1: Info
+      // Step 1: Title
       await tester.enterText(
         find.byKey(const Key('comp_name_field')),
         'Negative Fee Meet',
       );
+      await tester.pumpAndSettle();
+
+      final nextButton = find.byKey(const Key('comp_next_btn'));
+      await tester.tap(nextButton); // 1 -> 2
+      await tester.pumpAndSettle();
+
+      // Step 2: Location
       await tester.enterText(
         find.byKey(const Key('comp_location_field')),
-        'Berlin Gym',
+        'Alexanderplatz 1, 10178 Berlin, Germany',
       );
-      final nextButton = find.byKey(const Key('comp_next_btn'));
-      await tester.tap(nextButton);
+      final verifyLocBtn = find.widgetWithText(
+        ElevatedButton,
+        'Verify Location',
+      );
+      await tester.tap(verifyLocBtn);
+      await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
-      // Step 2: Dates
-      await tester.tap(nextButton);
+      final context = tester.element(nextButton);
+      ScaffoldMessenger.of(context).clearSnackBars();
       await tester.pumpAndSettle();
 
-      // Step 3: Registration
-      await tester.tap(nextButton);
+      await tester.tap(nextButton); // 2 -> 3
       await tester.pumpAndSettle();
 
-      // Step 4: Fees
+      // Step 3: Sport & Format
+      await tester.tap(nextButton); // 3 -> 4
+      await tester.pumpAndSettle();
+
+      // Step 4: Banner Image
+      await tester.tap(nextButton); // 4 -> 5
+      await tester.pumpAndSettle();
+
+      // Step 5: Dates
+      await tester.tap(nextButton); // 5 -> 6
+      await tester.pumpAndSettle();
+
+      // Step 6: Registration Settings
+      await tester.tap(nextButton); // 6 -> 7
+      await tester.pumpAndSettle();
+
+      // Step 7: Athlete Groups
+      await tester.tap(nextButton); // 7 -> 8
+      await tester.pumpAndSettle();
+
+      // Step 8: Fees
       // Toggle fees ON
       final feesToggle = find.byKey(const Key('comp_fees_toggle'));
-      await tester.tap(
-        find.descendant(of: feesToggle, matching: find.byType(Switch)),
-      );
+      await tester.tap(feesToggle);
       await tester.pumpAndSettle();
 
       // Input negative fee amount
       final feeAmountField = find.widgetWithText(TextFormField, 'Fee Amount *');
       await tester.enterText(feeAmountField, '-50.0');
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'IBAN / Bank Details *'),
+        find.widgetWithText(TextFormField, 'IBAN *'),
         'DE9876543210',
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Payment Reference / Description *'),
-        'Negative Fee Test',
+        find.widgetWithText(TextFormField, 'BIC *'),
+        'WELADEDDXXX',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Bank Name *'),
+        'Sparkasse Berlin',
       );
       await tester.pumpAndSettle();
 
@@ -127,10 +271,10 @@ void main() {
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // If the wizard allows moving to Step 5 (Volunteer Setup), it means negative fee was accepted!
-      final step5Visible = find.text('Step 5: Volunteer Setup');
+      // If the wizard allows moving to Step 9, it means negative fee was accepted!
+      final step9Visible = find.text('Step 9: Payment Settings');
       expect(
-        step5Visible,
+        step9Visible,
         findsNothing,
         reason: 'Negative fee amount must be blocked by validation',
       );
@@ -149,28 +293,54 @@ void main() {
         });
 
         await tester.pumpWidget(
-          harness.buildApp(const CreateCompetitionWizard()),
+          harness.buildApp(const CompetitionCreationPage()),
         );
         await tester.pumpAndSettle();
 
-        // Step 1: Info
+        // Step 1: Set title
         await tester.enterText(
           find.byKey(const Key('comp_name_field')),
           'Waitlist Test Meet',
         );
+        await tester.pumpAndSettle();
+
+        final nextButton = find.byKey(const Key('comp_next_btn'));
+        await tester.tap(nextButton); // 1 -> 2
+        await tester.pumpAndSettle();
+
+        // Step 2: Location
         await tester.enterText(
           find.byKey(const Key('comp_location_field')),
-          'Berlin Gym',
+          'Alexanderplatz 1, 10178 Berlin, Germany',
         );
-        final nextButton = find.byKey(const Key('comp_next_btn'));
-        await tester.tap(nextButton);
+        final verifyLocBtn = find.widgetWithText(
+          ElevatedButton,
+          'Verify Location',
+        );
+        await tester.tap(verifyLocBtn);
+        await tester.pump(const Duration(milliseconds: 550));
         await tester.pumpAndSettle();
 
-        // Step 2: Dates
-        await tester.tap(nextButton);
+        final context = tester.element(nextButton);
+        ScaffoldMessenger.of(context).clearSnackBars();
         await tester.pumpAndSettle();
 
-        // Step 3: Registration
+        await tester.tap(nextButton); // 2 -> 3
+        await tester.pumpAndSettle();
+
+        // Step 3: Sport & Format
+        await tester.tap(nextButton); // 3 -> 4
+        await tester.pumpAndSettle();
+
+        // Step 4: Banner Image
+        await tester.tap(nextButton); // 4 -> 5
+        await tester.pumpAndSettle();
+
+        // Step 5: Dates
+        await tester.tap(nextButton); // 5 -> 6
+        await tester.pumpAndSettle();
+
+        // Step 6: Registration Settings
         // Enable waitlist but leave capacity limit empty (unlimited)
         final waitlistToggle = find.byKey(const Key('comp_waitlist_toggle'));
         await tester.tap(
@@ -178,15 +348,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Proceed to Step 4
+        // Proceed to Step 7
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
         // A waitlist makes no sense without a capacity limit! Validation should block this.
-        // If it moves to Step 4 (Fees & Payment Config), it's a validation gap.
-        final step4Visible = find.text('Step 4: Fees & Payment Config');
+        final step7Visible = find.text('Step 7 of 11');
         expect(
-          step4Visible,
+          step7Visible,
           findsNothing,
           reason: 'Waitlist should not be enabled without a capacity limit',
         );
@@ -207,28 +376,54 @@ void main() {
           });
 
           await tester.pumpWidget(
-            harness.buildApp(const CreateCompetitionWizard()),
+            harness.buildApp(const CompetitionCreationPage()),
           );
           await tester.pumpAndSettle();
 
-          // Step 1: Info
+          // Step 1: Set title
           await tester.enterText(
             find.byKey(const Key('comp_name_field')),
             'Negative Capacity Meet',
           );
+          await tester.pumpAndSettle();
+
+          final nextButton = find.byKey(const Key('comp_next_btn'));
+          await tester.tap(nextButton); // 1 -> 2
+          await tester.pumpAndSettle();
+
+          // Step 2: Location
           await tester.enterText(
             find.byKey(const Key('comp_location_field')),
-            'Berlin Gym',
+            'Alexanderplatz 1, 10178 Berlin, Germany',
           );
-          final nextButton = find.byKey(const Key('comp_next_btn'));
-          await tester.tap(nextButton);
+          final verifyLocBtn = find.widgetWithText(
+            ElevatedButton,
+            'Verify Location',
+          );
+          await tester.tap(verifyLocBtn);
+          await tester.pump(const Duration(milliseconds: 550));
           await tester.pumpAndSettle();
 
-          // Step 2: Dates
-          await tester.tap(nextButton);
+          final context = tester.element(nextButton);
+          ScaffoldMessenger.of(context).clearSnackBars();
           await tester.pumpAndSettle();
 
-          // Step 3: Registration
+          await tester.tap(nextButton); // 2 -> 3
+          await tester.pumpAndSettle();
+
+          // Step 3: Sport & Format
+          await tester.tap(nextButton); // 3 -> 4
+          await tester.pumpAndSettle();
+
+          // Step 4: Banner Image
+          await tester.tap(nextButton); // 4 -> 5
+          await tester.pumpAndSettle();
+
+          // Step 5: Dates
+          await tester.tap(nextButton); // 5 -> 6
+          await tester.pumpAndSettle();
+
+          // Step 6: Registration Settings
           // Set negative capacity
           final maxAthletesField = find.widgetWithText(
             TextFormField,
@@ -237,14 +432,14 @@ void main() {
           await tester.enterText(maxAthletesField, '-5');
           await tester.pumpAndSettle();
 
-          // Proceed to Step 4
+          // Proceed to Step 7
           await tester.tap(nextButton);
           await tester.pumpAndSettle();
 
           // Negative capacity must be blocked by validation
-          final step4Visible = find.text('Step 4: Fees & Payment Config');
+          final step7Visible = find.text('Step 7 of 11');
           expect(
-            step4Visible,
+            step7Visible,
             findsNothing,
             reason: 'Negative capacity limit must be blocked by validation',
           );

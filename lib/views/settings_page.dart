@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../router.dart';
 import '../providers/auth_provider.dart';
+import '../providers/competition_provider.dart';
+import '../utils/image_url_resolver.dart';
 import 'appearance_settings_page.dart';
 import 'change_password_page.dart';
 
@@ -41,12 +45,29 @@ class _SettingsPageState extends State<SettingsPage> {
     final hasDescription =
         profile.description != null && profile.description!.isNotEmpty;
 
+    final resolvedUrl = ImageUrlResolver.resolve(context, profile.profilePictureUrl);
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: const Text(
           'Settings',
           style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              try {
+                GoRouter.of(context);
+                goRouter.go('/');
+              } catch (_) {
+                Navigator.of(context).pop();
+              }
+            }
+          },
         ),
       ),
       body: SingleChildScrollView(
@@ -63,10 +84,14 @@ class _SettingsPageState extends State<SettingsPage> {
                     CircleAvatar(
                       radius: 40,
                       backgroundColor: theme.colorScheme.primaryContainer,
-                      backgroundImage: profile.profilePictureUrl != null
-                          ? NetworkImage(profile.profilePictureUrl!)
+                      backgroundImage:
+                          resolvedUrl != null &&
+                              resolvedUrl.isNotEmpty
+                          ? NetworkImage(resolvedUrl)
                           : null,
-                      child: profile.profilePictureUrl == null
+                      child:
+                          profile.profilePictureUrl == null ||
+                              profile.profilePictureUrl!.isEmpty
                           ? Text(
                               initials,
                               style: TextStyle(
@@ -99,7 +124,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              if (profile.gender != null)
+                              if (profile.sex != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
@@ -110,7 +135,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
-                                    profile.gender!,
+                                    profile.sex!,
                                     style: theme.textTheme.labelSmall?.copyWith(
                                       color: theme
                                           .colorScheme
@@ -119,7 +144,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                   ),
                                 ),
-                              if (profile.gender != null &&
+                              if (profile.sex != null &&
                                   profile.country != null)
                                 const SizedBox(width: 8),
                               if (profile.country != null)
@@ -183,11 +208,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: const Text('Appearance'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                   onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const AppearanceSettingsPage(),
-                      ),
-                    );
+                    try {
+                      GoRouter.of(context);
+                      goRouter.push('/settings/appearance');
+                    } catch (_) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AppearanceSettingsPage(),
+                        ),
+                      );
+                    }
                   },
                 ),
                 const Divider(),
@@ -197,29 +227,40 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: const Text('Change Password'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                   onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ChangePasswordPage(),
-                      ),
-                    );
+                    try {
+                      GoRouter.of(context);
+                      goRouter.push('/settings/updatesecurity');
+                    } catch (_) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ChangePasswordPage(),
+                        ),
+                      );
+                    }
                   },
                 ),
-                if (!(profile.isCompetitionCreator && profile.isAssociationCreator)) ...[
+                if (!(profile.isCompetitionCreator &&
+                    profile.isAssociationCreator)) ...[
                   const Divider(),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.verified_user_outlined),
                     title: const Text('Creator Privileges'),
                     subtitle: Text(
-                      !profile.isCompetitionCreator && !profile.isAssociationCreator
+                      !profile.isCompetitionCreator &&
+                              !profile.isAssociationCreator
                           ? 'Apply to create associations or competitions'
                           : profile.isCompetitionCreator
-                              ? 'You are a competition creator. Apply to create associations.'
-                              : 'You are an association creator. Apply to create competitions.',
+                          ? 'You are a competition creator. Apply to create associations.'
+                          : 'You are an association creator. Apply to create competitions.',
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                     onTap: () {
-                      _showApplyPrivilegesDialog(context, authProvider, profile);
+                      _showApplyPrivilegesDialog(
+                        context,
+                        authProvider,
+                        profile,
+                      );
                     },
                   ),
                 ],
@@ -291,7 +332,9 @@ class _SettingsPageState extends State<SettingsPage> {
     AuthProvider authProvider,
     dynamic profile,
   ) {
-    String selectedType = profile.isCompetitionCreator ? 'create_association' : 'create_competition';
+    String selectedType = profile.isCompetitionCreator
+        ? 'create_association'
+        : 'create_competition';
     final reasonController = TextEditingController();
     bool isSubmitting = false;
 

@@ -253,7 +253,7 @@ void main() {
         password: 'password123',
         username: 'testuser',
         fullName: 'Test User',
-        gender: 'Male',
+        sex: 'male',
         country: 'USA',
         profilePictureUrl: 'https://example.com/pic.png',
       );
@@ -265,7 +265,7 @@ void main() {
       expect(call['data'], {
         'username': 'testuser',
         'full_name': 'Test User',
-        'gender': 'Male',
+        'sex': 'male',
         'country': 'USA',
         'profile_picture_url': 'https://example.com/pic.png',
       });
@@ -386,7 +386,7 @@ void main() {
         await authProvider.updateProfile(
           fullName: 'Updated User Four',
           email: 'newemail@example.com',
-          gender: 'Female',
+          sex: 'Female',
           country: 'Canada',
           description: 'New Description',
           colorMode: 'dark',
@@ -401,7 +401,7 @@ void main() {
         final updatedProfile = mockProfileRepository.updateCalls.first;
         expect(updatedProfile.fullName, 'Updated User Four');
         expect(updatedProfile.email, 'newemail@example.com');
-        expect(updatedProfile.gender, 'Female');
+        expect(updatedProfile.sex, 'Female');
         expect(updatedProfile.country, 'Canada');
         expect(updatedProfile.description, 'New Description');
         expect(updatedProfile.colorMode, 'dark');

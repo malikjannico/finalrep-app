@@ -12,10 +12,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
       return Response.json(statusCode: 201, body: result);
     case HttpMethod.delete:
       final userId = context.request.uri.queryParameters['userId'];
+      final role = context.request.uri.queryParameters['role'];
       if (userId == null) {
         return Response(statusCode: 400, body: 'Missing userId parameter');
       }
-      final success = await DbHelper.removeAssociationMember(id, userId);
+      final success = await DbHelper.removeAssociationMember(id, userId, role: role);
       return Response.json(body: {'success': success});
     default:
       return Response(statusCode: 405);

@@ -1,7 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finalrep_app/models/competition.dart';
-import 'package:finalrep_app/views/competition_creation_wizard.dart';
+import 'package:finalrep_app/views/competition_creation_page.dart';
 import 'package:finalrep_app/views/competition_detail_page.dart';
 import 'e2e/e2e_test_harness.dart';
 
@@ -13,6 +14,8 @@ void main() {
       Finder tileFinder,
       String dateText,
     ) async {
+      await tester.ensureVisible(tileFinder);
+      await tester.pumpAndSettle();
       await tester.tap(tileFinder);
       await tester.pumpAndSettle();
 
@@ -57,7 +60,7 @@ void main() {
       });
 
       await tester.pumpWidget(
-        harness.buildApp(const CreateCompetitionWizard()),
+        harness.buildApp(const CompetitionCreationPage()),
       );
       await tester.pumpAndSettle();
 
@@ -66,66 +69,93 @@ void main() {
         find.byKey(const Key('comp_name_field')),
         'Date Test Meet',
       );
+      await tester.pumpAndSettle();
+
+      final nextButton = find.byKey(const Key('comp_next_btn'));
+      await tester.tap(nextButton); // 1 -> 2
+      await tester.pumpAndSettle();
+
+      // Step 2 Location
       await tester.enterText(
         find.byKey(const Key('comp_location_field')),
-        'Berlin Gym',
+        'Alexanderplatz 1, 10178 Berlin, Germany',
       );
+      await tester.pumpAndSettle();
+
       final verifyLocBtn = find.widgetWithText(
         ElevatedButton,
         'Verify Location',
       );
       await tester.tap(verifyLocBtn);
+      await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
-      final nextButton = find.byKey(const Key('comp_next_btn'));
       final context = tester.element(nextButton);
       ScaffoldMessenger.of(context).clearSnackBars();
       await tester.pumpAndSettle();
 
-      // Step 1 -> Step 2
+      // Tap next for step 2 -> 3 (Sport & Format)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Step 2 -> Step 3
+      // Tap next for step 3 -> 4 (Banner Image)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Step 3 -> Step 4
+      // Tap next for step 4 -> 5 (Dates)
+      await tester.tap(nextButton);
+      await tester.pumpAndSettle();
+
+      // Tap next for step 5 -> 6 (Reg Settings)
+      await tester.tap(nextButton);
+      await tester.pumpAndSettle();
+
+      // Tap next for step 6 -> 7 (Athlete Groups)
+      await tester.tap(nextButton);
+      await tester.pumpAndSettle();
+
+      // Tap next for step 7 -> 8 (Fees & Bank Details)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
       // Enable fees
       final feesToggle = find.byKey(const Key('comp_fees_toggle'));
-      await tester.tap(
-        find.descendant(of: feesToggle, matching: find.byType(Switch)),
-      );
+      await tester.tap(feesToggle);
       await tester.pumpAndSettle();
 
-      // Fill fee amount & IBAN & payment description (must fill because of validator bug!)
+      // Fill fee amount & IBAN & bank details
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Fee Amount *'),
         '15.0',
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'IBAN / Bank Details *'),
+        find.widgetWithText(TextFormField, 'IBAN *'),
         'DE9876543210',
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Payment Reference / Description *'),
-        'Date Test Reference',
+        find.widgetWithText(TextFormField, 'BIC *'),
+        'WELADEDDXXX',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Bank Name *'),
+        'Sparkasse Berlin',
       );
       await tester.pumpAndSettle();
 
       // Notice we do NOT select any payment start/end dates.
-      // Step 4 -> Step 5
+      // Step 8 -> Step 9 (Payment Settings)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Step 5 -> Step 6
+      // Step 9 -> Step 10 (Volunteer Setup)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Submit the wizard in Step 6
+      // Step 10 -> Step 11 (Disclaimers & Custom Fields)
+      await tester.tap(nextButton);
+      await tester.pumpAndSettle();
+
+      // Submit the wizard in Step 11
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
@@ -272,83 +302,101 @@ void main() {
       });
 
       await tester.pumpWidget(
-        harness.buildApp(const CreateCompetitionWizard()),
+        harness.buildApp(const CompetitionCreationPage()),
       );
       await tester.pumpAndSettle();
 
-      // Go directly to Step 6
-      // Step 1 Info
+      // Step 1 Title
       await tester.enterText(
         find.byKey(const Key('comp_name_field')),
         'Disclaimer Meet',
       );
+      await tester.pumpAndSettle();
+
+      final nextButton = find.byKey(const Key('comp_next_btn'));
+      await tester.tap(nextButton); // 1 -> 2
+      await tester.pumpAndSettle();
+
+      // Step 2 Location
       await tester.enterText(
         find.byKey(const Key('comp_location_field')),
-        'Berlin Gym',
+        'Alexanderplatz 1, 10178 Berlin, Germany',
       );
-      final nextButton = find.byKey(const Key('comp_next_btn'));
-      await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Step 2 Dates
-      await tester.tap(nextButton);
-      await tester.pumpAndSettle();
-
-      // Step 3 Reg
-      await tester.tap(nextButton);
-      await tester.pumpAndSettle();
-
-      // Step 4 Fees
-      await tester.tap(nextButton);
-      await tester.pumpAndSettle();
-
-      // Step 5 Volunteer
-      await tester.tap(nextButton);
-      await tester.pumpAndSettle();
-
-      // Now at Step 6 Disclaimers
-      expect(find.text('Step 6: Disclaimers & Custom Fields'), findsOneWidget);
-
-      // Select disclaimer type 'Both Text and Link'
-      final typeDropdown = find.widgetWithText(
-        DropdownButtonFormField<String>,
-        'Disclaimer Type',
+      final verifyLocBtn = find.widgetWithText(
+        ElevatedButton,
+        'Verify Location',
       );
-      await tester.tap(typeDropdown);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Both Text and Link').last);
-      await tester.pumpAndSettle();
-
-      // Click SUBMIT with empty fields -> should fail validation
-      await tester.tap(nextButton);
+      await tester.tap(verifyLocBtn);
+      await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
-      expect(find.text('Disclaimer text is required'), findsOneWidget);
-      expect(find.text('Disclaimer URL is required'), findsOneWidget);
+      final context = tester.element(nextButton);
+      ScaffoldMessenger.of(context).clearSnackBars();
+      await tester.pumpAndSettle();
 
-      // Fill valid text but invalid URL
+      await tester.tap(nextButton); // 2 -> 3
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 3 -> 4
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 4 -> 5
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 5 -> 6
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 6 -> 7
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 7 -> 8
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 8 -> 9
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 9 -> 10
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 10 -> 11 (Disclaimers & Custom Fields)
+      await tester.pumpAndSettle();
+
+      expect(find.text('Step 11 of 11'), findsOneWidget);
+
+      // Tap "Add Disclaimer"
+      final addDisclaimerBtn = find.widgetWithText(ElevatedButton, 'Add Disclaimer');
+      await tester.tap(addDisclaimerBtn);
+      await tester.pumpAndSettle();
+
+      // Tap ADD inside the dialog with empty text -> should fail with snackbar
+      await tester.tap(find.widgetWithText(ElevatedButton, 'ADD'));
+      await tester.pumpAndSettle();
+      expect(find.text('Disclaimer Text is required.'), findsOneWidget);
+      ScaffoldMessenger.of(context).clearSnackBars();
+      await tester.pumpAndSettle();
+
+      // Enter valid text and invalid URL
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Disclaimer Text *'),
         'Accept our terms.',
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Disclaimer URL *'),
+        find.widgetWithText(TextFormField, 'Disclaimer URL (Optional)'),
         'invalid-url',
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(nextButton);
+      await tester.tap(find.widgetWithText(ElevatedButton, 'ADD'));
+      await tester.pumpAndSettle();
+      expect(find.text('Please enter a valid URL.'), findsOneWidget);
+      ScaffoldMessenger.of(context).clearSnackBars();
       await tester.pumpAndSettle();
 
-      expect(find.text('Enter a valid URL'), findsOneWidget);
-
-      // Fill valid URL
+      // Enter valid URL
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Disclaimer URL *'),
+        find.widgetWithText(TextFormField, 'Disclaimer URL (Optional)'),
         'https://example.com/terms',
       );
       await tester.pumpAndSettle();
 
+      await tester.tap(find.widgetWithText(ElevatedButton, 'ADD'));
+      await tester.pumpAndSettle();
+
+      // Submit the wizard in Step 11
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
@@ -356,9 +404,12 @@ void main() {
       expect(harness.db.competitions.length, 1);
       final comp = harness.db.competitions.values.first;
       expect(comp.disclaimerType, 'both');
-      expect(comp.disclaimerText, 'Accept our terms.');
-      expect(comp.disclaimerUrl, 'https://example.com/terms');
+      final decoded = jsonDecode(comp.disclaimerText!);
+      expect(decoded[0]['text'], 'Accept our terms.');
+      expect(decoded[0]['url'], 'https://example.com/terms');
     });
+
+
 
     testWidgets(
       '5. Back-and-forth step navigation and subtype disciplines update',
@@ -378,42 +429,61 @@ void main() {
         });
 
         await tester.pumpWidget(
-          harness.buildApp(const CreateCompetitionWizard()),
+          harness.buildApp(const CompetitionCreationPage()),
         );
         await tester.pumpAndSettle();
 
-        // Step 1: Set title, location, and Sport Subtype to Modern
+        // Step 1: Set title
         await tester.enterText(
           find.byKey(const Key('comp_name_field')),
           'Nav Meet',
         );
-        await tester.enterText(
-          find.byKey(const Key('comp_location_field')),
-          'Berlin Gym',
-        );
-        final subtypeDropdown = find.widgetWithText(
-          DropdownButtonFormField<String>,
-          'Sport Subtype',
-        );
-        await tester.tap(subtypeDropdown);
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.text('Modern (Muscleup, Pullup, Dip, Squat)').last,
-        );
         await tester.pumpAndSettle();
 
         final nextButton = find.byKey(const Key('comp_next_btn'));
-        await tester.tap(nextButton);
+        await tester.tap(nextButton); // Step 1 -> 2
         await tester.pumpAndSettle();
 
-        // Proceed to Step 4
+        // Step 2: Location
+        await tester.enterText(
+          find.byKey(const Key('comp_location_field')),
+          'Alexanderplatz 1, 10178 Berlin, Germany',
+        );
+        final verifyLocBtn = find.widgetWithText(
+          ElevatedButton,
+          'Verify Location',
+        );
+        await tester.tap(verifyLocBtn);
+        await tester.pump(const Duration(milliseconds: 550));
+        await tester.pumpAndSettle();
+
+        final context = tester.element(nextButton);
+        ScaffoldMessenger.of(context).clearSnackBars();
+        await tester.pumpAndSettle();
+
         await tester.tap(nextButton); // Step 2 -> 3
         await tester.pumpAndSettle();
+
+        // Step 3: Sport & Format -> set Sport Subtype to Modern
+        final subtypeDropdown = find.byTooltip('Sport Format');
+        await tester.tap(subtypeDropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.text('Modern').last,
+        );
+        await tester.pumpAndSettle();
+
         await tester.tap(nextButton); // Step 3 -> 4
+        await tester.pumpAndSettle();
+
+        // Step 4: Banner Image -> Step 5 (Dates)
+        await tester.tap(nextButton); // Step 4 -> 5
         await tester.pumpAndSettle();
 
         // Go back to Step 1
         final backButton = find.widgetWithText(OutlinedButton, 'BACK');
+        await tester.tap(backButton); // Step 5 -> 4
+        await tester.pumpAndSettle();
         await tester.tap(backButton); // Step 4 -> 3
         await tester.pumpAndSettle();
         await tester.tap(backButton); // Step 3 -> 2
@@ -421,24 +491,36 @@ void main() {
         await tester.tap(backButton); // Step 2 -> 1
         await tester.pumpAndSettle();
 
-        // Change Subtype to Classic
-        await tester.tap(subtypeDropdown);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Classic (Pullup, Dip)').last);
-        await tester.pumpAndSettle();
-
-        // Proceed all the way to Step 6 and submit
+        // Proceed back to Step 3
         await tester.tap(nextButton); // Step 1 -> 2
         await tester.pumpAndSettle();
         await tester.tap(nextButton); // Step 2 -> 3
         await tester.pumpAndSettle();
+
+        // Change Subtype to Classic on Step 3
+        await tester.tap(subtypeDropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Classic').last);
+        await tester.pumpAndSettle();
+
+        // Proceed all the way to Step 11 and submit
         await tester.tap(nextButton); // Step 3 -> 4
         await tester.pumpAndSettle();
         await tester.tap(nextButton); // Step 4 -> 5
         await tester.pumpAndSettle();
         await tester.tap(nextButton); // Step 5 -> 6
         await tester.pumpAndSettle();
-        await tester.tap(nextButton); // Step 6 -> Submit
+        await tester.tap(nextButton); // Step 6 -> 7
+        await tester.pumpAndSettle();
+        await tester.tap(nextButton); // Step 7 -> 8
+        await tester.pumpAndSettle();
+        await tester.tap(nextButton); // Step 8 -> 9
+        await tester.pumpAndSettle();
+        await tester.tap(nextButton); // Step 9 -> 10
+        await tester.pumpAndSettle();
+        await tester.tap(nextButton); // Step 10 -> 11
+        await tester.pumpAndSettle();
+        await tester.tap(nextButton); // Step 11 -> Submit
         await tester.pumpAndSettle();
 
         // Verify subtype is Classic
@@ -466,40 +548,61 @@ void main() {
       });
 
       await tester.pumpWidget(
-        harness.buildApp(const CreateCompetitionWizard()),
+        harness.buildApp(const CompetitionCreationPage()),
       );
       await tester.pumpAndSettle();
 
-      // Go to Step 5
+      // Go to Step 10
       await tester.enterText(
         find.byKey(const Key('comp_name_field')),
         'Volunteer Leak Meet',
       );
-      await tester.enterText(
-        find.byKey(const Key('comp_location_field')),
-        'Berlin Gym',
-      );
+      await tester.pumpAndSettle();
+
       final nextButton = find.byKey(const Key('comp_next_btn'));
       await tester.tap(nextButton); // 1 -> 2
       await tester.pumpAndSettle();
+
+
+      await tester.enterText(
+        find.byKey(const Key('comp_location_field')),
+        'Alexanderplatz 1, 10178 Berlin, Germany',
+      );
+      final verifyLocBtn = find.widgetWithText(
+        ElevatedButton,
+        'Verify Location',
+      );
+      await tester.tap(verifyLocBtn);
+      await tester.pump(const Duration(milliseconds: 550));
+      await tester.pumpAndSettle();
+
+      final context = tester.element(nextButton);
+      ScaffoldMessenger.of(context).clearSnackBars();
+      await tester.pumpAndSettle();
+
       await tester.tap(nextButton); // 2 -> 3
       await tester.pumpAndSettle();
       await tester.tap(nextButton); // 3 -> 4
       await tester.pumpAndSettle();
       await tester.tap(nextButton); // 4 -> 5
       await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 5 -> 6
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 6 -> 7
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 7 -> 8
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 8 -> 9
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 9 -> 10
+      await tester.pumpAndSettle();
 
       // Enable volunteer needs
       final volunteerNeedsToggle = find.widgetWithText(
-        SwitchListBorderRow,
+        SwitchListTile,
         'Enable Volunteer Needs',
       );
-      await tester.tap(
-        find.descendant(
-          of: volunteerNeedsToggle,
-          matching: find.byType(Switch),
-        ),
-      );
+      await tester.tap(volunteerNeedsToggle);
       await tester.pumpAndSettle();
 
       // Enter max volunteers = 15
@@ -518,10 +621,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Go to Step 6 and submit
-      await tester.tap(nextButton); // 5 -> 6
+      // Go to Step 11 and submit
+      await tester.tap(nextButton); // 10 -> 11
       await tester.pumpAndSettle();
-      await tester.tap(nextButton); // 6 -> submit
+      await tester.tap(nextButton); // 11 -> submit
       await tester.pumpAndSettle();
 
       // Verify that volunteerNeeds is false, and volunteerPositions/volunteerShifts/maxVolunteers are cleaned up!
@@ -635,7 +738,7 @@ void main() {
       });
 
       await tester.pumpWidget(
-        harness.buildApp(const CreateCompetitionWizard()),
+        harness.buildApp(const CompetitionCreationPage()),
       );
       await tester.pumpAndSettle();
 
@@ -644,53 +747,82 @@ void main() {
         find.byKey(const Key('comp_name_field')),
         'Fee Validation Meet',
       );
-      await tester.enterText(
-        find.byKey(const Key('comp_location_field')),
-        'Berlin Gym',
-      );
+      await tester.pumpAndSettle();
+
       final nextButton = find.byKey(const Key('comp_next_btn'));
       await tester.tap(nextButton); // 1 -> 2
       await tester.pumpAndSettle();
 
       // Step 2
+      await tester.enterText(
+        find.byKey(const Key('comp_location_field')),
+        'Alexanderplatz 1, 10178 Berlin, Germany',
+      );
+      final verifyLocBtn = find.widgetWithText(
+        ElevatedButton,
+        'Verify Location',
+      );
+      await tester.tap(verifyLocBtn);
+      await tester.pump(const Duration(milliseconds: 550));
+      await tester.pumpAndSettle();
+
+      final context = tester.element(nextButton);
+      ScaffoldMessenger.of(context).clearSnackBars();
+      await tester.pumpAndSettle();
+
       await tester.tap(nextButton); // 2 -> 3
       await tester.pumpAndSettle();
 
-      // Step 3
       await tester.tap(nextButton); // 3 -> 4
       await tester.pumpAndSettle();
 
-      // Step 4
+      await tester.tap(nextButton); // 4 -> 5
+      await tester.pumpAndSettle();
+
+      await tester.tap(nextButton); // 5 -> 6
+      await tester.pumpAndSettle();
+
+      await tester.tap(nextButton); // 6 -> 7
+      await tester.pumpAndSettle();
+
+      await tester.tap(nextButton); // 7 -> 8
+      await tester.pumpAndSettle();
+
+      // Step 8: Fees
       final feesToggle = find.byKey(const Key('comp_fees_toggle'));
-      await tester.tap(
-        find.descendant(of: feesToggle, matching: find.byType(Switch)),
-      );
+      await tester.tap(feesToggle);
       await tester.pumpAndSettle();
 
       // Click Next with empty details
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('Fee amount cannot be negative'), findsOneWidget);
-      expect(find.text('Bank details are required'), findsOneWidget);
+      expect(find.text('Fee amount is required and cannot be negative'), findsOneWidget);
+      expect(find.text('IBAN is required'), findsOneWidget);
+      expect(find.text('BIC is required'), findsOneWidget);
+      expect(find.text('Bank Name is required'), findsOneWidget);
 
       // Input non-numeric value in Fee Amount
       final feeAmountField = find.widgetWithText(TextFormField, 'Fee Amount *');
       await tester.enterText(feeAmountField, 'abc');
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'IBAN / Bank Details *'),
+        find.widgetWithText(TextFormField, 'IBAN *'),
         'DE12345',
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Payment Reference / Description *'),
-        'Fee Test Description',
+        find.widgetWithText(TextFormField, 'BIC *'),
+        'WELADEDDXXX',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Bank Name *'),
+        'Sparkasse Berlin',
       );
       await tester.pumpAndSettle();
 
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('Fee amount cannot be negative'), findsOneWidget);
+      expect(find.text('Fee amount is required and cannot be negative'), findsOneWidget);
 
       // Input negative fee amount (-20.0)
       await tester.enterText(feeAmountField, '-20.0');
@@ -700,13 +832,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check if it accepted negative amount
-      final step5Visible = find.text('Step 5: Volunteer Setup');
-      if (step5Visible.evaluate().isNotEmpty) {
+      final step9Visible = find.text('Step 9 of 11');
+      if (step9Visible.evaluate().isNotEmpty) {
         debugPrint(
           'WARNING: Negative fee amounts are accepted by the wizard validator!',
         );
       } else {
-        expect(find.text('Fee amount cannot be negative'), findsOneWidget);
+        expect(find.text('Fee amount is required and cannot be negative'), findsOneWidget);
       }
     });
 
@@ -728,7 +860,7 @@ void main() {
       });
 
       await tester.pumpWidget(
-        harness.buildApp(const CreateCompetitionWizard()),
+        harness.buildApp(const CompetitionCreationPage()),
       );
       await tester.pumpAndSettle();
 
@@ -737,23 +869,47 @@ void main() {
         find.byKey(const Key('comp_name_field')),
         'Date Constraints Meet',
       );
-      await tester.enterText(
-        find.byKey(const Key('comp_location_field')),
-        'Berlin Gym',
-      );
+      await tester.pumpAndSettle();
+
       final nextButton = find.byKey(const Key('comp_next_btn'));
       await tester.tap(nextButton); // 1 -> 2
       await tester.pumpAndSettle();
 
-      // Step 2: Set start date to 06/10/2026 and end date to 06/05/2026 (invalid)
+      // Step 2
+      await tester.enterText(
+        find.byKey(const Key('comp_location_field')),
+        'Alexanderplatz 1, 10178 Berlin, Germany',
+      );
+      final verifyLocBtn = find.widgetWithText(
+        ElevatedButton,
+        'Verify Location',
+      );
+      await tester.tap(verifyLocBtn);
+      await tester.pump(const Duration(milliseconds: 550));
+      await tester.pumpAndSettle();
+
+      final context = tester.element(nextButton);
+      ScaffoldMessenger.of(context).clearSnackBars();
+      await tester.pumpAndSettle();
+
+      await tester.tap(nextButton); // 2 -> 3
+      await tester.pumpAndSettle();
+
+      await tester.tap(nextButton); // 3 -> 4
+      await tester.pumpAndSettle();
+
+      await tester.tap(nextButton); // 4 -> 5
+      await tester.pumpAndSettle();
+
+      // Step 5: Set start date to 06/10/2026 and end date to 06/05/2026 (invalid)
       await selectDateInPicker(
         tester,
-        find.widgetWithText(ListTile, 'Competition Start Date'),
+        find.widgetWithText(ListTile, 'Competition Start Date *'),
         '06/10/2026',
       );
       await selectDateInPicker(
         tester,
-        find.widgetWithText(ListTile, 'Competition End Date'),
+        find.widgetWithText(ListTile, 'Competition End Date *'),
         '06/05/2026',
       );
 
@@ -767,19 +923,18 @@ void main() {
       );
 
       // Dismiss Snackbar
-      final context = tester.element(nextButton);
       ScaffoldMessenger.of(context).clearSnackBars();
       await tester.pumpAndSettle();
 
       // Set valid end date but invalid registration end date
       await selectDateInPicker(
         tester,
-        find.widgetWithText(ListTile, 'Competition End Date'),
+        find.widgetWithText(ListTile, 'Competition End Date *'),
         '06/15/2026',
       );
       await selectDateInPicker(
         tester,
-        find.widgetWithText(ListTile, 'Registration End Date'),
+        find.widgetWithText(ListTile, 'Registration End Date *'),
         '06/20/2026',
       ); // after comp start 06/10
 

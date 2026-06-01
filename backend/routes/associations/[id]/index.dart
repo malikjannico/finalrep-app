@@ -14,6 +14,9 @@ Future<Response> onRequest(RequestContext context, String id) async {
       body['id'] = id;
       final result = await DbHelper.updateAssociation(body);
       return Response.json(body: result);
+    case HttpMethod.delete:
+      final success = await DbHelper.deleteAssociation(id);
+      return Response.json(body: {'success': success});
     default:
       return Response(statusCode: 405);
   }

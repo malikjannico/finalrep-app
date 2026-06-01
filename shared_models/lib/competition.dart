@@ -20,6 +20,7 @@ class Competition {
   final String? competitionGroupId;
   final List<String>? athleteGroupIds;
   final String? rulebookUrl;
+  final String rankingType; // 'open', 'gender', 'athlete_group'
 
   final DateTime registrationStart;
   final DateTime registrationEnd;
@@ -35,7 +36,7 @@ class Competition {
   final String? ticketShopUrl;
   final Map<String, String>? socials;
   final int? maxAthletes;
-  final Map<String, int>? maxAthletesPerGroup;
+  final List<Map<String, dynamic>>? maxAthletesPerGroup;
   final int? maxVolunteers;
   final Map<String, int>? maxVolunteersPerPosition;
   final bool enableWaitlist;
@@ -97,6 +98,7 @@ class Competition {
     this.disclaimerUrl,
     this.disclaimerType,
     this.bannerSafeZoneGuide = false,
+    this.rankingType = 'open',
   }) : registrationStart = registrationStart ?? startDate,
        registrationEnd = registrationEnd ?? endDate;
 
@@ -151,7 +153,9 @@ class Competition {
           : null,
       maxAthletes: json['max_athletes'] as int?,
       maxAthletesPerGroup: json['max_athletes_per_group'] != null
-          ? Map<String, int>.from(json['max_athletes_per_group'] as Map)
+          ? (json['max_athletes_per_group'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList()
           : null,
       maxVolunteers: json['max_volunteers'] as int?,
       maxVolunteersPerPosition: json['max_volunteers_per_position'] != null
@@ -181,6 +185,7 @@ class Competition {
       disclaimerUrl: json['disclaimer_url'] as String?,
       disclaimerType: json['disclaimer_type'] as String?,
       bannerSafeZoneGuide: json['banner_safe_zone_guide'] as bool? ?? false,
+      rankingType: json['ranking_type'] as String? ?? 'open',
     );
   }
 
@@ -240,6 +245,7 @@ class Competition {
       if (disclaimerUrl != null) 'disclaimer_url': disclaimerUrl,
       if (disclaimerType != null) 'disclaimer_type': disclaimerType,
       'banner_safe_zone_guide': bannerSafeZoneGuide,
+      'ranking_type': rankingType,
     };
   }
 
@@ -278,7 +284,7 @@ class Competition {
     String? ticketShopUrl,
     Map<String, String>? socials,
     int? maxAthletes,
-    Map<String, int>? maxAthletesPerGroup,
+    List<Map<String, dynamic>>? maxAthletesPerGroup,
     int? maxVolunteers,
     Map<String, int>? maxVolunteersPerPosition,
     bool? enableWaitlist,
@@ -291,6 +297,7 @@ class Competition {
     String? disclaimerUrl,
     String? disclaimerType,
     bool? bannerSafeZoneGuide,
+    String? rankingType,
   }) {
     return Competition(
       id: id ?? this.id,
@@ -342,6 +349,7 @@ class Competition {
       disclaimerUrl: disclaimerUrl ?? this.disclaimerUrl,
       disclaimerType: disclaimerType ?? this.disclaimerType,
       bannerSafeZoneGuide: bannerSafeZoneGuide ?? this.bannerSafeZoneGuide,
+      rankingType: rankingType ?? this.rankingType,
     );
   }
 

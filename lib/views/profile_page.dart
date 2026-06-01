@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import '../router.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/profile.dart';
 import '../models/competition.dart';
 import '../providers/auth_provider.dart';
 import '../providers/competition_provider.dart';
 import '../repositories/profile_repository.dart';
 import '../utils/mock_safety.dart';
+import '../utils/image_url_resolver.dart';
 import 'settings_page.dart';
 import 'competition_detail_page.dart';
-
 
 class ProfilePage extends StatefulWidget {
   final String? userId;
@@ -32,6 +35,8 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   Profile? _profile;
+  final ScrollController _scrollController = ScrollController();
+  bool _showAppBarTitle = false;
   bool _isCurrentUser = false;
   bool _isLoadingProfile = false;
   bool _isEditing = false;
@@ -44,25 +49,24 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Map<String, dynamic>> _personalRecords = [];
   bool _isLoadingAthleteData = false;
   final Map<String, Competition> _competitionCache = {};
-  late ScrollController _scrollController;
-  bool _showAppBarTitle = false;
+
 
   // Edit fields controllers
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _fullNameController;
-  late TextEditingController _emailController;
-  late TextEditingController _bioController;
-  String? _selectedGender;
+  final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
+  String? _selectedSex;
   String? _selectedCountry;
 
   Uint8List? _customAvatarBytes;
   String? _customAvatarFileName;
 
-  final List<String> _genders = [
-    'Male',
-    'Female',
-    'Other',
-    'Prefer not to say',
+  final List<String> _sexes = [
+    'male',
+    'female',
+    'other',
+    'prefer not to say',
   ];
   final List<String> _countries = [
     'Germany',
@@ -80,29 +84,19 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _fullNameController = TextEditingController();
-    _emailController = TextEditingController();
-    _bioController = TextEditingController();
-    _scrollController = ScrollController();
-    _scrollController.addListener(() {
-      if (!mounted) return;
-      final isMobile = MediaQuery.of(context).size.width < 900;
-      if (isMobile) {
-        final show = _scrollController.offset > 150;
-        if (show != _showAppBarTitle) {
-          setState(() {
-            _showAppBarTitle = show;
-          });
-        }
-      } else {
-        if (!_showAppBarTitle) {
-          setState(() {
-            _showAppBarTitle = true;
-          });
-        }
-      }
-    });
+
+    _scrollController.addListener(_onScroll);
     _loadProfile();
+  }
+
+  void _onScroll() {
+    if (!mounted) return;
+    final showTitle = _scrollController.hasClients && _scrollController.offset >= 250;
+    if (showTitle != _showAppBarTitle) {
+      setState(() {
+        _showAppBarTitle = showTitle;
+      });
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -131,6 +125,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _emailController.dispose();
     _bioController.dispose();
     _scrollController.dispose();
+
     super.dispose();
   }
 
@@ -181,7 +176,6 @@ class _ProfilePageState extends State<ProfilePage> {
         }
       }
 
-
       if (_profile == null && _errorMsg == null) {
         _errorMsg = 'User profile not found.';
       } else if (_profile != null) {
@@ -204,8 +198,14 @@ class _ProfilePageState extends State<ProfilePage> {
     _fullNameController.text = _profile!.fullName;
     _emailController.text = _profile!.email;
     _bioController.text = _profile!.description ?? '';
-    _selectedGender = _profile!.gender;
+    _selectedSex = _profile!.sex;
     _selectedCountry = _profile!.country;
+  }
+
+  String _capitalizeSex(String s) {
+    if (s == 'prefer not to say') return 'Prefer not to say';
+    if (s.isEmpty) return '';
+    return s[0].toUpperCase() + s.substring(1);
   }
 
   void _shareProfile() {
@@ -238,19 +238,20 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       String? uploadedUrl;
       if (_customAvatarBytes != null) {
-        final profileRepository = widget.profileRepository ?? authProvider.profileRepository;
-        final fileName = 'profiles-${_profile!.id}-${_customAvatarFileName ?? "avatar.png"}';
+        final profileRepository =
+            widget.profileRepository ?? authProvider.profileRepository;
+        final fileName =
+            'profiles-${_profile!.id}-${_customAvatarFileName ?? "avatar.png"}';
         uploadedUrl = await profileRepository.uploadFile(
           _customAvatarBytes!,
           fileName,
         );
       }
 
-
       await authProvider.updateProfile(
         fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim(),
-        gender: _selectedGender,
+        sex: _selectedSex,
         country: _selectedCountry,
         description: _bioController.text.trim(),
         colorMode: _profile?.colorMode ?? 'system',
@@ -292,7 +293,10 @@ class _ProfilePageState extends State<ProfilePage> {
     if (_profile == null) return '';
     final userId = _profile!.id;
     try {
-      final competitionProvider = Provider.of<CompetitionProvider>(context, listen: false);
+      final competitionProvider = Provider.of<CompetitionProvider>(
+        context,
+        listen: false,
+      );
       final apiBaseUrl = competitionProvider.competitionRepository.baseUrl;
       if (MockSafety.isMockAllowed) {
         return '$apiBaseUrl/uploads/profiles-$userId-banner.jpg';
@@ -325,8 +329,12 @@ class _ProfilePageState extends State<ProfilePage> {
           });
 
           final fileName = 'profiles-$userId-banner.jpg';
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          final profileRepository = widget.profileRepository ?? authProvider.profileRepository;
+          final authProvider = Provider.of<AuthProvider>(
+            context,
+            listen: false,
+          );
+          final profileRepository =
+              widget.profileRepository ?? authProvider.profileRepository;
 
           await profileRepository.uploadFile(bytes, fileName);
 
@@ -368,7 +376,10 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final repo = widget.profileRepository ?? authProvider.profileRepository;
-      final competitionRepository = Provider.of<CompetitionProvider>(context, listen: false).competitionRepository;
+      final competitionRepository = Provider.of<CompetitionProvider>(
+        context,
+        listen: false,
+      ).competitionRepository;
 
       final results = await Future.wait([
         repo.getUserUpcomingMeets(_profile!.id),
@@ -453,8 +464,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
         if (titlesToFetch.isNotEmpty) {
           try {
-            final completedComps = await competitionRepository.getUpcomingCompetitions(status: 'completed');
+            final completedComps = await competitionRepository
+                .getUpcomingCompetitions(status: 'completed');
             for (final c in completedComps) {
+              if (titlesToFetch.contains(c.title)) {
+                _competitionCache[c.title] = c;
+              }
+            }
+            final upcomingComps = await competitionRepository
+                .getUpcomingCompetitions(status: 'upcoming');
+            for (final c in upcomingComps) {
               if (titlesToFetch.contains(c.title)) {
                 _competitionCache[c.title] = c;
               }
@@ -482,48 +501,150 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Widget _buildSocialLinks(ThemeData theme) {
+  String _cleanSocialDisplay(String key, String value) {
+    if (value.trim().isEmpty) return '';
+    try {
+      if (value.startsWith('http://') || value.startsWith('https://')) {
+        final uri = Uri.parse(value.trim());
+        if (key.toLowerCase() == 'website') {
+          return uri.host.replaceFirst('www.', '');
+        } else {
+          if (uri.pathSegments.isNotEmpty) {
+            final lastSegment = uri.pathSegments.lastWhere((seg) => seg.isNotEmpty, orElse: () => '');
+            if (lastSegment.isNotEmpty) {
+              if (lastSegment.startsWith('@')) {
+                return lastSegment;
+              }
+              return '@$lastSegment';
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    if (key.toLowerCase() == 'website') {
+      return value.replaceFirst('www.', '');
+    } else {
+      if (!value.startsWith('@')) {
+        return '@$value';
+      }
+      return value;
+    }
+  }
 
+  String _getSocialUrl(String key, String value) {
+    final trimmed = value.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final handle = trimmed.startsWith('@') ? trimmed.substring(1) : trimmed;
+    switch (key.toLowerCase()) {
+      case 'instagram':
+        return 'https://instagram.com/$handle';
+      case 'youtube':
+        return 'https://youtube.com/$handle';
+      case 'facebook':
+        return 'https://facebook.com/$handle';
+      case 'twitch':
+        return 'https://twitch.tv/$handle';
+      case 'tiktok':
+        return 'https://tiktok.com/@$handle';
+      case 'twitter':
+      case 'x':
+        return 'https://x.com/$handle';
+      default:
+        return 'https://$trimmed';
+    }
+  }
+
+  Future<void> _launchURL(String urlString) async {
+    final Uri uri = Uri.parse(urlString);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Widget _buildSocialLinks(ThemeData theme) {
     if (_profile == null ||
         _profile!.socialLinks == null ||
         _profile!.socialLinks!.isEmpty) {
       return const SizedBox.shrink();
     }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 8,
-        children: _profile!.socialLinks!.entries.map((entry) {
-          final name = entry.key;
-          final handle = entry.value;
-          IconData iconData;
-          switch (name.toLowerCase()) {
-            case 'instagram':
-              iconData = Icons.camera_alt_outlined;
-              break;
-            case 'twitter':
-            case 'x':
-              iconData = Icons.alternate_email;
-              break;
-            case 'youtube':
-              iconData = Icons.play_circle_outline;
-              break;
-            case 'tiktok':
-              iconData = Icons.music_note;
-              break;
-            default:
-              iconData = Icons.link;
-          }
-          return ActionChip(
-            avatar: Icon(iconData, size: 16),
-            label: Text('$name: $handle'),
-            onPressed: () {
-              // URL helper or web browser launcher link mapping
-            },
-          );
-        }).toList(),
-      ),
+
+    final validLinks = _profile!.socialLinks!.entries
+        .where((e) => e.value.trim().isNotEmpty)
+        .toList();
+
+    if (validLinks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 32),
+        Row(
+          children: [
+            Icon(
+              Icons.language_outlined,
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Website & Social Channels',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: validLinks.map((entry) {
+            final name = entry.key;
+            final handle = entry.value;
+            IconData iconData;
+            switch (name.toLowerCase()) {
+              case 'instagram':
+                iconData = Icons.camera_alt_outlined;
+                break;
+              case 'twitter':
+              case 'x':
+                iconData = Icons.alternate_email;
+                break;
+              case 'youtube':
+                iconData = Icons.play_circle_outline;
+                break;
+              case 'tiktok':
+                iconData = Icons.music_note_outlined;
+                break;
+              case 'facebook':
+                iconData = Icons.facebook_outlined;
+                break;
+              case 'twitch':
+                iconData = Icons.live_tv_outlined;
+                break;
+              default:
+                iconData = Icons.link;
+            }
+            final displayText = _cleanSocialDisplay(name, handle);
+            final url = _getSocialUrl(name, handle);
+
+            return ActionChip(
+              avatar: Icon(iconData, size: 16),
+              label: Text(displayText),
+              onPressed: () => _launchURL(url),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -587,7 +708,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final overallRankings = _highestRankings.where((r) {
       final disc = r['discipline']?.toString().toLowerCase() ?? '';
-      return disc.contains('overall');
+      final isOverall = disc.contains('overall');
+      if (!isOverall) return false;
+      final compName =
+          r['competition']?.toString() ??
+          r['competition_name']?.toString() ??
+          '';
+
+      // Filter out rankings from upcoming competitions
+      final isUpcoming = _upcomingMeets.any((c) => c.title == compName);
+      if (isUpcoming) return false;
+
+      final compObj = _competitionCache[compName];
+      if (compObj != null && compObj.status == 'upcoming') {
+        return false;
+      }
+      return true;
     }).toList();
 
     return Column(
@@ -611,10 +747,12 @@ class _ProfilePageState extends State<ProfilePage> {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Text(
-              'Personal Records',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                'Personal Records',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -645,6 +783,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   pr['competition_name']?.toString() ??
                   '';
               final compObj = _competitionCache[compName];
+              final location =
+                  compObj?.location ?? pr['location']?.toString() ?? '';
 
               final dateRaw =
                   compObj?.startDate ??
@@ -703,7 +843,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 4),
                       Text(
                         pr['weight'] ?? '',
-                        style: theme.textTheme.titleLarge?.copyWith(
+                        style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: theme.colorScheme.primary,
                         ),
@@ -724,20 +864,34 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               );
 
-              if (compObj != null) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CompetitionDetailPage(competition: compObj),
-                      ),
-                    );
-                  },
-                  child: content,
-                );
-              }
-              return content;
+              final fallbackComp =
+                  compObj ??
+                  Competition(
+                    id: 'unknown-${compName.hashCode}',
+                    title: compName,
+                    description: '',
+                    startDate: dateRaw is DateTime ? dateRaw : DateTime.now(),
+                    endDate: dateRaw is DateTime ? dateRaw : DateTime.now(),
+                    location: location.isNotEmpty
+                        ? location
+                        : 'Unknown Location',
+                    sportSubtype: 'Modern',
+                    status: 'completed',
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  );
+
+              return GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          CompetitionDetailPage(competition: fallbackComp),
+                    ),
+                  );
+                },
+                child: content,
+              );
             },
           ),
         const SizedBox(height: 24),
@@ -751,10 +905,12 @@ class _ProfilePageState extends State<ProfilePage> {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Text(
-              'Highest Rankings',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                'Highest Rankings',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -825,16 +981,32 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
-                onTap: compObj == null
-                    ? null
-                    : () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                CompetitionDetailPage(competition: compObj),
-                          ),
-                        );
-                      },
+                onTap: () {
+                  final fallbackComp =
+                      compObj ??
+                      Competition(
+                        id: 'unknown-${compName.hashCode}',
+                        title: compName,
+                        description: '',
+                        startDate: dateRaw is DateTime
+                            ? dateRaw
+                            : DateTime.now(),
+                        endDate: dateRaw is DateTime ? dateRaw : DateTime.now(),
+                        location: location.isNotEmpty
+                            ? location
+                            : 'Unknown Location',
+                        sportSubtype: 'Modern',
+                        status: 'completed',
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      );
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          CompetitionDetailPage(competition: fallbackComp),
+                    ),
+                  );
+                },
                 leading: Icon(
                   Icons.stars_outlined,
                   color: theme.colorScheme.onSurface,
@@ -887,10 +1059,12 @@ class _ProfilePageState extends State<ProfilePage> {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Text(
-              'Upcoming Competitions',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                'Upcoming Competitions',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -958,10 +1132,12 @@ class _ProfilePageState extends State<ProfilePage> {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Text(
-              'Completed Competitions',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                'Completed Competitions',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -1101,222 +1277,320 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: NestedScrollView(
-        controller: _scrollController,
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            if (!hideAppBar)
-              SliverAppBar(
-                floating: true,
-                snap: true,
-                pinned: true,
-                automaticallyImplyLeading: !widget.isInline || _isEditing,
-                backgroundColor: theme.colorScheme.surface,
-                leading: _isEditing
-                    ? IconButton(
-                        key: const Key('edit_mode_back_button'),
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () {
-                          setState(() {
-                            _isEditing = false;
-                          });
-                        },
-                      )
-                    : null,
-                title: AnimatedOpacity(
-                  opacity: isMobile ? (_showAppBarTitle ? 1.0 : 0.0) : 1.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Text(
-                    _profile?.username != null && _profile!.username.isNotEmpty
-                        ? '@${_profile!.username}'
-                        : 'Profile',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-          ];
-        },
-        body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                height: 190,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: _buildBanner(theme),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 600),
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          alignment: Alignment.centerLeft,
-                          child: _buildAvatar(theme),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Center(
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: isMobile ? 12 : 36),
-                        if (_customAvatarFileName != null) ...[
-                          Text(
-                            _customAvatarFileName!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.bold,
+      extendBodyBehindAppBar: !hideAppBar,
+      appBar: hideAppBar
+          ? null
+          : AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: _showAppBarTitle || _isEditing
+                  ? theme.colorScheme.surface
+                  : Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: _isEditing
+                  ? IconButton(
+                      key: const Key('edit_mode_back_button'),
+                      icon: const Icon(Icons.arrow_back),
+                      color: theme.colorScheme.onSurface,
+                      onPressed: () {
+                        setState(() {
+                          _isEditing = false;
+                        });
+                      },
+                    )
+                  : (!widget.isInline
+                      ? IconButton(
+                          icon: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _showAppBarTitle
+                                  ? Colors.transparent
+                                  : Colors.black.withValues(alpha: 0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.arrow_back,
+                              color: _showAppBarTitle
+                                  ? theme.colorScheme.onSurface
+                                  : Colors.white,
+                              size: 20,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                        ],
-                        _buildProfileHeader(theme),
-                        _buildSocialLinks(theme),
-                        const SizedBox(height: 8),
-                        _isEditing
-                            ? _buildEditForm(theme, authProvider)
-                            : _buildProfileInfoCard(theme),
-                        if (_isCurrentUser && !_isEditing) ...[
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  key: const Key('edit_profile_button'),
-                                  onPressed: () {
-                                    setState(() {
-                                      _isEditing = true;
-                                    });
-                                  },
-                                  icon: const Icon(Icons.edit, size: 18),
-                                  label: const Text('EDIT PROFILE'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor:
-                                        theme.colorScheme.onPrimary,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  key: const Key('share_profile_button'),
-                                  onPressed: _shareProfile,
-                                  icon: const Icon(Icons.share, size: 18),
-                                  label: const Text('SHARE PROFILE'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor:
-                                        theme.colorScheme.onPrimary,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          onPressed: () => Navigator.of(context).pop(),
+                        )
+                      : null),
+              title: AnimatedOpacity(
+                opacity: _showAppBarTitle ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  _profile?.username != null && _profile!.username.isNotEmpty
+                      ? '@${_profile!.username}'
+                      : 'Profile',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+              _buildBanner(theme),
+              Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  padding: EdgeInsets.only(
+                    left: isMobile ? 16.0 : 24.0,
+                    right: isMobile ? 16.0 : 24.0,
+                    bottom: 24.0,
+                    top: 0.0,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          SizedBox(
+                            height: isMobile ? 45 : 40,
+                            width: isMobile ? 90 : 80,
+                          ),
+                          Positioned(
+                            top: isMobile ? -45 : -40,
+                            left: 0,
+                            child: _buildAvatar(theme),
                           ),
                         ],
-                        if (!_isEditing) _buildAthleteDashboard(theme),
+                      ),
+                      SizedBox(height: isMobile ? 8 : 12),
+                      if (_customAvatarFileName != null) ...[
+                        Text(
+                          _customAvatarFileName!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                       ],
-                    ),
+                      _buildProfileHeader(theme),
+                      _buildSocialLinks(theme),
+                      const SizedBox(height: 8),
+                      _isEditing
+                          ? _buildEditForm(theme, authProvider)
+                          : _buildProfileInfoCard(theme),
+                      if (_isCurrentUser && !_isEditing) ...[
+                        const SizedBox(height: 24),
+                        isMobile
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  ElevatedButton.icon(
+                                    key: const Key('edit_profile_button'),
+                                    onPressed: () {
+                                      setState(() {
+                                        _isEditing = true;
+                                      });
+                                    },
+                                    icon: const Icon(Icons.edit, size: 18),
+                                    label: const Text('EDIT PROFILE'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.colorScheme.secondary,
+                                      foregroundColor: theme.colorScheme.onSecondary,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton.icon(
+                                    key: const Key('share_profile_button'),
+                                    onPressed: _shareProfile,
+                                    icon: const Icon(Icons.share, size: 18),
+                                    label: const Text('SHARE PROFILE'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.colorScheme.primary,
+                                      foregroundColor: theme.colorScheme.onPrimary,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      key: const Key('edit_profile_button'),
+                                      onPressed: () {
+                                        setState(() {
+                                          _isEditing = true;
+                                        });
+                                      },
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      label: const Text('EDIT PROFILE'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: theme.colorScheme.secondary,
+                                        foregroundColor: theme.colorScheme.onSecondary,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      key: const Key('share_profile_button'),
+                                      onPressed: _shareProfile,
+                                      icon: const Icon(Icons.share, size: 18),
+                                      label: const Text('SHARE PROFILE'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: theme.colorScheme.primary,
+                                        foregroundColor: theme.colorScheme.onPrimary,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ],
+                      if (!_isCurrentUser && !_isEditing) ...[
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            key: const Key('share_profile_button'),
+                            onPressed: _shareProfile,
+                            icon: const Icon(Icons.share, size: 18),
+                            label: const Text('SHARE PROFILE'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.colorScheme.primary,
+                              foregroundColor: theme.colorScheme.onPrimary,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (!_isEditing) _buildAthleteDashboard(theme),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
+      );
   }
+
+
 
   Widget _buildBanner(ThemeData theme) {
     debugPrint(
       'DEBUG PROFILE_PAGE _buildBanner: _isEditing=$_isEditing, _isCurrentUser=$_isCurrentUser, profileId=${_profile?.id}',
     );
     final bannerUrl = _getBannerUrl();
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final isMobile = !isDesktop;
+    final hideAppBar = widget.isInline && isDesktop;
 
-    return SizedBox(
-      height: 150,
-      width: double.infinity,
-      child: Stack(
-        children: [
-          Container(
-            height: 150,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                  theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return Center(
+      child: Container(
+        constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 600),
+        margin: isMobile
+            ? EdgeInsets.zero
+            : EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: hideAppBar
+                    ? 16.0
+                    : (16.0 + MediaQuery.of(context).padding.top + kToolbarHeight),
               ),
-            ),
-            child: bannerUrl.isEmpty
-                ? const SizedBox.shrink()
-                : Image.network(
-                    bannerUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const SizedBox.shrink(); // Fallback to gradient background
-                    },
+        child: AspectRatio(
+          aspectRatio: isMobile ? 2.2 : 278.6 / 80,
+          child: ClipRRect(
+            borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(16),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                        theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                   ),
-          ),
-          if (_isEditing && _isCurrentUser)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black38,
-                child: InkWell(
-                  onTap: _uploadBanner,
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.camera_alt, color: Colors.white, size: 32),
-                      SizedBox(height: 8),
-                      Text(
-                        'Change Banner',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                  child: bannerUrl.isEmpty
+                      ? const SizedBox.shrink()
+                      : Image.network(
+                          bannerUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const SizedBox.shrink(); // Fallback to gradient background
+                          },
+                        ),
+                ),
+                if (_isEditing && _isCurrentUser)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black38,
+                      child: InkWell(
+                        onTap: _uploadBanner,
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.camera_alt, color: Colors.white, size: 32),
+                            SizedBox(height: 8),
+                            Text(
+                              'Change Banner',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
 
+
+
   Widget _buildAvatar(ThemeData theme) {
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final isMobile = !isDesktop;
     final initials = _profile!.fullName.isNotEmpty
         ? _profile!.fullName
               .trim()
@@ -1329,79 +1603,92 @@ class _ProfilePageState extends State<ProfilePage> {
         ? _profile!.username[0].toUpperCase()
         : '?';
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundColor: theme.colorScheme.primaryContainer,
-          child: ClipOval(
-            child: _customAvatarBytes != null
-                ? Image.memory(
-                    _customAvatarBytes!,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(
-                        child: Text(
-                          initials,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                      );
-                    },
-                  )
-                : (_profile!.profilePictureUrl != null
-                      ? Image.network(
-                          _profile!.profilePictureUrl!,
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Center(
-                              child: Text(
-                                initials,
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : Text(
-                          initials,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onPrimaryContainer,
-                          ),
-                        )),
-          ),
+    final resolvedUrl = ImageUrlResolver.resolve(context, _profile!.profilePictureUrl);
+    final double avatarRadius = isMobile ? 45 : 40;
+    final double avatarSize = isMobile ? 90 : 80;
+
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: theme.colorScheme.surface,
+          width: 4,
         ),
-        if (_isEditing && _isCurrentUser)
-          Positioned.fill(
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircleAvatar(
+            radius: avatarRadius,
+            backgroundColor: theme.colorScheme.primaryContainer,
             child: ClipOval(
+              child: _customAvatarBytes != null
+                  ? Image.memory(
+                      _customAvatarBytes!,
+                      width: avatarSize,
+                      height: avatarSize,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Text(
+                            initials,
+                            style: TextStyle(
+                              fontSize: isMobile ? 32 : 28,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : (resolvedUrl != null &&
+                            resolvedUrl.isNotEmpty
+                        ? Image.network(
+                            resolvedUrl,
+                            width: avatarSize,
+                            height: avatarSize,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
+                                child: Text(
+                                  initials,
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 32 : 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : Text(
+                            initials,
+                            style: TextStyle(
+                              fontSize: isMobile ? 32 : 28,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          )),
+            ),
+          ),
+          if (_isEditing && _isCurrentUser)
+            Positioned.fill(
               child: Material(
+                type: MaterialType.circle,
                 color: Colors.black45,
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: _pickAvatar,
-                  child: const Column(
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                      SizedBox(height: 2),
+                      Icon(Icons.camera_alt, color: Colors.white, size: isMobile ? 24 : 20),
+                      const SizedBox(height: 2),
                       Text(
                         'CHANGE PHOTO',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 8,
+                          fontSize: isMobile ? 9 : 8,
                           fontWeight: FontWeight.bold,
                         ),
                         textAlign: TextAlign.center,
@@ -1411,8 +1698,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1421,7 +1708,6 @@ class _ProfilePageState extends State<ProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
               child: Text(
@@ -1438,12 +1724,17 @@ class _ProfilePageState extends State<ProfilePage> {
               GestureDetector(
                 key: const Key('profile_settings_icon'),
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      settings: const RouteSettings(name: '/settings'),
-                      builder: (_) => const SettingsPage(),
-                    ),
-                  );
+                  try {
+                    GoRouter.of(context);
+                    goRouter.push('/settings');
+                  } catch (_) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: '/settings'),
+                        builder: (_) => const SettingsPage(),
+                      ),
+                    );
+                  }
                 },
                 child: Icon(
                   Icons.settings_outlined,
@@ -1463,7 +1754,7 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(height: 8),
         Row(
           children: [
-            if (_profile!.gender != null)
+            if (_profile!.sex != null)
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -1474,14 +1765,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  _profile!.gender!,
+                  _capitalizeSex(_profile!.sex!),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSecondaryContainer,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            if (_profile!.gender != null && _profile!.country != null)
+            if (_profile!.sex != null && _profile!.country != null)
               const SizedBox(width: 8),
             if (_profile!.country != null)
               Container(
@@ -1590,31 +1881,83 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 16),
 
-          // Gender Picker
-          DropdownButtonFormField<String>(
-            initialValue: _selectedGender,
-            decoration: const InputDecoration(
-              labelText: 'Gender',
-              prefixIcon: Icon(Icons.people_outline),
+          // Sex Picker
+          Theme(
+            data: theme.copyWith(
+              cardColor: theme.colorScheme.surface,
             ),
-            items: _genders.map((g) {
-              return DropdownMenuItem(value: g, child: Text(g));
-            }).toList(),
-            onChanged: (val) => setState(() => _selectedGender = val),
+            child: PopupMenuButton<String>(
+              tooltip: 'Sex',
+              offset: const Offset(0, 48),
+              onSelected: (val) {
+                setState(() {
+                  _selectedSex = val;
+                });
+              },
+              itemBuilder: (BuildContext context) {
+                return _sexes.map((s) {
+                  return PopupMenuItem<String>(
+                    value: s,
+                    child: Text(_capitalizeSex(s)),
+                  );
+                }).toList();
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Sex',
+                  prefixIcon: Icon(Icons.people_outline),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedSex != null ? _capitalizeSex(_selectedSex!) : '',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_drop_down,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
 
           // Country Picker
-          DropdownButtonFormField<String>(
-            initialValue: _selectedCountry,
-            decoration: const InputDecoration(
-              labelText: 'Country',
-              prefixIcon: Icon(Icons.public),
+          InkWell(
+            onTap: () => _showCountrySelectorDialog(theme),
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Country',
+                prefixIcon: Icon(Icons.public),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _selectedCountry ?? '',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
-            items: _countries.map((c) {
-              return DropdownMenuItem(value: c, child: Text(c));
-            }).toList(),
-            onChanged: (val) => setState(() => _selectedCountry = val),
           ),
           const SizedBox(height: 24),
 
@@ -1644,6 +1987,73 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showCountrySelectorDialog(ThemeData theme) {
+    String searchQuery = '';
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _countries.where((c) {
+              return c.toLowerCase().contains(searchQuery.toLowerCase());
+            }).toList();
+
+            return AlertDialog(
+              title: const Text('Select Country'),
+              content: SizedBox(
+                width: 400,
+                height: 500,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Search Country',
+                        hintText: 'e.g. Germany, France...',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (val) {
+                        setModalState(() {
+                          searchQuery = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, idx) {
+                          final c = filtered[idx];
+                          return ListTile(
+                            title: Text(c),
+                            trailing: _selectedCountry == c
+                                ? Icon(Icons.check, color: theme.colorScheme.primary)
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _selectedCountry = c;
+                              });
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('CANCEL'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -15,6 +15,8 @@ class Association {
   final String ownerId;
   final List<String> supportedSports;
   final List<String> supportedFormats;
+  final Map<String, dynamic> rulebooksSharing;
+  final Map<String, dynamic> appliedSharedResources;
 
   Association({
     required this.id,
@@ -33,6 +35,12 @@ class Association {
     required this.ownerId,
     this.supportedSports = const [],
     this.supportedFormats = const [],
+    this.rulebooksSharing = const {},
+    this.appliedSharedResources = const {
+      'rulebooks': {},
+      'competition_groups': [],
+      'athlete_groups': [],
+    },
   });
 
   factory Association.fromJson(Map<String, dynamic> json) {
@@ -61,6 +69,16 @@ class Association {
       supportedFormats: json['supported_formats'] != null
           ? List<String>.from(json['supported_formats'] as List)
           : [],
+      rulebooksSharing: json['rulebooks_sharing'] != null
+          ? Map<String, dynamic>.from(json['rulebooks_sharing'] as Map)
+          : {},
+      appliedSharedResources: json['applied_shared_resources'] != null
+          ? Map<String, dynamic>.from(json['applied_shared_resources'] as Map)
+          : {
+              'rulebooks': {},
+              'competition_groups': [],
+              'athlete_groups': [],
+            },
     );
   }
 
@@ -82,6 +100,8 @@ class Association {
       'owner_id': ownerId,
       'supported_sports': supportedSports,
       'supported_formats': supportedFormats,
+      'rulebooks_sharing': rulebooksSharing,
+      'applied_shared_resources': appliedSharedResources,
     };
   }
 
@@ -102,6 +122,8 @@ class Association {
     String? ownerId,
     List<String>? supportedSports,
     List<String>? supportedFormats,
+    Map<String, dynamic>? rulebooksSharing,
+    Map<String, dynamic>? appliedSharedResources,
   }) {
     return Association(
       id: id ?? this.id,
@@ -120,6 +142,8 @@ class Association {
       ownerId: ownerId ?? this.ownerId,
       supportedSports: supportedSports ?? this.supportedSports,
       supportedFormats: supportedFormats ?? this.supportedFormats,
+      rulebooksSharing: rulebooksSharing ?? this.rulebooksSharing,
+      appliedSharedResources: appliedSharedResources ?? this.appliedSharedResources,
     );
   }
 }

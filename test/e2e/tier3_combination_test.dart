@@ -5,11 +5,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'e2e_test_harness.dart';
 import 'package:finalrep_app/providers/auth_provider.dart';
+import 'package:finalrep_app/providers/competition_provider.dart';
+import 'package:finalrep_app/router.dart';
 import 'package:finalrep_app/views/login_page.dart';
 import 'package:finalrep_app/views/register_page.dart';
 import 'package:finalrep_app/views/profile_page.dart';
 import 'package:finalrep_app/views/settings_page.dart';
 import 'package:finalrep_app/views/appearance_settings_page.dart';
+import 'package:finalrep_app/views/change_password_page.dart';
 
 void main() {
   group('E2E Tier 3: Cross-Feature Combination Tests', () {
@@ -105,6 +108,8 @@ void main() {
       // 3. CUSTOMIZE PROFILE
       await tester.pumpWidget(harness.buildApp(const ProfilePage()));
       await tester.pumpAndSettle();
+      ScaffoldMessenger.of(tester.element(find.byType(ProfilePage))).clearSnackBars();
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('EDIT PROFILE'));
       await tester.pumpAndSettle();
@@ -115,6 +120,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('SAVE'));
       await tester.tap(find.text('SAVE'));
       await tester.pump();
       await tester.pumpAndSettle();
@@ -223,6 +229,58 @@ void main() {
         // Verify we are now forwarded to Settings page
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('Welcome Back'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Test 3.4: Settings Deep Link Navigation to Subroutes',
+      (WidgetTester tester) async {
+        await harness.initialize();
+        // Authenticate user-1
+        final user = harness.db.profiles['user-1']!;
+        final session = Session(
+          accessToken: 'token-user-1',
+          tokenType: 'bearer',
+          user: User(
+            id: user.id,
+            appMetadata: const {},
+            userMetadata: const {},
+            aud: 'authenticated',
+            createdAt: '',
+            email: user.email,
+          ),
+        );
+        harness.mockAuth.triggerAuthStateChange(
+          AuthChangeEvent.signedIn,
+          session,
+        );
+        await tester.pumpAndSettle();
+
+        // Pump with goRouter
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AuthProvider>.value(value: harness.authProvider),
+              ChangeNotifierProvider<CompetitionProvider>.value(
+                value: harness.competitionProvider,
+              ),
+            ],
+            child: MaterialApp.router(
+              routerConfig: goRouter,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Direct navigation to appearance settings page
+        goRouter.go('/settings/appearance');
+        await tester.pumpAndSettle();
+        expect(find.byType(AppearanceSettingsPage), findsOneWidget);
+
+        // Direct navigation to change password settings page
+        goRouter.go('/settings/updatesecurity');
+        await tester.pumpAndSettle();
+        expect(find.byType(ChangePasswordPage), findsOneWidget);
       },
     );
   });

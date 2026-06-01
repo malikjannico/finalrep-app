@@ -1,7 +1,18 @@
+import 'dart:convert';
+import 'dart:math';
 import 'package:postgres/postgres.dart';
 import 'db_connection.dart';
 
 class DbHelper {
+  static final RegExp _uuidRegex = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  static bool isValidUuid(String? id) {
+    if (id == null) return false;
+    return _uuidRegex.hasMatch(id);
+  }
+
   /// Clean a row map from Postgres by converting DateTime to ISO-8601 strings.
   static Map<String, dynamic> cleanRowMap(Map<String, dynamic> map) {
     final clean = <String, dynamic>{};
@@ -58,6 +69,7 @@ class DbHelper {
   }
 
   static Future<Map<String, dynamic>?> getCompetitionById(String id) async {
+    if (!isValidUuid(id)) return null;
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.competitions WHERE id = @id LIMIT 1'),
@@ -80,6 +92,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key.endsWith('_date') || entry.key.endsWith('_start') || entry.key.endsWith('_end') || entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -92,6 +106,7 @@ class DbHelper {
   // === Profiles CRUD ===
 
   static Future<Map<String, dynamic>?> getProfileById(String id) async {
+    if (!isValidUuid(id)) return null;
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.profiles WHERE id = @id LIMIT 1'),
@@ -138,6 +153,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -188,6 +205,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -198,6 +217,7 @@ class DbHelper {
   }
 
   static Future<List<Map<String, dynamic>>> getAssociationMembers(String associationId) async {
+    if (associationId.isEmpty) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.association_members WHERE association_id = @id'),
@@ -226,6 +246,7 @@ class DbHelper {
   }
 
   static Future<Map<String, dynamic>?> getAssociationById(String id) async {
+    if (id.isEmpty) return null;
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.associations WHERE id = @id LIMIT 1'),
@@ -245,6 +266,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -254,28 +277,94 @@ class DbHelper {
     return cleanRowMap(result.first.toColumnMap());
   }
 
-  static Future<bool> removeAssociationMember(String associationId, String userId) async {
+  static Future<bool> removeAssociationMember(String associationId, String userId, {String? role}) async {
+    if (associationId.isEmpty || !isValidUuid(userId)) return false;
     final conn = await DbConnection.connection;
+    final sql = role != null 
+        ? 'DELETE FROM public.association_members WHERE association_id = @associationId AND user_id = @userId AND role = @role'
+        : 'DELETE FROM public.association_members WHERE association_id = @associationId AND user_id = @userId';
+    final params = {
+      'associationId': associationId,
+      'userId': userId,
+      if (role != null) 'role': role,
+    };
     final result = await conn.execute(
-      Sql.named('DELETE FROM public.association_members WHERE association_id = @associationId AND user_id = @userId'),
-      parameters: {'associationId': associationId, 'userId': userId},
+      Sql.named(sql),
+      parameters: params,
     );
     return result.affectedRows > 0;
   }
 
-  static Future<Map<String, dynamic>?> transferAssociationOwnership(String associationId, String newOwnerId) async {
+  static Future<Map<String, dynamic>?> transferAssociationOwnership(String associationId, String newOwnerId, {String? customTitle}) async {
+    if (associationId.isEmpty || !isValidUuid(newOwnerId)) return null;
     final conn = await DbConnection.connection;
-    final result = await conn.execute(
+    
+    // 1. Get current owner_id
+    final assocResult = await conn.execute(
+      Sql.named('SELECT owner_id FROM public.associations WHERE id = @id LIMIT 1'),
+      parameters: {'id': associationId},
+    );
+    if (assocResult.isEmpty) return null;
+    final oldOwnerId = assocResult.first.toColumnMap()['owner_id'] as String;
+
+    // 2. Update owner_id on associations table
+    final updateAssocResult = await conn.execute(
       Sql.named('UPDATE public.associations SET owner_id = @newOwnerId WHERE id = @associationId RETURNING *'),
       parameters: {'associationId': associationId, 'newOwnerId': newOwnerId},
     );
-    if (result.isEmpty) return null;
-    return cleanRowMap(result.first.toColumnMap());
+    if (updateAssocResult.isEmpty) return null;
+
+    // 3. Delete only 'owner' role membership row for the old owner
+    await conn.execute(
+      Sql.named("DELETE FROM public.association_members WHERE association_id = @associationId AND user_id = @userId AND role = 'owner'"),
+      parameters: {'associationId': associationId, 'userId': oldOwnerId},
+    );
+
+    // 4. Ensure new owner has a membership row with role 'owner'
+    final checkNewOwnerOwnerRole = await conn.execute(
+      Sql.named("SELECT 1 FROM public.association_members WHERE association_id = @associationId AND user_id = @userId AND role = 'owner' LIMIT 1"),
+      parameters: {'associationId': associationId, 'userId': newOwnerId},
+    );
+    
+    if (checkNewOwnerOwnerRole.isEmpty) {
+      final memberId = 'member-$associationId-$newOwnerId-owner';
+      await conn.execute(
+        Sql.named("INSERT INTO public.association_members (id, association_id, user_id, role, custom_title) VALUES (@id, @associationId, @userId, 'owner', @customTitle)"),
+        parameters: {
+          'id': memberId,
+          'associationId': associationId,
+          'userId': newOwnerId,
+          'customTitle': customTitle,
+        },
+      );
+    } else {
+      await conn.execute(
+        Sql.named("UPDATE public.association_members SET custom_title = @customTitle WHERE association_id = @associationId AND user_id = @userId AND role = 'owner'"),
+        parameters: {
+          'associationId': associationId,
+          'userId': newOwnerId,
+          'customTitle': customTitle,
+        },
+      );
+    }
+
+    return cleanRowMap(updateAssocResult.first.toColumnMap());
+  }
+
+  static Future<bool> deleteAssociation(String id) async {
+    if (id.isEmpty) return false;
+    final conn = await DbConnection.connection;
+    final result = await conn.execute(
+      Sql.named('DELETE FROM public.associations WHERE id = @id'),
+      parameters: {'id': id},
+    );
+    return result.affectedRows > 0;
   }
 
   // === Competition Groups CRUD ===
 
   static Future<List<Map<String, dynamic>>> getCompetitionGroups(String associationId) async {
+    if (associationId.isEmpty) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.competition_groups WHERE association_id = @id'),
@@ -294,6 +383,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -313,6 +404,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -325,6 +418,7 @@ class DbHelper {
   // === Athlete Groups CRUD ===
 
   static Future<List<Map<String, dynamic>>> getAthleteGroups(String associationId) async {
+    if (associationId.isEmpty) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.athlete_groups WHERE association_id = @id'),
@@ -343,6 +437,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -362,6 +458,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -374,6 +472,7 @@ class DbHelper {
   // === Competitions Sub-Collections (Attempts, Flights, Schedule) ===
 
   static Future<List<Map<String, dynamic>>> getAttempts(String competitionId) async {
+    if (!isValidUuid(competitionId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.attempts WHERE competition_id = @id ORDER BY flight_id ASC, round_number ASC'),
@@ -392,6 +491,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -411,6 +512,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -421,6 +524,7 @@ class DbHelper {
   }
 
   static Future<List<Map<String, dynamic>>> getFlights(String competitionId) async {
+    if (!isValidUuid(competitionId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.flights WHERE competition_id = @id ORDER BY name ASC'),
@@ -439,6 +543,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -458,6 +564,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -468,6 +576,7 @@ class DbHelper {
   }
 
   static Future<List<Map<String, dynamic>>> getScheduleItems(String competitionId) async {
+    if (!isValidUuid(competitionId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.schedule_items WHERE competition_id = @id ORDER BY start_time ASC'),
@@ -486,6 +595,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'start_time' || entry.key == 'end_time' || entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -505,6 +616,8 @@ class DbHelper {
       var val = entry.value;
       if (val is String && (entry.key == 'start_time' || entry.key == 'end_time' || entry.key == 'created_at' || entry.key == 'updated_at')) {
         val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
       }
       params[entry.key] = val;
     }
@@ -517,23 +630,26 @@ class DbHelper {
   // === Registrations & Results ===
 
   static Future<List<Map<String, dynamic>>> getCompetitionAthletes(String competitionId) async {
+    if (!isValidUuid(competitionId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
-      Sql.named('SELECT p.* FROM public.profiles p JOIN public.meet_registrations r ON p.id = r.profile_id WHERE r.competition_id = @id AND r.status = \'registered\''),
+      Sql.named('SELECT p.* FROM public.profiles p JOIN public.athlete_registrations r ON p.id = r.profile_id WHERE r.competition_id = @id AND r.status = \'registered\''),
       parameters: {'id': competitionId},
     );
     return result.map((row) => cleanRowMap(row.toColumnMap())).toList();
   }
 
-  static Future<bool> registerAthlete(String competitionId, String userId) async {
+  static Future<bool> registerAthlete(String competitionId, String userId, {String status = 'registered'}) async {
+    if (!isValidUuid(competitionId) || !isValidUuid(userId)) return false;
     final conn = await DbConnection.connection;
     final id = 'reg-$competitionId-$userId-${DateTime.now().millisecondsSinceEpoch}';
     final result = await conn.execute(
-      Sql.named('INSERT INTO public.meet_registrations (id, competition_id, profile_id, status, created_at) VALUES (@id, @competitionId, @userId, \'registered\', @now)'),
+      Sql.named('INSERT INTO public.athlete_registrations (id, competition_id, profile_id, status, created_at) VALUES (@id, @competitionId, @userId, @status, @now)'),
       parameters: {
         'id': id,
         'competitionId': competitionId,
         'userId': userId,
+        'status': status,
         'now': DateTime.now().toUtc()
       },
     );
@@ -541,33 +657,37 @@ class DbHelper {
   }
 
   static Future<List<String>> getRegisteredAthleteIds(String competitionId) async {
+    if (!isValidUuid(competitionId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
-      Sql.named('SELECT profile_id FROM public.meet_registrations WHERE competition_id = @id AND status = \'registered\''),
+      Sql.named('SELECT profile_id FROM public.athlete_registrations WHERE competition_id = @id AND status = \'registered\''),
       parameters: {'id': competitionId},
     );
     return result.map((row) => row.first as String).toList();
   }
 
   static Future<List<Map<String, dynamic>>> getUserUpcomingMeets(String userId) async {
+    if (!isValidUuid(userId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
-      Sql.named('SELECT c.* FROM public.competitions c JOIN public.meet_registrations r ON c.id = r.competition_id WHERE r.profile_id = @id AND c.status = \'upcoming\''),
+      Sql.named('SELECT c.* FROM public.competitions c JOIN public.athlete_registrations r ON c.id = r.competition_id WHERE r.profile_id = @id AND c.status = \'upcoming\''),
       parameters: {'id': userId},
     );
     return result.map((row) => cleanRowMap(row.toColumnMap())).toList();
   }
 
   static Future<List<Map<String, dynamic>>> getUserCompletedMeets(String userId) async {
+    if (!isValidUuid(userId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
-      Sql.named('SELECT c.* FROM public.competitions c JOIN public.meet_registrations r ON c.id = r.competition_id WHERE r.profile_id = @id AND c.status = \'completed\''),
+      Sql.named('SELECT c.* FROM public.competitions c JOIN public.athlete_registrations r ON c.id = r.competition_id WHERE r.profile_id = @id AND c.status = \'completed\''),
       parameters: {'id': userId},
     );
     return result.map((row) => cleanRowMap(row.toColumnMap())).toList();
   }
 
   static Future<List<Map<String, dynamic>>> getUserHighestRankings(String userId) async {
+    if (!isValidUuid(userId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.highest_rankings WHERE profile_id = @id'),
@@ -577,6 +697,7 @@ class DbHelper {
   }
 
   static Future<List<Map<String, dynamic>>> getUserPersonalRecords(String userId) async {
+    if (!isValidUuid(userId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.personal_records WHERE profile_id = @id'),
@@ -588,6 +709,7 @@ class DbHelper {
   // === Notifications CRUD ===
 
   static Future<List<Map<String, dynamic>>> getNotifications(String userId) async {
+    if (!isValidUuid(userId)) return [];
     final conn = await DbConnection.connection;
     final result = await conn.execute(
       Sql.named('SELECT * FROM public.notifications WHERE user_id = @id ORDER BY created_at DESC'),
@@ -687,7 +809,7 @@ class DbHelper {
     final result = await conn.execute(
       Sql.named('INSERT INTO public.sport_configs (id, config, updated_at) VALUES (\'global_config\', @config, @now) ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, updated_at = EXCLUDED.updated_at'),
       parameters: {
-        'config': config,
+        'config': jsonEncode(config),
         'now': DateTime.now().toUtc(),
       },
     );
@@ -704,10 +826,10 @@ class DbHelper {
                mr.competition_class AS mr_competition_class, mr.total_score AS mr_total_score,
                mr.rank AS mr_rank, mr.best_lifts AS mr_best_lifts, mr.created_at AS mr_created_at,
                p.id AS p_id, p.username AS p_username, p.full_name AS p_full_name, p.email AS p_email,
-               p.gender AS p_gender, p.country AS p_country, p.profile_picture_url AS p_profile_picture_url,
+               p.sex AS p_sex, p.country AS p_country, p.profile_picture_url AS p_profile_picture_url,
                p.description AS p_description, p.color_mode AS p_color_mode,
                p.created_at AS p_created_at, p.updated_at AS p_updated_at, p.social_links AS p_social_links
-        FROM public.meet_results mr
+        FROM public.competition_results mr
         LEFT JOIN public.profiles p ON mr.profile_id = p.id
       '''),
     );
@@ -732,7 +854,7 @@ class DbHelper {
         'username': colMap['p_username'],
         'full_name': colMap['p_full_name'],
         'email': colMap['p_email'],
-        'gender': colMap['p_gender'],
+        'sex': colMap['p_sex'],
         'country': colMap['p_country'],
         'profile_picture_url': colMap['p_profile_picture_url'],
         'description': colMap['p_description'],
@@ -745,6 +867,140 @@ class DbHelper {
       list.add(cleanMr);
     }
     return list;
+  }
+
+  static Future<bool> runRandomDraw(String competitionId) async {
+    if (!isValidUuid(competitionId)) return false;
+    final conn = await DbConnection.connection;
+    
+    // 1. Get competition details
+    final comp = await getCompetitionById(competitionId);
+    if (comp == null) return false;
+    
+    final regMode = comp['registration_mode'] as String? ?? 'fcfs';
+    if (regMode != 'random') return false;
+    
+    // 2. Fetch all current registrations with profile sex
+    final result = await conn.execute(
+      Sql.named('SELECT r.id as registration_id, r.profile_id, p.sex FROM public.athlete_registrations r JOIN public.profiles p ON r.profile_id = p.id WHERE r.competition_id = @id'),
+      parameters: {'id': competitionId},
+    );
+    
+    final registrations = result.map((row) => row.toColumnMap()).toList();
+    if (registrations.isEmpty) return true;
+    
+    final maxAthletes = comp['max_athletes'] as int?;
+    final enableWaitlist = comp['enable_waitlist'] as bool? ?? false;
+    
+    // Decode max_athletes_per_group
+    List<dynamic> groupLimits = [];
+    if (comp['max_athletes_per_group'] != null) {
+      if (comp['max_athletes_per_group'] is String) {
+        groupLimits = jsonDecode(comp['max_athletes_per_group'] as String) as List<dynamic>;
+      } else {
+        groupLimits = comp['max_athletes_per_group'] as List<dynamic>;
+      }
+    }
+    
+    // Track assigned registrations (registration_id -> status)
+    final assignedStatus = <String, String>{};
+    final random = Random();
+    
+    if (groupLimits.isNotEmpty) {
+      for (final group in groupLimits) {
+        final groupGender = (group['gender'] as String? ?? 'open').toLowerCase();
+        final groupLimit = group['limit'] as int?;
+        
+        final candidates = registrations.where((reg) {
+          final regId = reg['registration_id'] as String;
+          if (assignedStatus[regId] == 'registered') return false;
+          
+          final userSex = (reg['sex'] as String? ?? '').toLowerCase();
+          
+          if (groupGender == 'open' || groupGender == 'mixed') return true;
+          if ((groupGender == 'men' || groupGender == 'male') && (userSex == 'male' || userSex == 'other')) return true;
+          if ((groupGender == 'women' || groupGender == 'female' || groupGender == 'woman') && (userSex == 'female' || userSex == 'other')) return true;
+          
+          return false;
+        }).toList();
+        
+        candidates.shuffle(random);
+        
+        if (groupLimit != null) {
+          final limit = groupLimit < candidates.length ? groupLimit : candidates.length;
+          for (int i = 0; i < limit; i++) {
+            final regId = candidates[i]['registration_id'] as String;
+            assignedStatus[regId] = 'registered';
+          }
+          
+          for (int i = limit; i < candidates.length; i++) {
+            final regId = candidates[i]['registration_id'] as String;
+            if (assignedStatus[regId] != 'registered') {
+              if (enableWaitlist) {
+                assignedStatus[regId] = 'waitlisted';
+              } else {
+                assignedStatus[regId] = 'pending';
+              }
+            }
+          }
+        } else {
+          for (final cand in candidates) {
+            final regId = cand['registration_id'] as String;
+            assignedStatus[regId] = 'registered';
+          }
+        }
+      }
+    } else {
+      final candidates = List<Map<String, dynamic>>.from(registrations);
+      candidates.shuffle(random);
+      
+      if (maxAthletes != null) {
+        final limit = maxAthletes < candidates.length ? maxAthletes : candidates.length;
+        for (int i = 0; i < limit; i++) {
+          final regId = candidates[i]['registration_id'] as String;
+          assignedStatus[regId] = 'registered';
+        }
+        for (int i = limit; i < candidates.length; i++) {
+          final regId = candidates[i]['registration_id'] as String;
+          if (enableWaitlist) {
+            assignedStatus[regId] = 'waitlisted';
+          } else {
+            assignedStatus[regId] = 'pending';
+          }
+        }
+      } else {
+        for (final cand in candidates) {
+          final regId = cand['registration_id'] as String;
+          assignedStatus[regId] = 'registered';
+        }
+      }
+    }
+    
+    for (final reg in registrations) {
+      final regId = reg['registration_id'] as String;
+      if (!assignedStatus.containsKey(regId)) {
+        if (enableWaitlist) {
+          assignedStatus[regId] = 'waitlisted';
+        } else {
+          assignedStatus[regId] = 'pending';
+        }
+      }
+    }
+    
+    bool allSuccess = true;
+    for (final entry in assignedStatus.entries) {
+      final regId = entry.key;
+      final status = entry.value;
+      final updateResult = await conn.execute(
+        Sql.named('UPDATE public.athlete_registrations SET status = @status WHERE id = @id'),
+        parameters: {'id': regId, 'status': status},
+      );
+      if (updateResult.affectedRows == 0) {
+        allSuccess = false;
+      }
+    }
+    
+    return allSuccess;
   }
 }
 

@@ -182,7 +182,7 @@ class ProfileRepository {
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client
-            .from('meet_registrations')
+            .from('athlete_registrations')
             .select('*, competition:competitions(*)')
             .eq('profile_id', profileId)
             .eq('status', 'registered');
@@ -218,7 +218,7 @@ class ProfileRepository {
     if (_useMockFallback && _client != null) {
       try {
         final response = await _client
-            .from('meet_results')
+            .from('competition_results')
             .select('*, competition:competitions(*)')
             .eq('profile_id', profileId);
         final list = response as List? ?? [];
@@ -469,6 +469,23 @@ class ProfileRepository {
         return '/uploads/$fileName';
       }
       rethrow;
+    }
+  }
+
+  Future<bool> deleteFile(String url) async {
+    if (_useMockFallback && _client != null) {
+      return true;
+    }
+    try {
+      final encodedUrl = Uri.encodeComponent(url);
+      final response = await _api.delete('/upload?url=$encodedUrl');
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      debugPrint('Error deleting file: $e');
+      if (_useMockFallback) {
+        return true;
+      }
+      return false;
     }
   }
 }

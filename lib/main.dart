@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,12 +13,12 @@ import 'repositories/association_repository.dart';
 import 'repositories/notification_repository.dart';
 import 'providers/competition_provider.dart';
 import 'providers/auth_provider.dart';
-import 'views/search_feed_page.dart';
-import 'utils/url_helper.dart';
+import 'views/home_navigation_shell.dart';
 import 'utils/mock_safety.dart';
+import 'router.dart';
 
 void main() async {
-  UrlHelper.initialize();
+  GoRouter.optionURLReflectsImperativeAPIs = true;
   usePathUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -132,10 +133,47 @@ void main() async {
             notificationRepository: notificationRepository,
           ),
         ),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider(),
+        ),
       ],
       child: const MyApp(),
     ),
   );
+}
+
+class ThemeProvider extends ChangeNotifier {
+  bool _isDarkMode = true;
+
+  bool get isDarkMode => _isDarkMode;
+
+  void toggleTheme(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isAuthenticated &&
+        authProvider.currentUserProfile != null) {
+      final profile = authProvider.currentUserProfile!;
+      final currentMode = profile.colorMode;
+      String newMode;
+      if (currentMode == 'system') {
+        final isSystemDark =
+            MediaQuery.of(context).platformBrightness == Brightness.dark;
+        newMode = isSystemDark ? 'light' : 'dark';
+      } else {
+        newMode = currentMode == 'dark' ? 'light' : 'dark';
+      }
+      authProvider.updateProfile(
+        fullName: profile.fullName,
+        email: profile.email,
+        sex: profile.sex,
+        country: profile.country,
+        description: profile.description,
+        colorMode: newMode,
+      );
+    } else {
+      _isDarkMode = !_isDarkMode;
+      notifyListeners();
+    }
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -146,42 +184,14 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  bool _isDarkMode = true; // Defaulting to premium dark mode for guests
-
   void _toggleTheme(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.isAuthenticated &&
-        authProvider.currentUserProfile != null) {
-      final profile = authProvider.currentUserProfile!;
-      final currentMode = profile.colorMode;
-      String newMode;
-      if (currentMode == 'system') {
-        // Toggle based on platform brightness
-        final isSystemDark =
-            MediaQuery.of(context).platformBrightness == Brightness.dark;
-        newMode = isSystemDark ? 'light' : 'dark';
-      } else {
-        newMode = currentMode == 'dark' ? 'light' : 'dark';
-      }
-      authProvider.updateProfile(
-        fullName: profile.fullName,
-        email: profile.email,
-        gender: profile.gender,
-        country: profile.country,
-        description: profile.description,
-        colorMode: newMode,
-      );
-    } else {
-      setState(() {
-        _isDarkMode = !_isDarkMode;
-      });
-    }
+    Provider.of<ThemeProvider>(context, listen: false).toggleTheme(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
+    return Consumer2<AuthProvider, ThemeProvider>(
+      builder: (context, authProvider, themeProvider, _) {
         final profile = authProvider.currentUserProfile;
         ThemeMode themeMode;
         bool isDarkTheme;
@@ -200,29 +210,18 @@ class _MyAppState extends State<MyApp> {
                 MediaQuery.of(context).platformBrightness == Brightness.dark;
           }
         } else {
-          themeMode = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
-          isDarkTheme = _isDarkMode;
+          themeMode = themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light;
+          isDarkTheme = themeProvider.isDarkMode;
         }
 
-        return MaterialApp(
+        return MaterialApp.router(
           title: 'FinalRep App',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
           themeAnimationDuration: Duration.zero,
-          navigatorObservers: [
-            WebUrlObserver(
-              Provider.of<CompetitionProvider>(context, listen: false),
-            ),
-          ],
-          initialRoute: '/',
-          home: Builder(
-            builder: (context) => SearchFeedPage(
-              onToggleTheme: () => _toggleTheme(context),
-              isDarkMode: isDarkTheme,
-            ),
-          ),
+          routerConfig: goRouter,
         );
       },
     );

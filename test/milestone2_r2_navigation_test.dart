@@ -12,159 +12,15 @@ import 'package:finalrep_app/repositories/profile_repository.dart';
 import 'package:finalrep_app/repositories/association_repository.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/providers/auth_provider.dart';
-import 'package:finalrep_app/views/search_feed_page.dart';
+import 'package:finalrep_app/views/home_navigation_shell.dart';
 import 'package:finalrep_app/views/association_management_page.dart';
+import 'package:finalrep_app/views/association_library_page.dart';
+import 'package:finalrep_app/views/competition_management_page.dart';
 import 'package:finalrep_app/views/rankings_page.dart';
 import 'package:finalrep_app/views/profile_page.dart';
 import 'package:finalrep_app/views/login_page.dart';
 
-class MockProfileRepository implements ProfileRepository {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<List<Profile>> searchProfiles(String query) async => [];
-
-  @override
-  Future<Profile> getProfile(String id) async {
-    return Profile(
-      id: id,
-      username: 'testuser',
-      fullName: 'Test User',
-      email: 'test@example.com',
-    );
-  }
-
-  @override
-  Future<Profile> getProfileByUsername(String username) async {
-    return Profile(
-      id: 'user-1',
-      username: username,
-      fullName: 'Test User',
-      email: 'test@example.com',
-    );
-  }
-
-  @override
-  Future<List<Competition>> getUserUpcomingMeets(String userId) async => [];
-
-  @override
-  Future<List<Competition>> getUserCompletedMeets(String userId) async => [];
-
-  @override
-  Future<List<Map<String, dynamic>>> getUserHighestRankings(
-    String userId,
-  ) async => [];
-
-  @override
-  Future<List<Map<String, dynamic>>> getUserPersonalRecords(
-    String userId,
-  ) async => [];
-}
-
-class MockCompetitionRepository implements CompetitionRepository {
-  final List<Competition> _fakeCompetitions = [
-    Competition(
-      id: 'comp-1',
-      title: 'Hamburg Meet',
-      location: 'Hamburg, Germany',
-      sportSubtype: 'Modern',
-      compGroupName: 'Hamburg Meet',
-      area: 'Europe',
-      country: 'Germany',
-      city: 'Hamburg',
-      startDate: DateTime(2026, 6, 15),
-      endDate: DateTime(2026, 6, 15),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      status: 'upcoming',
-      associationId: 'assoc-1',
-    ),
-  ];
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<List<Competition>> getUpcomingCompetitions({
-    String? query,
-    String? sportSubtype,
-    String? compGroupName,
-    String? status,
-  }) async {
-    return _fakeCompetitions;
-  }
-
-  @override
-  Future<List<Competition>> fetchCompetitions({
-    String? query,
-    String? sportSubtype,
-    String? compGroupName,
-    String? status,
-  }) async {
-    return _fakeCompetitions;
-  }
-}
-
-class MockAssociationRepository implements AssociationRepository {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<List<Association>> getAssociations() async => [];
-
-  @override
-  Future<List<AssociationMember>> getAssociationMembers(
-    String associationId,
-  ) async => [];
-}
-
-class MockAuthProvider extends ChangeNotifier implements AuthProvider {
-  bool _isAuthenticated;
-  Profile? _currentUserProfile;
-
-  MockAuthProvider({bool isAuthenticated = false, Profile? currentUserProfile})
-    : _isAuthenticated = isAuthenticated,
-      _currentUserProfile = currentUserProfile;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  bool get isAuthenticated => _isAuthenticated;
-
-  @override
-  Profile? get currentUserProfile => _currentUserProfile;
-
-  @override
-  bool get isLoading => false;
-
-  @override
-  String? get errorMessage => null;
-
-  @override
-  bool get isPasswordRecoveryActive => false;
-
-  @override
-  bool get isAdmin => _currentUserProfile?.isAdmin ?? false;
-
-  @override
-  bool get isAssociationCreator =>
-      _currentUserProfile?.isAssociationCreator ?? false;
-
-  @override
-  bool get isCompetitionCreator =>
-      _currentUserProfile?.isCompetitionCreator ?? false;
-
-  @override
-  ProfileRepository get profileRepository => MockProfileRepository();
-
-  void setAuthenticated(bool val, {Profile? profile}) {
-    _isAuthenticated = val;
-    _currentUserProfile = profile;
-    notifyListeners();
-  }
-}
+import 'mocks/shared_mocks.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -186,7 +42,24 @@ void main() {
     late MockAuthProvider authProvider;
 
     setUp(() {
-      compRepo = MockCompetitionRepository();
+      compRepo = MockCompetitionRepository([
+        Competition(
+          id: 'comp-1',
+          title: 'Hamburg Meet',
+          location: 'Hamburg, Germany',
+          sportSubtype: 'Modern',
+          compGroupName: 'Hamburg Meet',
+          area: 'Europe',
+          country: 'Germany',
+          city: 'Hamburg',
+          startDate: DateTime(2026, 6, 15),
+          endDate: DateTime(2026, 6, 15),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          status: 'upcoming',
+          associationId: 'assoc-1',
+        ),
+      ]);
       assocRepo = MockAssociationRepository();
       compProvider = CompetitionProvider(
         compRepo,
@@ -205,7 +78,7 @@ void main() {
           ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ],
         child: MaterialApp(
-          home: SearchFeedPage(onToggleTheme: () {}, isDarkMode: false),
+          home: HomeNavigationShell(onToggleTheme: () {}, isDarkMode: false),
         ),
       );
     }
@@ -301,6 +174,7 @@ void main() {
             username: 'johndoe',
             fullName: 'John Doe',
             email: 'john@example.com',
+            isAssociationCreator: true,
           ),
         );
 
@@ -314,9 +188,34 @@ void main() {
         await tester.tap(find.text('Associations'));
         await tester.pumpAndSettle();
 
-        // View mode dropdown should be hidden on tab 1
+        // Under 'All' view mode, tab 1 renders AssociationLibraryPage which has a layout selector tooltip
+        expect(find.byType(AssociationLibraryPage), findsOneWidget);
+        expect(find.byTooltip('Select layout '), findsOneWidget);
+
+        // Switch to 'Management' view mode
+        await tester.tap(find.text('All'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Management').last);
+        await tester.pumpAndSettle();
+
+        // Resets index to 0, which displays CompetitionManagementPage
+        expect(find.byType(CompetitionManagementPage), findsOneWidget);
         expect(find.byTooltip('Select layout'), findsNothing);
+        expect(find.byTooltip('Select layout '), findsNothing);
+
+        // Click on My Associations (Tab 1) while in 'Management' mode
+        await tester.tap(find.text('My Associations'));
+        await tester.pumpAndSettle();
+
         expect(find.byType(AssociationManagementPage), findsOneWidget);
+        expect(find.byTooltip('Select layout'), findsOneWidget);
+        expect(find.byTooltip('Select layout '), findsNothing);
+
+        // Switch back to 'All' view mode
+        await tester.tap(find.text('Management'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('All').last);
+        await tester.pumpAndSettle();
 
         // Click on Rankings (Tab 2)
         await tester.tap(find.text('Rankings'));
@@ -324,6 +223,7 @@ void main() {
 
         expect(find.byType(RankingsPage), findsOneWidget);
         expect(find.byTooltip('Select layout'), findsNothing);
+        expect(find.byTooltip('Select layout '), findsOneWidget);
       },
     );
 
@@ -340,15 +240,15 @@ void main() {
         await tester.pumpWidget(buildTestWidget());
         await tester.pumpAndSettle();
 
-        // On Tab 0, the desktop left sidebar/filter panel should be visible
-        expect(find.text('Filters'), findsOneWidget);
+        // On Tab 0, the desktop left sidebar/filter panel with Date Range should be visible
+        expect(find.text('DATE RANGE'), findsOneWidget);
 
         // Click on Associations (Tab 1)
         await tester.tap(find.text('Associations'));
         await tester.pumpAndSettle();
 
-        // Filters should not be visible anymore
-        expect(find.text('Filters'), findsNothing);
+        // DATE RANGE filter should not be visible anymore
+        expect(find.text('DATE RANGE'), findsNothing);
       },
     );
   });

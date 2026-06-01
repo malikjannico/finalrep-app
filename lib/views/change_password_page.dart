@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../router.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});
@@ -337,7 +339,24 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
     if (profile == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Change Password')),
+        appBar: AppBar(
+          title: const Text('Change Password'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                try {
+                  GoRouter.of(context);
+                  goRouter.go('/settings');
+                } catch (_) {
+                  Navigator.of(context).pop();
+                }
+              }
+            },
+          ),
+        ),
         body: const Center(
           child: Text('Please log in to change your password.'),
         ),
@@ -350,6 +369,21 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         title: const Text(
           'Change Password',
           style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              try {
+                GoRouter.of(context);
+                goRouter.go('/settings');
+              } catch (_) {
+                Navigator.of(context).pop();
+              }
+            }
+          },
         ),
       ),
       body: _isLoading

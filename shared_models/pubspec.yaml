@@ -1,0 +1,8 @@
+name: shared_models
+description: Shared domain models for finalrep-app frontend and backend
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+

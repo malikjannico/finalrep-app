@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../models/profile.dart';
 import '../views/profile_page.dart';
 import '../providers/competition_provider.dart';
 import '../utils/mock_safety.dart';
+import '../utils/image_url_resolver.dart';
 
 class ProfileCard extends StatefulWidget {
   final Profile profile;
@@ -21,8 +23,14 @@ class _ProfileCardState extends State<ProfileCard> {
   String _getBannerUrl() {
     final userId = widget.profile.id;
     try {
-      final competitionProvider = Provider.of<CompetitionProvider>(context, listen: false);
-      final apiBaseUrl = competitionProvider.competitionRepository.baseUrl;
+      final competitionProvider = Provider.of<CompetitionProvider>(
+        context,
+        listen: false,
+      );
+      String apiBaseUrl = 'http://localhost:8080';
+      try {
+        apiBaseUrl = competitionProvider.competitionRepository.baseUrl;
+      } catch (_) {}
       if (MockSafety.isMockAllowed) {
         return '$apiBaseUrl/uploads/profiles-$userId-banner.jpg';
       }
@@ -33,14 +41,13 @@ class _ProfileCardState extends State<ProfileCard> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final resolvedProfilePicUrl = ImageUrlResolver.resolve(context, widget.profile.profilePictureUrl);
     final isDark = theme.brightness == Brightness.dark;
-    final size = MediaQuery.of(context).size;
-    final isMobileLayout = size.width < 900;
-    final showHover = _isHovered && !isMobileLayout;
+    final isMobile = MediaQuery.of(context).size.width < 900;
+    final showHover = _isHovered && !isMobile;
 
     final cardRadius = theme.cardTheme.shape is RoundedRectangleBorder
         ? ((theme.cardTheme.shape as RoundedRectangleBorder).borderRadius
@@ -64,389 +71,243 @@ class _ProfileCardState extends State<ProfileCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap:
-            widget.onTap ??
-            () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  settings: RouteSettings(
-                    name: '/users/${widget.profile.username}',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        transform: showHover
+            ? Matrix4.translationValues(0.0, -4.0, 0.0)
+            : Matrix4.identity(),
+        decoration: BoxDecoration(
+          color: theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow,
+          borderRadius: cardRadius,
+          border: Border.all(
+            color: showHover
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            width: showHover ? 2 : 1,
+          ),
+          boxShadow: showHover
+              ? [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(
+                      alpha: isDark ? 0.25 : 0.15,
+                    ),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
                   ),
-                  builder: (_) => ProfilePage(
-                    userId: widget.profile.id,
-                    profileRepository: Provider.of<CompetitionProvider>(
+                ]
+              : null,
+        ),
+        child: ClipRRect(
+          borderRadius: cardRadius.subtract(BorderRadius.circular(1)),
+          child: InkWell(
+            onTap: widget.onTap ??
+                () {
+                  try {
+                    context.push('/users/${widget.profile.username}');
+                  } catch (_) {
+                    Navigator.push(
                       context,
-                      listen: false,
-                    ).profileRepository,
+                      MaterialPageRoute(
+                        builder: (_) => ProfilePage(username: widget.profile.username),
+                      ),
+                    );
+                  }
+                },
+            child: Stack(
+              children: [
+                // Banner Area
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 80,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (bannerUrl.isNotEmpty)
+                        Image.network(
+                          bannerUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) => _buildDefaultBanner(theme),
+                        )
+                      else
+                        _buildDefaultBanner(theme),
+                    ],
                   ),
                 ),
-              );
-            },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          transform: showHover
-              ? Matrix4.translationValues(0.0, -4.0, 0.0)
-              : Matrix4.identity(),
-          padding: isMobileLayout ? EdgeInsets.zero : const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color,
-            borderRadius: cardRadius,
-            border: Border.all(
-              color: showHover
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outlineVariant,
-              width: showHover ? 2 : 1,
-            ),
-            boxShadow: showHover
-                ? [
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withValues(
-                        alpha: isDark ? 0.25 : 0.15,
-                      ),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
-          ),
-          child: isMobileLayout
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Banner
-                    Container(
-                      height: 55,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.only(
-                          topLeft: cardRadius.topLeft,
-                          topRight: cardRadius.topRight,
-                        ),
-                        gradient: LinearGradient(
-                          colors: [
-                            theme.colorScheme.primaryContainer.withValues(
-                              alpha: 0.5,
-                            ),
-                            theme.colorScheme.secondaryContainer.withValues(
-                              alpha: 0.5,
-                            ),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.only(
-                          topLeft: cardRadius.topLeft,
-                          topRight: cardRadius.topRight,
-                        ),
-                        child: bannerUrl.isEmpty
-                            ? const SizedBox.shrink()
-                            : Image.network(
-                                bannerUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const SizedBox.shrink();
-                                },
-                              ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                // Body Content (overlapping avatar)
+                Positioned(
+                  top: 56, // 80 - 24 overlap
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            CircleAvatar(
-                              radius: 22,
-                              backgroundColor:
-                                  theme.colorScheme.primaryContainer,
-                              backgroundImage:
-                                  widget.profile.profilePictureUrl != null
-                                  ? NetworkImage(
-                                      widget.profile.profilePictureUrl!,
-                                    )
-                                  : null,
-                              child: widget.profile.profilePictureUrl == null
-                                  ? Text(
-                                      initials,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: theme
-                                            .colorScheme
-                                            .onPrimaryContainer,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    widget.profile.fullName,
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onSurface,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    '@${widget.profile.username}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (widget.profile.description != null &&
-                                      widget
-                                          .profile
-                                          .description!
-                                          .isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      widget.profile.description!,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: theme.colorScheme.onSurface
-                                                .withValues(alpha: 0.8),
-                                            fontSize: 11,
-                                          ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      if (widget.profile.gender != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 1.5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: theme
-                                                .colorScheme
-                                                .secondaryContainer,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            widget.profile.gender!,
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onSecondaryContainer,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 9,
-                                                ),
-                                          ),
-                                        ),
-                                      if (widget.profile.gender != null &&
-                                          widget.profile.country != null)
-                                        const SizedBox(width: 6),
-                                      if (widget.profile.country != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 1.5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: theme
-                                                .colorScheme
-                                                .tertiaryContainer,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.location_on,
-                                                size: 8,
-                                              ),
-                                              const SizedBox(width: 1.5),
-                                              Text(
-                                                widget.profile.country!,
-                                                style: theme
-                                                    .textTheme
-                                                    .labelSmall
-                                                    ?.copyWith(
-                                                      color: theme
-                                                          .colorScheme
-                                                          .onTertiaryContainer,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 9,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surface,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  )
                                 ],
                               ),
+                              child: CircleAvatar(
+                                radius: 28,
+                                backgroundColor: theme.colorScheme.primaryContainer,
+                                backgroundImage: resolvedProfilePicUrl != null &&
+                                        resolvedProfilePicUrl.isNotEmpty
+                                    ? NetworkImage(resolvedProfilePicUrl)
+                                    : null,
+                                child: widget.profile.profilePictureUrl == null ||
+                                        widget.profile.profilePictureUrl!.isEmpty
+                                    ? Text(
+                                        initials,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onPrimaryContainer,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
+                              ),
                             ),
+                            const Spacer(),
+                            // Country badge next to gender badge
+                            if (widget.profile.country != null) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.tertiaryContainer.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 10,
+                                      color: theme.colorScheme.onTertiaryContainer,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      widget.profile.country!,
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.onTertiaryContainer,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (widget.profile.sex != null) const SizedBox(width: 8),
+                            ],
+                            // Sex Badge
+                            if (widget.profile.sex != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  widget.profile.sex == 'prefer not to say'
+                                      ? 'Prefer not to say'
+                                      : (widget.profile.sex!.isEmpty
+                                          ? ''
+                                          : widget.profile.sex![0].toUpperCase() +
+                                              widget.profile.sex!.substring(1)),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSecondaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Avatar Section
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: theme.colorScheme.primaryContainer,
-                      backgroundImage: widget.profile.profilePictureUrl != null
-                          ? NetworkImage(widget.profile.profilePictureUrl!)
-                          : null,
-                      child: widget.profile.profilePictureUrl == null
-                          ? Text(
-                              initials,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onPrimaryContainer,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 16),
-
-                    // Info Section
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Name & Username
-                          Text(
-                            widget.profile.fullName,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 6),
+                        // Full Name
+                        Text(
+                          widget.profile.fullName,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
-                          Text(
-                            '@${widget.profile.username}',
-                            style: theme.textTheme.bodySmall?.copyWith(
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        // Username
+                        Text(
+                          '@${widget.profile.username}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        // Bio Snippet
+                        SizedBox(
+                          height: 30,
+                          child: Text(
+                            widget.profile.description == null ||
+                                    widget.profile.description!.isEmpty
+                                ? 'No biography provided.'
+                                : widget.profile.description!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 11,
                             ),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 8),
+                        ),
 
-                          // Bio Snippet
-                          if (widget.profile.description != null &&
-                              widget.profile.description!.isNotEmpty) ...[
-                            Text(
-                              widget.profile.description!,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.8,
-                                ),
-                                fontSize: 13,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-
-                          // Gender & Country Badges
-                          Row(
-                            children: [
-                              if (widget.profile.gender != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.secondaryContainer,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    widget.profile.gender!,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme
-                                          .colorScheme
-                                          .onSecondaryContainer,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              if (widget.profile.gender != null &&
-                                  widget.profile.country != null)
-                                const SizedBox(width: 8),
-                              if (widget.profile.country != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.tertiaryContainer,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.location_on, size: 10),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        widget.profile.country!,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onTertiaryContainer,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 10,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-
-                    // View Profile Arrow
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: theme.colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.5,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultBanner(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+            theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
+          ],
         ),
       ),
     );

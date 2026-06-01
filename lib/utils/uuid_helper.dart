@@ -1,6 +1,26 @@
 import 'dart:convert';
+import 'dart:math';
 
 class UuidHelper {
+  /// Generates a random valid UUID v4 string.
+  static String generateUuidV4() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0F) | 0x40; // M = 4
+    bytes[8] = (bytes[8] & 0x3F) | 0x80; // N = 8
+
+    String hex(int val) => val.toRadixString(16).padLeft(2, '0');
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < 16; i++) {
+      buffer.write(hex(bytes[i]));
+      if (i == 3 || i == 5 || i == 7 || i == 9) {
+        buffer.write('-');
+      }
+    }
+    return buffer.toString();
+  }
+
   /// Converts any string (e.g. Firebase Auth UID) deterministically into a valid UUID v4 string.
   static String getDeterministicUuid(String input) {
     // If the input is already a valid UUID, return it directly

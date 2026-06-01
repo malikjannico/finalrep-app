@@ -7,167 +7,7 @@ import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:flutter/material.dart';
 
 import 'package:finalrep_app/repositories/association_repository.dart';
-import 'package:finalrep_app/models/association.dart';
-
-class MockProfileRepository implements ProfileRepository {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<List<Profile>> searchProfiles(String query) async {
-    return [];
-  }
-}
-
-class MockAssociationRepository implements AssociationRepository {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<List<Association>> getAssociations() async {
-    return [
-      Association(
-        id: 'assoc-1',
-        name: 'Global Streetlifting Federation (GSF)',
-        scope: 'global',
-        description: 'The main global governing body for streetlifting.',
-        rulebooks: {},
-        socialChannels: {},
-        ownerId: 'user-1',
-        supportedSports: ['Streetlifting'],
-      ),
-      Association(
-        id: 'assoc-2',
-        name: 'European Streetlifting Association (ESA)',
-        scope: 'area',
-        areaName: 'Europe',
-        description: 'Continental governing body for Europe.',
-        rulebooks: {},
-        socialChannels: {},
-        ownerId: 'user-2',
-        supportedSports: ['Calisthenics'],
-      ),
-    ];
-  }
-}
-
-// A mock implementation of the repository
-class MockCompetitionRepository implements CompetitionRepository {
-  final List<Competition> _fakeCompetitions = [
-    Competition(
-      id: '1',
-      title: 'Qualifier Hamburg',
-      location: 'Hamburg, Germany',
-      sportSubtype: 'Modern',
-      compGroupName: 'FinalRep Qualifier',
-      area: 'Europe',
-      country: 'Germany',
-      city: 'Hamburg',
-      startDate: DateTime(2026, 6, 15),
-      endDate: DateTime(2026, 6, 15),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    Competition(
-      id: '2',
-      title: 'Underground Berlin',
-      location: 'Berlin, Germany',
-      sportSubtype: 'Modern',
-      compGroupName: 'FinalRep Underground',
-      area: 'Europe',
-      country: 'Germany',
-      city: 'Berlin',
-      startDate: DateTime(2026, 7, 10),
-      endDate: DateTime(2026, 7, 10),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    Competition(
-      id: '3',
-      title: 'Classic Cup Vienna',
-      location: 'Vienna, Austria',
-      sportSubtype: 'Classic',
-      compGroupName: null,
-      area: 'Europe',
-      country: 'Austria',
-      city: 'Vienna',
-      startDate: DateTime(2026, 8, 1),
-      endDate: DateTime(2026, 8, 1),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    Competition(
-      id: '4',
-      title: 'US Qualifier',
-      location: 'New York, USA',
-      sportSubtype: 'Modern',
-      compGroupName: 'FinalRep Qualifier',
-      area: 'North America',
-      country: 'USA',
-      city: 'New York',
-      startDate: DateTime(2026, 9, 20),
-      endDate: DateTime(2026, 9, 20),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    Competition(
-      id: '5',
-      title: 'Underground Munich',
-      location: 'Munich, Germany',
-      sportSubtype: 'Modern',
-      compGroupName: 'FinalRep Underground',
-      area: 'Europe',
-      country: 'Germany',
-      city: 'Munich',
-      startDate: DateTime(2026, 10, 5),
-      endDate: DateTime(2026, 10, 5),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-  ];
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  Future<List<Competition>> getUpcomingCompetitions({
-    String? query,
-    String? sportSubtype,
-    String? compGroupName,
-    String? status = 'upcoming',
-  }) async {
-    return _fakeCompetitions.where((comp) {
-      if (query != null && query.isNotEmpty) {
-        final matchesTitle = comp.title.toLowerCase().contains(
-          query.toLowerCase(),
-        );
-        final matchesLocation = comp.location.toLowerCase().contains(
-          query.toLowerCase(),
-        );
-        if (!matchesTitle && !matchesLocation) return false;
-      }
-      if (sportSubtype != null &&
-          sportSubtype != 'All' &&
-          comp.sportSubtype != sportSubtype) {
-        return false;
-      }
-      if (compGroupName != null && compGroupName != 'All') {
-        if (compGroupName == 'Individual') {
-          if (comp.compGroupName != null) return false;
-        } else if (comp.compGroupName != compGroupName) {
-          return false;
-        }
-      }
-      return true;
-    }).toList();
-  }
-
-  @override
-  String get baseUrl => '';
-
-  @override
-  Future<List<Map<String, dynamic>>> getMeetResults() async => [];
-}
+import 'mocks/shared_mocks.dart';
 
 void main() {
   group('CompetitionProvider Tests', () {
@@ -175,7 +15,78 @@ void main() {
     late CompetitionProvider provider;
 
     setUp(() async {
-      repository = MockCompetitionRepository();
+      repository = MockCompetitionRepository([
+        Competition(
+          id: '1',
+          title: 'Qualifier Hamburg',
+          location: 'Hamburg, Germany',
+          sportSubtype: 'Modern',
+          compGroupName: 'FinalRep Qualifier',
+          area: 'Europe',
+          country: 'Germany',
+          city: 'Hamburg',
+          startDate: DateTime(2026, 6, 15),
+          endDate: DateTime(2026, 6, 15),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+        Competition(
+          id: '2',
+          title: 'Underground Berlin',
+          location: 'Berlin, Germany',
+          sportSubtype: 'Modern',
+          compGroupName: 'FinalRep Underground',
+          area: 'Europe',
+          country: 'Germany',
+          city: 'Berlin',
+          startDate: DateTime(2026, 7, 10),
+          endDate: DateTime(2026, 7, 10),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+        Competition(
+          id: '3',
+          title: 'Classic Cup Vienna',
+          location: 'Vienna, Austria',
+          sportSubtype: 'Classic',
+          compGroupName: null,
+          area: 'Europe',
+          country: 'Austria',
+          city: 'Vienna',
+          startDate: DateTime(2026, 8, 1),
+          endDate: DateTime(2026, 8, 1),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+        Competition(
+          id: '4',
+          title: 'US Qualifier',
+          location: 'New York, USA',
+          sportSubtype: 'Modern',
+          compGroupName: 'FinalRep Qualifier',
+          area: 'North America',
+          country: 'USA',
+          city: 'New York',
+          startDate: DateTime(2026, 9, 20),
+          endDate: DateTime(2026, 9, 20),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+        Competition(
+          id: '5',
+          title: 'Underground Munich',
+          location: 'Munich, Germany',
+          sportSubtype: 'Modern',
+          compGroupName: 'FinalRep Underground',
+          area: 'Europe',
+          country: 'Germany',
+          city: 'Munich',
+          startDate: DateTime(2026, 10, 5),
+          endDate: DateTime(2026, 10, 5),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      ]);
       provider = CompetitionProvider(
         repository,
         MockProfileRepository(),

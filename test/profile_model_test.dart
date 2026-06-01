@@ -9,7 +9,7 @@ void main() {
         'username': 'johndoe',
         'full_name': 'John Doe',
         'email': 'john@example.com',
-        'gender': 'Male',
+        'sex': 'male',
         'country': 'Germany',
         'profile_picture_url': 'https://example.com/avatar.png',
         'description': 'A passionate streetlifter.',
@@ -24,7 +24,7 @@ void main() {
       expect(profile.username, 'johndoe');
       expect(profile.fullName, 'John Doe');
       expect(profile.email, 'john@example.com');
-      expect(profile.gender, 'Male');
+      expect(profile.sex, 'male');
       expect(profile.country, 'Germany');
       expect(profile.profilePictureUrl, 'https://example.com/avatar.png');
       expect(profile.description, 'A passionate streetlifter.');
@@ -47,7 +47,7 @@ void main() {
       expect(profile.username, 'minimalist');
       expect(profile.fullName, 'Minimal User');
       expect(profile.email, 'minimal@example.com');
-      expect(profile.gender, isNull);
+      expect(profile.sex, isNull);
       expect(profile.country, isNull);
       expect(profile.profilePictureUrl, isNull);
       expect(profile.description, isNull);
@@ -62,7 +62,7 @@ void main() {
         username: 'janedoe',
         fullName: 'Jane Doe',
         email: 'jane@example.com',
-        gender: 'Female',
+        sex: 'Female',
         country: 'Austria',
         profilePictureUrl: 'https://example.com/jane.png',
         description: 'Streetlifting champion.',
@@ -77,7 +77,7 @@ void main() {
       expect(json['username'], 'janedoe');
       expect(json['full_name'], 'Jane Doe');
       expect(json['email'], 'jane@example.com');
-      expect(json['gender'], 'Female');
+      expect(json['sex'], 'Female');
       expect(json['country'], 'Austria');
       expect(json['profile_picture_url'], 'https://example.com/jane.png');
       expect(json['description'], 'Streetlifting champion.');
@@ -105,7 +105,7 @@ void main() {
       expect(updated.fullName, 'Updated Name');
       expect(updated.email, 'original@example.com');
       expect(updated.colorMode, 'dark');
-      expect(updated.gender, isNull);
+      expect(updated.sex, isNull);
       expect(updated.socialLinks, {'instagram': 'test_insta'});
     });
 

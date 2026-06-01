@@ -57,3 +57,7 @@ cloud-sql-proxy
 
 # Environment specific configuration
 config/env_*.json
+
+# Local media uploads folder
+backend/uploads/
+

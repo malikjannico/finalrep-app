@@ -5,10 +5,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
   if (context.request.method == HttpMethod.post) {
     final body = await context.request.json() as Map<String, dynamic>;
     final userId = body['userId'] as String?;
+    final status = body['status'] as String? ?? 'registered';
     if (userId == null) {
       return Response(statusCode: 400, body: 'Missing userId in body');
     }
-    final success = await DbHelper.registerAthlete(id, userId);
+    final success = await DbHelper.registerAthlete(id, userId, status: status);
     return Response.json(body: {'success': success});
   }
   return Response(statusCode: 405);

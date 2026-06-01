@@ -9,7 +9,7 @@ import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/views/login_page.dart';
 import 'package:finalrep_app/views/profile_page.dart';
 import 'package:finalrep_app/views/settings_page.dart';
-import 'package:finalrep_app/views/search_feed_page.dart';
+import 'package:finalrep_app/views/home_navigation_shell.dart';
 
 final Uint8List transparentPngBytes = File(
   'assets/images/comp_berlin.png',
@@ -478,7 +478,7 @@ void main() {
 
           await tester.pumpWidget(
             harness.buildApp(
-              SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+              HomeNavigationShell(onToggleTheme: () {}, isDarkMode: true),
             ),
           );
           await tester.pump();
@@ -499,7 +499,7 @@ void main() {
           // Change layout to Map
           await tester.tap(find.byTooltip('Select layout'));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Map Layout'));
+          await tester.tap(find.text('Map View'));
           await tester.pumpAndSettle();
 
           expect(harness.competitionProvider.layout, CompetitionsLayout.map);
@@ -519,7 +519,7 @@ void main() {
 
           await tester.pumpWidget(
             harness.buildApp(
-              SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+              HomeNavigationShell(onToggleTheme: () {}, isDarkMode: true),
             ),
           );
           await tester.pump();
@@ -556,7 +556,7 @@ void main() {
 
         await tester.pumpWidget(
           harness.buildApp(
-            SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+            HomeNavigationShell(onToggleTheme: () {}, isDarkMode: true),
           ),
         );
         await tester.pump();
@@ -587,7 +587,7 @@ void main() {
 
         await tester.pumpWidget(
           harness.buildApp(
-            SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+            HomeNavigationShell(onToggleTheme: () {}, isDarkMode: true),
           ),
         );
         await tester.pump();
@@ -619,7 +619,7 @@ void main() {
 
           await tester.pumpWidget(
             harness.buildApp(
-              SearchFeedPage(onToggleTheme: () {}, isDarkMode: true),
+              HomeNavigationShell(onToggleTheme: () {}, isDarkMode: true),
             ),
           );
           await tester.pump();

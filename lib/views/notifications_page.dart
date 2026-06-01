@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../repositories/notification_repository.dart';
 import '../models/system_notification.dart';
+import '../widgets/unified_empty_state.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -194,16 +195,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 // Notifications List Section
                 Expanded(
                   child: filteredNotifications.isEmpty
-                      ? ListView(
-                          key: const Key('notifications_list'),
-                          children: const [
-                            Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(24.0),
-                                child: Text('No notifications found.'),
-                              ),
-                            ),
-                          ],
+                      ? const UnifiedEmptyState(
+                          key: Key('notifications_empty_state'),
+                          title: 'No notifications found',
+                          message: 'There are no notifications matching your filters.',
+                          icon: Icons.notifications_off_outlined,
                         )
                       : ListView.builder(
                           key: const Key('notifications_list'),

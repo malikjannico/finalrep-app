@@ -1,7 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:finalrep_app/models/system_notification.dart';
 import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/repositories/notification_repository.dart';
+import 'package:finalrep_app/utils/api_client.dart';
+
+class MockApiClient extends ApiClient {
+  @override
+  Future<http.Response> get(String path, {Map<String, String>? queryParameters}) async {
+    throw Exception('Connection failed');
+  }
+
+  @override
+  Future<http.Response> post(String path, {Object? body}) async {
+    throw Exception('Connection failed');
+  }
+
+  @override
+  Future<http.Response> put(String path, {Object? body}) async {
+    throw Exception('Connection failed');
+  }
+}
 
 void main() {
   group('System Notification Model Tests', () {
@@ -72,9 +91,9 @@ void main() {
     test(
       'NotificationRepository works as an in-memory database fallback when client is null',
       () async {
-        // Create repository with null client
-        final repo = NotificationRepository(null);
-        final userId = 'fallback-user-123';
+        // Create repository with null client and failing api client to force fallback
+        final repo = NotificationRepository(null, api: MockApiClient());
+        final userId = '00000000-0000-0000-0000-000000000004';
 
         // 1. Initial notifications list should be empty
         final initialList = await repo.getNotifications(userId);
@@ -112,3 +131,4 @@ void main() {
     );
   });
 }
+

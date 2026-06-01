@@ -97,16 +97,19 @@ class AdminRepository {
       createdAt: DateTime.now(),
     );
 
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('permission_applications').insert(newApp.toJson()).select().single();
-        final app = PermissionApplication.fromJson(response as Map<String, dynamic>);
-        _syncApplicationToMock(app);
-        return app;
-      } catch (_) {
-        _mockApplications.add(newApp);
-        return newApp;
+    if (_useMockFallback) {
+      if (_client != null) {
+        try {
+          final response = await _client.from('permission_applications').insert(newApp.toJson()).select().single();
+          final app = PermissionApplication.fromJson(response as Map<String, dynamic>);
+          _syncApplicationToMock(app);
+          return app;
+        } catch (_) {
+          // fallback to in-memory
+        }
       }
+      _mockApplications.add(newApp);
+      return newApp;
     }
     try {
       final response = await _api.post('/admin/permissions', body: newApp.toJson());
@@ -117,26 +120,25 @@ class AdminRepository {
       }
       throw Exception('Failed to apply for permissions: ${response.statusCode} ${response.body}');
     } catch (e) {
-      if (!_useMockFallback) {
-        rethrow;
-      }
-      _mockApplications.add(newApp);
-      return newApp;
+      rethrow;
     }
   }
 
   /// Get list of all permission applications.
   Future<List<PermissionApplication>> getPermissionApplications() async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('permission_applications').select();
-        final list = (response as List).map((e) => PermissionApplication.fromJson(e as Map<String, dynamic>)).toList();
-        _mockApplications.clear();
-        _mockApplications.addAll(list);
-        return list;
-      } catch (_) {
-        return List.from(_mockApplications);
+    if (_useMockFallback) {
+      if (_client != null) {
+        try {
+          final response = await _client.from('permission_applications').select();
+          final list = (response as List).map((e) => PermissionApplication.fromJson(e as Map<String, dynamic>)).toList();
+          _mockApplications.clear();
+          _mockApplications.addAll(list);
+          return list;
+        } catch (_) {
+          // fallback to in-memory
+        }
       }
+      return List.from(_mockApplications);
     }
     try {
       final response = await _api.get('/admin/permissions');
@@ -150,10 +152,7 @@ class AdminRepository {
       }
       throw Exception('Failed to get permission applications: ${response.statusCode} ${response.body}');
     } catch (e) {
-      if (!_useMockFallback) {
-        rethrow;
-      }
-      return List.from(_mockApplications);
+      rethrow;
     }
   }
 
@@ -161,21 +160,24 @@ class AdminRepository {
   Future<PermissionApplication?> approvePermissionApplication(
     String applicationId,
   ) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('permission_applications').update({'status': 'approved'}).eq('id', applicationId).select().single();
-        final app = PermissionApplication.fromJson(response as Map<String, dynamic>);
-        _syncApplicationToMock(app);
-        return app;
-      } catch (_) {
-        final idx = _mockApplications.indexWhere((element) => element.id == applicationId);
-        if (idx != -1) {
-          final updated = _mockApplications[idx].copyWith(status: 'approved');
-          _mockApplications[idx] = updated;
-          return updated;
+    if (_useMockFallback) {
+      if (_client != null) {
+        try {
+          final response = await _client.from('permission_applications').update({'status': 'approved'}).eq('id', applicationId).select().single();
+          final app = PermissionApplication.fromJson(response as Map<String, dynamic>);
+          _syncApplicationToMock(app);
+          return app;
+        } catch (_) {
+          // fallback to in-memory
         }
-        return null;
       }
+      final idx = _mockApplications.indexWhere((element) => element.id == applicationId);
+      if (idx != -1) {
+        final updated = _mockApplications[idx].copyWith(status: 'approved');
+        _mockApplications[idx] = updated;
+        return updated;
+      }
+      return null;
     }
     try {
       final response = await _api.put('/admin/permissions/$applicationId/approve');
@@ -186,18 +188,7 @@ class AdminRepository {
       }
       throw Exception('Failed to approve application: ${response.statusCode} ${response.body}');
     } catch (e) {
-      if (!_useMockFallback) {
-        rethrow;
-      }
-      final idx = _mockApplications.indexWhere(
-        (element) => element.id == applicationId,
-      );
-      if (idx != -1) {
-        final updated = _mockApplications[idx].copyWith(status: 'approved');
-        _mockApplications[idx] = updated;
-        return updated;
-      }
-      return null;
+      rethrow;
     }
   }
 
@@ -205,21 +196,24 @@ class AdminRepository {
   Future<PermissionApplication?> rejectPermissionApplication(
     String applicationId,
   ) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('permission_applications').update({'status': 'rejected'}).eq('id', applicationId).select().single();
-        final app = PermissionApplication.fromJson(response as Map<String, dynamic>);
-        _syncApplicationToMock(app);
-        return app;
-      } catch (_) {
-        final idx = _mockApplications.indexWhere((element) => element.id == applicationId);
-        if (idx != -1) {
-          final updated = _mockApplications[idx].copyWith(status: 'rejected');
-          _mockApplications[idx] = updated;
-          return updated;
+    if (_useMockFallback) {
+      if (_client != null) {
+        try {
+          final response = await _client.from('permission_applications').update({'status': 'rejected'}).eq('id', applicationId).select().single();
+          final app = PermissionApplication.fromJson(response as Map<String, dynamic>);
+          _syncApplicationToMock(app);
+          return app;
+        } catch (_) {
+          // fallback to in-memory
         }
-        return null;
       }
+      final idx = _mockApplications.indexWhere((element) => element.id == applicationId);
+      if (idx != -1) {
+        final updated = _mockApplications[idx].copyWith(status: 'rejected');
+        _mockApplications[idx] = updated;
+        return updated;
+      }
+      return null;
     }
     try {
       final response = await _api.put('/admin/permissions/$applicationId/reject');
@@ -230,36 +224,22 @@ class AdminRepository {
       }
       throw Exception('Failed to reject application: ${response.statusCode} ${response.body}');
     } catch (e) {
-      if (!_useMockFallback) {
-        rethrow;
-      }
-      final idx = _mockApplications.indexWhere(
-        (element) => element.id == applicationId,
-      );
-      if (idx != -1) {
-        final updated = _mockApplications[idx].copyWith(status: 'rejected');
-        _mockApplications[idx] = updated;
-        return updated;
-      }
-      return null;
+      rethrow;
     }
   }
 
   /// Load sport config.
   Future<SportConfig> loadSportsConfig() async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('sports_config').select().maybeSingle();
-        if (response == null) {
-          if (!_useMockFallback) {
-            throw StateError('Sport configuration not found in database.');
+    if (_useMockFallback) {
+      if (_client != null) {
+        try {
+          final response = await _client.from('sports_config').select().maybeSingle();
+          if (response != null) {
+            return SportConfig.fromJson(response as Map<String, dynamic>);
           }
-          return _mockSportConfig;
-        }
-        return SportConfig.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return _mockSportConfig;
+        } catch (_) {}
       }
+      return _mockSportConfig;
     }
     try {
       final response = await _api.get('/admin/sport-config');
@@ -270,29 +250,24 @@ class AdminRepository {
         _mockSportConfig = config;
         return config;
       }
-      if (!_useMockFallback) {
-        throw StateError('Sport configuration not found in database.');
-      }
-      return _mockSportConfig;
+      throw StateError('Sport configuration not found in database.');
     } catch (e) {
-      if (!_useMockFallback) {
-        rethrow;
-      }
-      return _mockSportConfig;
+      rethrow;
     }
   }
 
   /// Save sport config.
   Future<bool> saveSportsConfig(SportConfig config) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        await _client.from('sports_config').upsert(config.toJson());
-        _mockSportConfig = config;
-        return true;
-      } catch (_) {
-        _mockSportConfig = config;
-        return true;
+    if (_useMockFallback) {
+      if (_client != null) {
+        try {
+          await _client.from('sports_config').upsert(config.toJson());
+          _mockSportConfig = config;
+          return true;
+        } catch (_) {}
       }
+      _mockSportConfig = config;
+      return true;
     }
     try {
       final response = await _api.post('/admin/sport-config', body: config.toJson());
@@ -303,11 +278,7 @@ class AdminRepository {
       }
       throw Exception('Failed to save sports config: ${response.statusCode} ${response.body}');
     } catch (e) {
-      if (!_useMockFallback) {
-        rethrow;
-      }
-      _mockSportConfig = config;
-      return true;
+      rethrow;
     }
   }
 
