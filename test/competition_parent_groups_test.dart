@@ -120,14 +120,11 @@ void main() {
           find.byKey(const Key('comp_location_field')),
           'Rütersbarg 50, 22529 Hamburg, Germany',
         );
-        await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(ElevatedButton, 'Verify Location'));
+        // Step 2 -> Step 3 (automatic verification triggered on NEXT tap)
+        await tester.tap(nextButton);
+        await tester.pump(const Duration(milliseconds: 550));
         await tester.pumpAndSettle();
         ScaffoldMessenger.of(tester.element(nextButton)).clearSnackBars();
-        await tester.pumpAndSettle();
-
-        // Step 2 -> Step 3
-        await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
         // Step 3: Sport & Format (Defaults to Streetlifting & Modern)

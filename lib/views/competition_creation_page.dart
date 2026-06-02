@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -8,12 +9,11 @@ import '../providers/auth_provider.dart';
 import '../providers/competition_provider.dart';
 import '../models/competition.dart';
 import '../models/association.dart';
-import '../models/athlete_group.dart';
 import '../models/competition_group.dart';
 import '../utils/mock_safety.dart';
 import '../utils/uuid_helper.dart';
 import '../repositories/profile_repository.dart';
-import '../widgets/verified_location_badge.dart';
+import 'association/widgets/collapsible_section.dart';
 
 const List<Map<String, String>> _allCurrencies = [
   {'code': 'AED', 'name': 'United Arab Emirates Dirham', 'symbol': 'د.إ'},
@@ -220,11 +220,13 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
   bool _isVerifyingLocation = false;
   String _activeLocationField = ''; // 'location'
   List<String> _locationSuggestions = [];
+  Timer? _debounce;
 
   // Step 3: Sport & Format
   String _sportType = 'Streetlifting';
   String _sportSubtype = 'Modern';
   String _rankingType = 'open';
+  String _formatSearchQuery = '';
   final TextEditingController _rulebookUrlController = TextEditingController();
   List<CompetitionGroup> _availableCompGroups = [];
   String? _selectedCompGroupName;
@@ -337,6 +339,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
 
   @override
   void dispose() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
     if (!_isSubmitted) {
       final bannerUrl = _titleImageUrlController.text.trim();
       if (bannerUrl.isNotEmpty) {
@@ -403,6 +406,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
   }
 
   Future<void> _updateLocationSuggestions(String field, String query) async {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
     if (query.isEmpty) {
       setState(() {
         _locationSuggestions = [];
@@ -428,36 +433,38 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
       return;
     }
 
-    try {
-      final String apiBase = MockSafety.apiBaseUrl.endsWith('/') 
-          ? MockSafety.apiBaseUrl.substring(0, MockSafety.apiBaseUrl.length - 1)
-          : MockSafety.apiBaseUrl;
-      final encodedQuery = Uri.encodeComponent(query);
-      final url = Uri.parse('$apiBase/location/search?q=$encodedQuery&limit=5');
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      try {
+        final String apiBase = MockSafety.apiBaseUrl.endsWith('/') 
+            ? MockSafety.apiBaseUrl.substring(0, MockSafety.apiBaseUrl.length - 1)
+            : MockSafety.apiBaseUrl;
+        final encodedQuery = Uri.encodeComponent(query);
+        final url = Uri.parse('$apiBase/location/search?q=$encodedQuery&limit=5');
 
-      final response = await http.get(url);
+        final response = await http.get(url);
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final List<String> suggestions = [];
-        for (var item in data) {
-          final displayName = item['display_name'] as String?;
-          if (displayName != null) {
-            if (!suggestions.contains(displayName)) {
-              suggestions.add(displayName);
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          final List<String> suggestions = [];
+          for (var item in data) {
+            final displayName = item['display_name'] as String?;
+            if (displayName != null) {
+              if (!suggestions.contains(displayName)) {
+                suggestions.add(displayName);
+              }
             }
           }
+          if (mounted) {
+            setState(() {
+              _locationSuggestions = suggestions;
+              _activeLocationField = field;
+            });
+          }
         }
-        if (mounted) {
-          setState(() {
-            _locationSuggestions = suggestions;
-            _activeLocationField = field;
-          });
-        }
+      } catch (e) {
+        debugPrint('Error fetching location suggestions: $e');
       }
-    } catch (e) {
-      debugPrint('Error fetching location suggestions: $e');
-    }
+    });
   }
 
   // Real-time location verification using OpenStreetMap Nominatim
@@ -783,6 +790,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
         offset: const Offset(0, 48),
         onSelected: onChanged,
         itemBuilder: (BuildContext context) => items,
+        borderRadius: BorderRadius.circular(12),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: labelText,
@@ -812,7 +820,6 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
 
   // Modals for Athlete Groups, Volunteer Positions, Custom Fields, Disclaimers
   void _showAthleteGroupModal({int? editIndex}) {
-    final theme = Theme.of(context);
     final nameController = TextEditingController(
       text: editIndex != null ? _athleteGroups[editIndex].name : '',
     );
@@ -1470,16 +1477,11 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     }
   }
 
-  void _nextStep() {
+  Future<void> _nextStep() async {
     if (_formKeys[_currentStep].currentState!.validate()) {
       if (_currentStep == 1 && !_isLocationVerified) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please verify the location before proceeding.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
+        await _verifyLocation();
+        if (!_isLocationVerified) return;
       }
       if (_currentStep == 4) {
         final dateErr = _validateDates();
@@ -1534,27 +1536,33 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
               children: [
                 _buildStepperProgress(theme),
                 Expanded(
-                  child: Center(
-                    child: Container(
-                      constraints: BoxConstraints(maxWidth: isDesktop ? 800 : double.infinity),
-                      child: SingleChildScrollView(
+                  child: SingleChildScrollView(
+                    child: Center(
+                      child: Container(
+                        constraints: BoxConstraints(maxWidth: isDesktop ? 800 : double.infinity),
                         padding: const EdgeInsets.all(24.0),
-                        child: Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: _buildCurrentStepContent(theme),
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Card(
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: _buildCurrentStepContent(theme),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildStepperActions(theme),
+                          ],
                         ),
                       ),
                     ),
                   ),
                 ),
-                _buildStepperActions(theme),
               ],
             ),
     );
@@ -1754,11 +1762,6 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
           ),
           if (_activeLocationField == 'location' && _locationSuggestions.isNotEmpty)
             _buildSuggestionsList(_locationController),
-          VerifiedLocationBadge(
-            isVerifying: _isVerifyingLocation,
-            isVerified: _isLocationVerified,
-            onVerify: _verifyLocation,
-          ),
         ],
       ),
     );
@@ -1808,19 +1811,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
             .toList() ??
         ['Modern', 'Classic'];
 
-    final linkedDisciplines = sportConfig?.links
-            .where((link) => link.sportName == _sportType && link.formatName == _sportSubtype)
-            .map((link) => link.disciplineName)
-            .toList() ??
-        [];
-
-    final disciplines = linkedDisciplines.isNotEmpty
-        ? linkedDisciplines
-        : (_sportType == 'Streetlifting'
-            ? (_sportSubtype == 'Classic'
-                ? ['Pull-up', 'Dip']
-                : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
-            : <String>[]);
+    final query = _formatSearchQuery.trim().toLowerCase();
+    final filteredFormats = formats.where((f) => f.toLowerCase().contains(query)).toList();
 
     return Form(
       key: _formKeys[2],
@@ -1853,22 +1845,110 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
             },
           ),
           const SizedBox(height: 20),
-          _buildCustomDropdownField<String>(
-            labelText: 'Sport Format',
-            value: formats.contains(_sportSubtype) ? _sportSubtype : formats.first,
-            prefixIcon: Icon(Icons.tune, color: theme.colorScheme.primary, size: 20),
-            items: formats
-                .map((f) => PopupMenuItem<String>(
-                      value: f,
-                      child: Text(f),
-                    ))
-                .toList(),
+          TextField(
+            decoration: const InputDecoration(
+              labelText: 'Search Formats',
+              hintText: 'Type format name...',
+              prefixIcon: Icon(Icons.search),
+            ),
             onChanged: (val) {
               setState(() {
-                _sportSubtype = val;
+                _formatSearchQuery = val;
               });
-              _onParentOrSportChanged();
             },
+          ),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: ListView(
+              shrinkWrap: true,
+              children: filteredFormats.map((fmt) {
+                final isSelected = _sportSubtype == fmt;
+                final List<String> linked = sportConfig?.links
+                        .where((link) => link.sportName == _sportType && link.formatName == fmt)
+                        .map((link) => link.disciplineName)
+                        .toList() ??
+                    <String>[];
+                final List<String> discs = linked.isNotEmpty
+                    ? linked
+                    : (_sportType == 'Streetlifting'
+                        ? (fmt == 'Classic'
+                            ? ['Pull-up', 'Dip']
+                            : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
+                        : <String>[]);
+
+                return Card(
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  color: isSelected
+                      ? theme.colorScheme.primaryContainer.withOpacity(0.15)
+                      : theme.colorScheme.surface,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      setState(() {
+                        _sportSubtype = fmt;
+                      });
+                      _onParentOrSportChanged();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Radio<String>(
+                            value: fmt,
+                            groupValue: _sportSubtype,
+                            onChanged: (String? val) {
+                              if (val != null) {
+                                setState(() {
+                                  _sportSubtype = val;
+                                });
+                                _onParentOrSportChanged();
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  fmt,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                if (discs.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: discs.map((d) => Chip(
+                                      label: Text(d, style: const TextStyle(fontSize: 10)),
+                                      backgroundColor: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                      visualDensity: VisualDensity.compact,
+                                    )).toList(),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
           const SizedBox(height: 20),
           _buildCustomDropdownField<String>(
@@ -1931,25 +2011,6 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
             }
             return const SizedBox.shrink();
           }),
-          if (disciplines.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            Text(
-              'Disciplines of Selected Format',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: disciplines
-                  .map((d) => Chip(
-                        label: Text(d, style: const TextStyle(fontSize: 12)),
-                        backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.4),
-                        visualDensity: VisualDensity.compact,
-                      ))
-                  .toList(),
-            ),
-          ],
         ],
       ),
     );
@@ -1964,23 +2025,28 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
           Text('Banner Image', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.colorScheme.outlineVariant),
+              color: theme.colorScheme.primary.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: theme.colorScheme.primary.withOpacity(0.2),
+                width: 1.5,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.info_outline, size: 18),
+                    Icon(Icons.info_outline, size: 18, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Recommended Size: 1200 x 400 px (3:1 Aspect Ratio)\nSafe-zone: Keep critical content in the central 800 x 300 px area.',
-                        style: theme.textTheme.bodySmall,
+                        'Recommended Size: 1200 x 400 px (3:1 Aspect Ratio)\nSafe-zone: Keep critical content in central 800 x 300 px.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],
@@ -1991,16 +2057,44 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                     ElevatedButton.icon(
                       onPressed: _isUploadingBanner ? null : _pickBannerImage,
                       icon: _isUploadingBanner
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.upload),
-                      label: const Text('Upload Banner'),
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.cloud_upload_outlined, size: 18),
+                      label: const Text(
+                        'Upload Banner',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE94E1B),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
+                    Icon(
+                      _bannerFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
+                      size: 18,
+                      color: _bannerFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         _bannerFileName ?? 'No image selected',
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: _bannerFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                          fontWeight: _bannerFileName != null ? FontWeight.bold : FontWeight.normal,
+                        ),
                       ),
                     ),
                   ],
@@ -2011,7 +2105,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                     borderRadius: BorderRadius.circular(8),
                     child: Image.memory(
                       _bannerBytes!,
-                      height: 120,
+                      height: 100,
                       width: double.infinity,
                       fit: BoxFit.cover,
                     ),
@@ -2033,18 +2127,252 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
         children: [
           Text('Dates & Deadlines', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
-          Text('Competition Period', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          _buildDateTimePickerTile('Competition Start Date *', _startDate, (val) => setState(() => _startDate = val)),
-          const SizedBox(height: 12),
-          _buildDateTimePickerTile('Competition End Date *', _endDate, (val) => setState(() => _endDate = val)),
-          const SizedBox(height: 20),
-          Text('Registration Period', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          _buildDateTimePickerTile('Registration Start Date *', _registrationStartDate, (val) => setState(() => _registrationStartDate = val)),
-          const SizedBox(height: 12),
-          _buildDateTimePickerTile('Registration End Date *', _registrationEndDate, (val) => setState(() => _registrationEndDate = val)),
+          _buildDateRangeTile(
+            title: 'Competition Period',
+            start: _startDate,
+            end: _endDate,
+            onSelected: (start, end) => setState(() {
+              _startDate = start;
+              _endDate = end;
+            }),
+            theme: theme,
+          ),
+          const SizedBox(height: 16),
+          _buildDateRangeTile(
+            title: 'Registration Period',
+            start: _registrationStartDate,
+            end: _registrationEndDate,
+            onSelected: (start, end) => setState(() {
+              _registrationStartDate = start;
+              _registrationEndDate = end;
+            }),
+            theme: theme,
+          ),
         ],
+      ),
+    );
+  }
+
+  Future<Map<String, DateTime>?> _selectDateTimeRange({
+    required DateTime initialStart,
+    required DateTime initialEnd,
+  }) async {
+    DateTimeRange? dateRange = DateTimeRange(start: initialStart, end: initialEnd);
+    TimeOfDay startTime = TimeOfDay.fromDateTime(initialStart);
+    TimeOfDay endTime = TimeOfDay.fromDateTime(initialEnd);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final use24Hour = authProvider.timeFormat == '24h';
+
+    int currentStep = 0; // 0: DateRange, 1: StartTime, 2: EndTime
+
+    while (currentStep >= 0 && currentStep < 3) {
+      if (currentStep == 0) {
+        final DateTimeRange? selected = await showDateRangePicker(
+          context: context,
+          initialDateRange: dateRange,
+          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+          lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+          saveText: 'NEXT',
+        );
+        if (selected == null) {
+          // User cancelled the entire flow
+          return null;
+        }
+        dateRange = selected;
+        currentStep = 1; // Proceed to StartTime
+      } else if (currentStep == 1) {
+        final TimeOfDay? selected = await showTimePicker(
+          context: context,
+          initialTime: startTime,
+          helpText: 'Select Start Time',
+          cancelText: 'BACK',
+          confirmText: 'NEXT',
+          builder: (context, child) {
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                alwaysUse24HourFormat: use24Hour,
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (selected == null) {
+          currentStep = 0; // Go back to DateRange
+        } else {
+          startTime = selected;
+          currentStep = 2; // Proceed to EndTime
+        }
+      } else if (currentStep == 2) {
+        final TimeOfDay? selected = await showTimePicker(
+          context: context,
+          initialTime: endTime,
+          helpText: 'Select End Time',
+          cancelText: 'BACK',
+          confirmText: 'SAVE',
+          builder: (context, child) {
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                alwaysUse24HourFormat: use24Hour,
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (selected == null) {
+          currentStep = 1; // Go back to StartTime
+        } else {
+          endTime = selected;
+          currentStep = 3; // Finished
+        }
+      }
+    }
+
+    if (dateRange == null) return null;
+
+    final resolvedStart = DateTime(
+      dateRange.start.year,
+      dateRange.start.month,
+      dateRange.start.day,
+      startTime.hour,
+      startTime.minute,
+    );
+
+    final resolvedEnd = DateTime(
+      dateRange.end.year,
+      dateRange.end.month,
+      dateRange.end.day,
+      endTime.hour,
+      endTime.minute,
+    );
+
+    return {
+      'start': resolvedStart,
+      'end': resolvedEnd,
+    };
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final month = months[dt.month - 1];
+    final day = dt.day.toString();
+    final year = dt.year.toString();
+
+    final use24Hour = Provider.of<AuthProvider>(context, listen: false).timeFormat == '24h';
+    if (use24Hour) {
+      final hour = dt.hour.toString().padLeft(2, '0');
+      final minute = dt.minute.toString().padLeft(2, '0');
+      return '$month $day, $year - $hour:$minute';
+    } else {
+      final isPm = dt.hour >= 12;
+      final displayHour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final hour = displayHour.toString().padLeft(2, '0');
+      final minute = dt.minute.toString().padLeft(2, '0');
+      final period = isPm ? 'PM' : 'AM';
+      return '$month $day, $year - $hour:$minute $period';
+    }
+  }
+
+  Widget _buildDateRangeTile({
+    required String title,
+    required DateTime start,
+    required DateTime end,
+    required Function(DateTime start, DateTime end) onSelected,
+    required ThemeData theme,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      color: theme.colorScheme.surface,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          final result = await _selectDateTimeRange(
+            initialStart: start,
+            initialEnd: end,
+          );
+          if (result != null) {
+            onSelected(result['start']!, result['end']!);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.date_range_outlined, color: theme.colorScheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(Icons.edit_outlined, color: theme.colorScheme.onSurfaceVariant, size: 18),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'FROM',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatDateTime(start),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_outlined,
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TO',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatDateTime(end),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2212,37 +2540,100 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
               ),
             )
           else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _athleteGroups.length,
-              itemBuilder: (context, idx) {
-                final group = _athleteGroups[idx];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  elevation: 0,
-                  color: theme.colorScheme.surfaceContainerHigh.withOpacity(0.5),
-                  child: ListTile(
-                    title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('Gender: ${group.gender.toUpperCase()} • Limit: ${group.limit ?? "Unlimited"}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
-                          onPressed: () => _showAthleteGroupModal(editIndex: idx),
+            Builder(
+              builder: (context) {
+                final Map<String, List<MapEntry<int, LocalAthleteGroup>>> grouped = {};
+                for (int i = 0; i < _athleteGroups.length; i++) {
+                  final group = _athleteGroups[i];
+                  final gKey = group.gender.toLowerCase().trim();
+                  grouped.putIfAbsent(gKey, () => []).add(MapEntry(i, group));
+                }
+
+                const preferredOrder = ['men', 'women', 'open'];
+                final sortedGenders = grouped.keys.toList()
+                  ..sort((a, b) {
+                    final idxA = preferredOrder.indexOf(a);
+                    final idxB = preferredOrder.indexOf(b);
+                    if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+                    if (idxA != -1) return -1;
+                    if (idxB != -1) return 1;
+                    return a.compareTo(b);
+                  });
+
+                return Column(
+                  children: sortedGenders.map((genderKey) {
+                    final entries = grouped[genderKey]!;
+                    final displayGender = genderKey == 'women'
+                        ? 'Women'
+                        : (genderKey.isEmpty ? '' : genderKey[0].toUpperCase() + genderKey.substring(1));
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: CollapsibleSection(
+                        initiallyExpanded: true,
+                        title: Row(
+                          children: [
+                            Text(
+                              displayGender,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.secondaryContainer,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                '${entries.length}',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSecondaryContainer,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                          onPressed: () {
-                            setState(() {
-                              _athleteGroups.removeAt(idx);
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                        children: entries.map((entry) {
+                          final idx = entry.key;
+                          final group = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 24.0, top: 4.0, bottom: 4.0),
+                            child: Card(
+                              margin: EdgeInsets.zero,
+                              elevation: 0,
+                              color: theme.colorScheme.surfaceContainerHigh.withOpacity(0.5),
+                              child: ListTile(
+                                title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text('Limit: ${group.limit ?? "Unlimited"}'),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                                      onPressed: () => _showAthleteGroupModal(editIndex: idx),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                                      onPressed: () {
+                                        setState(() {
+                                          _athleteGroups.removeAt(idx);
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  }).toList(),
                 );
               },
             ),
@@ -2769,29 +3160,21 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
   }
 
   Widget _buildStepperActions(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-          ),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if (_currentStep > 0)
             OutlinedButton(
-              onPressed: _prevStep,
+              onPressed: _isVerifyingLocation ? null : _prevStep,
               child: const Text('BACK'),
             )
           else
             const SizedBox(),
           ElevatedButton(
             key: const Key('comp_next_btn'),
-            onPressed: _nextStep,
+            onPressed: _isVerifyingLocation ? null : _nextStep,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE94E1B),
               foregroundColor: Colors.white,
@@ -2800,10 +3183,19 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: Text(
-              _currentStep == _totalSteps - 1 ? 'SUBMIT' : 'NEXT',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            child: _isVerifyingLocation
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    _currentStep == _totalSteps - 1 ? 'SUBMIT' : 'NEXT',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
           ),
         ],
       ),

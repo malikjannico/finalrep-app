@@ -82,20 +82,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final verifyLocBtn = find.widgetWithText(
-        ElevatedButton,
-        'Verify Location',
-      );
-      await tester.tap(verifyLocBtn);
+      await tester.tap(nextButton); // 2 -> 3 (Sport & Format)
       await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
       final context = tester.element(nextButton);
       ScaffoldMessenger.of(context).clearSnackBars();
-      await tester.pumpAndSettle();
-
-      // Tap next for step 2 -> 3 (Sport & Format)
-      await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
       // Tap next for step 3 -> 4 (Banner Image)
@@ -324,19 +316,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final verifyLocBtn = find.widgetWithText(
-        ElevatedButton,
-        'Verify Location',
-      );
-      await tester.tap(verifyLocBtn);
+      await tester.tap(nextButton); // 2 -> 3
       await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
       final context = tester.element(nextButton);
       ScaffoldMessenger.of(context).clearSnackBars();
-      await tester.pumpAndSettle();
-
-      await tester.tap(nextButton); // 2 -> 3
       await tester.pumpAndSettle();
       await tester.tap(nextButton); // 3 -> 4
       await tester.pumpAndSettle();
@@ -449,19 +434,12 @@ void main() {
           find.byKey(const Key('comp_location_field')),
           'Alexanderplatz 1, 10178 Berlin, Germany',
         );
-        final verifyLocBtn = find.widgetWithText(
-          ElevatedButton,
-          'Verify Location',
-        );
-        await tester.tap(verifyLocBtn);
+        await tester.tap(nextButton); // Step 2 -> 3
         await tester.pump(const Duration(milliseconds: 550));
         await tester.pumpAndSettle();
 
         final context = tester.element(nextButton);
         ScaffoldMessenger.of(context).clearSnackBars();
-        await tester.pumpAndSettle();
-
-        await tester.tap(nextButton); // Step 2 -> 3
         await tester.pumpAndSettle();
 
         // Step 3: Sport & Format -> set Sport Subtype to Modern
@@ -568,19 +546,12 @@ void main() {
         find.byKey(const Key('comp_location_field')),
         'Alexanderplatz 1, 10178 Berlin, Germany',
       );
-      final verifyLocBtn = find.widgetWithText(
-        ElevatedButton,
-        'Verify Location',
-      );
-      await tester.tap(verifyLocBtn);
+      await tester.tap(nextButton); // 2 -> 3
       await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
       final context = tester.element(nextButton);
       ScaffoldMessenger.of(context).clearSnackBars();
-      await tester.pumpAndSettle();
-
-      await tester.tap(nextButton); // 2 -> 3
       await tester.pumpAndSettle();
       await tester.tap(nextButton); // 3 -> 4
       await tester.pumpAndSettle();
@@ -758,19 +729,12 @@ void main() {
         find.byKey(const Key('comp_location_field')),
         'Alexanderplatz 1, 10178 Berlin, Germany',
       );
-      final verifyLocBtn = find.widgetWithText(
-        ElevatedButton,
-        'Verify Location',
-      );
-      await tester.tap(verifyLocBtn);
+      await tester.tap(nextButton); // 2 -> 3
       await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
       final context = tester.element(nextButton);
       ScaffoldMessenger.of(context).clearSnackBars();
-      await tester.pumpAndSettle();
-
-      await tester.tap(nextButton); // 2 -> 3
       await tester.pumpAndSettle();
 
       await tester.tap(nextButton); // 3 -> 4
@@ -880,19 +844,12 @@ void main() {
         find.byKey(const Key('comp_location_field')),
         'Alexanderplatz 1, 10178 Berlin, Germany',
       );
-      final verifyLocBtn = find.widgetWithText(
-        ElevatedButton,
-        'Verify Location',
-      );
-      await tester.tap(verifyLocBtn);
+      await tester.tap(nextButton); // 2 -> 3
       await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
       final context = tester.element(nextButton);
       ScaffoldMessenger.of(context).clearSnackBars();
-      await tester.pumpAndSettle();
-
-      await tester.tap(nextButton); // 2 -> 3
       await tester.pumpAndSettle();
 
       await tester.tap(nextButton); // 3 -> 4

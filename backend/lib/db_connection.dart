@@ -99,10 +99,21 @@ class DbConnection {
     }
 
     try {
-      await _connection!.execute(
-        Sql.named('ALTER TABLE public.athlete_groups DROP COLUMN IF EXISTS competition_group_id'),
+      final checkResult = await _connection!.execute(
+        Sql.named('''
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_schema = 'public' 
+            AND table_name = 'athlete_groups' 
+            AND column_name = 'competition_group_id'
+        '''),
       );
-      print('DB MIGRATION: Dropped competition_group_id column from public.athlete_groups.');
+      if (checkResult.isNotEmpty) {
+        await _connection!.execute(
+          Sql.named('ALTER TABLE public.athlete_groups DROP COLUMN competition_group_id'),
+        );
+        print('DB MIGRATION: Dropped competition_group_id column from public.athlete_groups.');
+      }
     } catch (e) {
       print('DB MIGRATION WARNING: Failed to drop competition_group_id column: $e');
     }

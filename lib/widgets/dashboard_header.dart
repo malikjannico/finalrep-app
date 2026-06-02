@@ -87,13 +87,10 @@ class DashboardHeader extends StatelessWidget {
                     ),
                   ),
                 ],
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    isCompactLayout ? Icons.view_list : Icons.grid_view,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                icon: Icon(
+                  isCompactLayout ? Icons.view_list : Icons.grid_view,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               if (trailing != null) ...[

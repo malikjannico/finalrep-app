@@ -50,6 +50,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final config = await authProvider.loadSportsConfig();
+      if (!mounted) return;
       setState(() {
         _localConfig = SportConfig(
           sports: List.from(config.sports),
@@ -59,16 +60,20 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
         );
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading configuration: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading configuration: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -93,6 +98,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final success = await authProvider.saveSportsConfig(_localConfig!);
+      if (!mounted) return;
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -100,9 +106,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
             backgroundColor: Colors.green,
           ),
         );
-        if (mounted) {
-          Provider.of<CompetitionProvider>(context, listen: false).loadSportsConfig();
-        }
+        Provider.of<CompetitionProvider>(context, listen: false).loadSportsConfig();
         setState(() {
           _isEditing = false;
         });
@@ -110,16 +114,20 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
         throw Exception('Failed to save configuration.');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving configuration: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving configuration: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -198,6 +206,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                 try {
                   final authProvider = Provider.of<AuthProvider>(context, listen: false);
                   final success = await authProvider.saveSportsConfig(updatedConfig);
+                  if (!mounted) return;
                   if (success) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -205,9 +214,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                         backgroundColor: Colors.green,
                       ),
                     );
-                    if (mounted) {
-                      Provider.of<CompetitionProvider>(context, listen: false).loadSportsConfig();
-                    }
+                    Provider.of<CompetitionProvider>(context, listen: false).loadSportsConfig();
                     setState(() {
                       _localConfig = updatedConfig;
                     });
@@ -215,16 +222,20 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                     throw Exception('Failed to save disciplines configuration.');
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error creating discipline: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error creating discipline: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 } finally {
-                  setState(() {
-                    _isLoading = false;
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -424,6 +435,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final success = await authProvider.saveSportsConfig(updatedConfig);
+      if (!mounted) return;
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -431,9 +443,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
             backgroundColor: Colors.green,
           ),
         );
-        if (mounted) {
-          Provider.of<CompetitionProvider>(context, listen: false).loadSportsConfig();
-        }
+        Provider.of<CompetitionProvider>(context, listen: false).loadSportsConfig();
         setState(() {
           _localConfig = updatedConfig;
           _createNameController.clear();
@@ -446,16 +456,20 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
         throw Exception('Failed to save configuration.');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving configuration: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving configuration: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

@@ -271,15 +271,7 @@ class MetadataTabView extends StatelessWidget {
                             ],
                           ),
                         ],
-                        if (state.scope != 'global') ...[
-                          const SizedBox(height: 16),
-                          VerifiedLocationBadge(
-                            isVerifying: state.isVerifyingLocation,
-                            isVerified: state.isLocationVerified,
-                            onVerify: state.verifyLocation,
-                            enabled: state.isEditingMetadata,
-                          ),
-                        ],
+
                       ],
                     ),
                   ),
@@ -327,9 +319,28 @@ class MetadataTabView extends StatelessWidget {
                                   ElevatedButton.icon(
                                     onPressed: state.isEditingMetadata ? (state.isUploadingLogo ? null : state.pickLogoImage) : null,
                                     icon: state.isUploadingLogo
-                                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                                        : const Icon(Icons.upload),
-                                    label: const Text('Upload Logo'),
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          )
+                                        : const Icon(Icons.cloud_upload_outlined, size: 18),
+                                    label: const Text(
+                                      'Upload Logo',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFE94E1B),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -388,9 +399,28 @@ class MetadataTabView extends StatelessWidget {
                                   ElevatedButton.icon(
                                     onPressed: state.isEditingMetadata ? (state.isUploadingBanner ? null : state.pickBannerImage) : null,
                                     icon: state.isUploadingBanner
-                                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                                        : const Icon(Icons.upload),
-                                    label: const Text('Upload Banner'),
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          )
+                                        : const Icon(Icons.cloud_upload_outlined, size: 18),
+                                    label: const Text(
+                                      'Upload Banner',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFE94E1B),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -631,7 +661,7 @@ class MetadataTabView extends StatelessWidget {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                'Local Rulebook: $rulebookUrl',
+                                                rulebookUrl,
                                                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
                                               ),
                                             ),
@@ -645,7 +675,7 @@ class MetadataTabView extends StatelessWidget {
                                         ),
                                       ] else if (appliedRulebooks.isEmpty) ...[
                                         Text(
-                                          'No local rulebook set.',
+                                          'No rulebook set.',
                                           style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
                                         ),
                                       ],
@@ -842,6 +872,7 @@ class MetadataTabView extends StatelessWidget {
         onSelected: onChanged,
         itemBuilder: (BuildContext context) => items,
         enabled: enabled,
+        borderRadius: BorderRadius.circular(12),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: labelText,

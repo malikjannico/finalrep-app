@@ -324,7 +324,7 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
         context.go('/users');
       } else if (label == 'Rankings') {
         context.go('/rankings');
-      } else if (label == 'Profile') {
+      } else if (label == 'Profile' || label == 'My Profile') {
         context.go('/profile');
       }
     } else {

@@ -24,6 +24,7 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GoRouter goRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
+  refreshListenable: authRedirectNotifier,
   redirect: (context, state) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.isLoading) {
@@ -55,12 +56,16 @@ final GoRouter goRouter = GoRouter(
     GoRoute(
       path: '/login',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) => const LoginPage(),
+      pageBuilder: (context, state) => const NoTransitionPage(
+        child: LoginPage(),
+      ),
     ),
     GoRoute(
       path: '/register',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) => const RegisterPage(),
+      pageBuilder: (context, state) => const NoTransitionPage(
+        child: RegisterPage(),
+      ),
     ),
 
     // Full-Screen Creation/Settings Routes

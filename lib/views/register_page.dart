@@ -228,9 +228,11 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       if (mounted) {
         if (!widget.isInline) {
-          // If we pushed RegisterPage, we pop it (or pop twice to return to source if needed).
-          // Since registration automatically logs in, popping once returns to search feed.
-          Navigator.of(context).pop();
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(); // Return to previous screen upon success
+          } else {
+            context.go('/'); // Fallback to home page if we cannot pop
+          }
         }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -628,6 +630,7 @@ class _RegisterPageState extends State<RegisterPage> {
               cardColor: theme.colorScheme.surface,
             ),
             child: PopupMenuButton<String>(
+              borderRadius: BorderRadius.circular(12),
               tooltip: 'Sex',
               offset: const Offset(0, 48),
               onSelected: (val) {
@@ -682,7 +685,7 @@ class _RegisterPageState extends State<RegisterPage> {
           const SizedBox(height: 6),
           InkWell(
             onTap: () => _showCountrySelectorDialog(theme),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             child: InputDecorator(
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.public),

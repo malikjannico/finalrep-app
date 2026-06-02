@@ -322,13 +322,10 @@ class _CompetitionLibraryPageState extends State<CompetitionLibraryPage> {
                     ),
                   ),
                 ],
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                icon: Icon(
+                  !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -418,13 +415,10 @@ class _CompetitionLibraryPageState extends State<CompetitionLibraryPage> {
                     ),
                   ),
                 ],
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                icon: Icon(
+                  !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -599,17 +593,14 @@ class _CompetitionLibraryPageState extends State<CompetitionLibraryPage> {
                       ),
                     ),
                   ],
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Icon(
-                      provider.layout == CompetitionsLayout.grid
-                          ? Icons.grid_view
-                          : provider.layout == CompetitionsLayout.list
-                              ? Icons.view_list
-                              : Icons.map,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  icon: Icon(
+                    provider.layout == CompetitionsLayout.grid
+                        ? Icons.grid_view
+                        : provider.layout == CompetitionsLayout.list
+                            ? Icons.view_list
+                            : Icons.map,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -747,17 +738,14 @@ class _CompetitionLibraryPageState extends State<CompetitionLibraryPage> {
                           ),
                         ),
                       ],
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Icon(
-                          provider.layout == CompetitionsLayout.grid
-                              ? Icons.grid_view
-                              : provider.layout == CompetitionsLayout.list
-                                  ? Icons.view_list
-                                  : Icons.map,
-                          size: 20,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                      icon: Icon(
+                        provider.layout == CompetitionsLayout.grid
+                            ? Icons.grid_view
+                            : provider.layout == CompetitionsLayout.list
+                                ? Icons.view_list
+                                : Icons.map,
+                        size: 20,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],

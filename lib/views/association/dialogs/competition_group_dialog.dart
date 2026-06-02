@@ -209,6 +209,7 @@ class _CompetitionGroupDialogState extends State<CompetitionGroupDialog> {
         offset: const Offset(0, 48),
         onSelected: onChanged,
         itemBuilder: (BuildContext context) => items,
+        borderRadius: BorderRadius.circular(12),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: labelText,

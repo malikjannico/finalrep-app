@@ -414,13 +414,10 @@ class _AssociationLibraryPageState extends State<AssociationLibraryPage> {
                         ),
                       ),
                     ],
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(
-                        _assocIsCompactLayout ? Icons.view_list : Icons.grid_view,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    icon: Icon(
+                      _assocIsCompactLayout ? Icons.view_list : Icons.grid_view,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],

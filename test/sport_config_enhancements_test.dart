@@ -175,7 +175,7 @@ void main() {
         expect(find.text('Applied Shared'), findsOneWidget);
 
         // 2. Verify rulebooks display separated by a line and local is shareable while shared is not
-        expect(find.text('Local Rulebook: http://local-rulebook.pdf'), findsOneWidget);
+        expect(find.text('http://local-rulebook.pdf'), findsOneWidget);
         expect(find.text('Modern (Shared): http://shared-rulebook.pdf\n(Shared by Other)'), findsOneWidget);
 
         // 3. Since there is an applied shared rulebook in the sport card, the delete button must be hidden

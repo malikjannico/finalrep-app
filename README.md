@@ -64,6 +64,11 @@ FinalRep is a responsive, cross-platform sport competition management and search
 - **Video Assisted Referee (VAR):** Managers and coaches track and resolve 1 video review request per meet.
 - **FinalRep Underground**: This competition group has been configured to exist **exclusively in the Modern format** (Muscle Up, Pull Up, Dip, Squat) in all mock repositories, test suites, and remote PostgreSQL tables.
 - **Sex-Based Athlete Group Registration Eligibility**: Enforces registration rules that check a user's profile `sex` against an athlete group's `gender`. Men athlete groups (lowercase `'men'`) allow users with sex `'male'` or `'other'`. Women athlete groups (lowercase `'women'`) allow users with sex `'female'` or `'other'`. Open athlete groups are eligible for all users. Users with unset or `'prefer not to say'` sex settings are blocked from registering for restricted Men/Women groups with an validation error prompting them to update their settings.
+- **Debounced Location Autocomplete**: Throttles Nominatim geocoding lookup requests via a 500ms debounce loop inside geocoded address input fields, preventing search rate limit violations during typing.
+- **Automated Location Geocode Checks**: Disables manual geocode buttons in favor of automated verification checks triggered on step progression (Next action inside creation wizards) or metadata saves (Save actions in management dashboards).
+- **Date-Time Range & System Format Picker Loops**: Couples DateRange and Time select pickers into a unified, stateful flow supporting backward navigation at each state and dynamically formatting output values based on system locale time preferences (12-hour AM/PM vs 24-hour).
+- **Right-Aligned Screen Scrollbar Layout**: Repositions the main SingleChildScrollView outside centered width containers on the competition wizard page, moving the scrollbar directly to the right border of the viewport.
+- **Collapsible Athlete Groups & Cleanups**: Step 7 (Athlete Groups) organizes division lists under collapsible sections grouped by gender with nested left indentation, and removes redundant gender subtitles from athlete group cards.
 
 ### 🔍 Navigation & Global Search
 - **Navigator 2.0 & Declarative Routing**: Replaced traditional imperative navigation (Navigator 1.0) with declarative routing using the `go_router` package. This supports native browser back/forward flows, deep linking, and synchronized URL state management.
@@ -84,6 +89,9 @@ FinalRep is a responsive, cross-platform sport competition management and search
 - **Navigation Highlights Silencing**: Removed the "Users" navigation tab/item from bottom navigation, navigation drawer, and subheader nav bars. When user search results are open, silences navigation tab highlighting by setting the explorer tab index to `-1` and dynamically updating bottom navigation selection colors.
 - **Mobile Bottom Navigation Labels**: Hidden to only show icons on mobile viewports for a cleaner layout.
 - **Drawer Tab Collection Dropdown**: Styled as a standard navigation `ListTile` with matching icons and fonts. Wrapped in a container with a solid bottom border decoration.
+- **Authentication Redirect Redundancy**: Subscribes GoRouter's redirection rules directly to AuthProvider state updates using a custom notifier wrapper (`GoRouterRefreshStream`) to handle instantaneous view updates after logging in or out.
+- **Lag-Free Web Transitions**: Registers authentication gateway pages (`/login` and `/register`) with `NoTransitionPage` routing parameters on Web to eliminate standard sliding animation transition latency.
+- **Deep-Link Pop Safety Guardrails**: Standardizes AppBar back button lookups and success page dismissals using `canPop()` conditional checks, fallback navigating to home (`/`) or settings (`/settings`) to prevent routing crashes or empty screen hangs.
 
 ### 📊 Rankings & Notifications
 - **Global Rankings View**: Includes responsive Left Sidebar filter panel on desktop and `endDrawer` on mobile with Sport, Format, and Gender filters.

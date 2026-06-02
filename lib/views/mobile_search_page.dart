@@ -409,13 +409,10 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                     ),
                   ),
                 ],
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    !_compIsCompactLayout ? Icons.grid_view : Icons.view_list,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                icon: Icon(
+                  !_compIsCompactLayout ? Icons.grid_view : Icons.view_list,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -613,13 +610,10 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                     ),
                   ),
                 ],
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                icon: Icon(
+                  !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -830,13 +824,10 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                     ),
                   ),
                 ],
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
-                    !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                icon: Icon(
+                  !_userIsCompactLayout ? Icons.grid_view : Icons.view_list,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],

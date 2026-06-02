@@ -1507,9 +1507,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
 
   Widget _buildBanner(ThemeData theme) {
-    debugPrint(
-      'DEBUG PROFILE_PAGE _buildBanner: _isEditing=$_isEditing, _isCurrentUser=$_isCurrentUser, profileId=${_profile?.id}',
-    );
     final bannerUrl = _getBannerUrl();
     final isDesktop = MediaQuery.of(context).size.width >= 900;
     final isMobile = !isDesktop;
@@ -1721,9 +1718,14 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             if (_isCurrentUser) ...[
               const SizedBox(width: 8),
-              GestureDetector(
+              IconButton(
                 key: const Key('profile_settings_icon'),
-                onTap: () {
+                icon: const Icon(Icons.settings_outlined),
+                iconSize: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () {
                   try {
                     GoRouter.of(context);
                     goRouter.push('/settings');
@@ -1736,11 +1738,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     );
                   }
                 },
-                child: Icon(
-                  Icons.settings_outlined,
-                  size: 20,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
               ),
             ],
           ],
@@ -1889,6 +1886,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: PopupMenuButton<String>(
               tooltip: 'Sex',
               offset: const Offset(0, 48),
+              borderRadius: BorderRadius.circular(12),
               onSelected: (val) {
                 setState(() {
                   _selectedSex = val;
@@ -1933,7 +1931,7 @@ class _ProfilePageState extends State<ProfilePage> {
           // Country Picker
           InkWell(
             onTap: () => _showCountrySelectorDialog(theme),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             child: InputDecorator(
               decoration: const InputDecoration(
                 labelText: 'Country',

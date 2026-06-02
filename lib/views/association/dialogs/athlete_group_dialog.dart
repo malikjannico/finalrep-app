@@ -78,7 +78,7 @@ class _AthleteGroupDialogState extends State<AthleteGroupDialog> {
     if (availableFormats.isEmpty) availableFormats.addAll(['Modern', 'Classic']);
 
     return AlertDialog(
-      title: Text(widget.group == null ? 'Add Athlete Class' : 'Edit Athlete Class'),
+      title: Text(widget.group == null ? 'Add Athlete Group' : 'Update Athlete Group'),
       content: Container(
         constraints: const BoxConstraints(maxWidth: 800),
         child: SingleChildScrollView(
@@ -238,6 +238,7 @@ class _AthleteGroupDialogState extends State<AthleteGroupDialog> {
         offset: const Offset(0, 48),
         onSelected: onChanged,
         itemBuilder: (BuildContext context) => items,
+        borderRadius: BorderRadius.circular(12),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: labelText,

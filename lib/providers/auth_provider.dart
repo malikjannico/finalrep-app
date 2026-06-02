@@ -689,6 +689,7 @@ class AuthProvider extends ChangeNotifier {
   void notifyListeners() {
     if (!_isDisposed) {
       super.notifyListeners();
+      authRedirectNotifier.refresh();
     }
   }
 
@@ -699,3 +700,11 @@ class AuthProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+
+class GoRouterRefreshStream extends ChangeNotifier {
+  void refresh() {
+    notifyListeners();
+  }
+}
+
+final GoRouterRefreshStream authRedirectNotifier = GoRouterRefreshStream();

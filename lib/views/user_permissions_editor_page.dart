@@ -49,6 +49,7 @@ class _UserPermissionsEditorPageState extends State<UserPermissionsEditorPage> {
           widget.username!,
         );
       }
+      if (!mounted) return;
       if (profile != null) {
         setState(() {
           _profile = profile;
@@ -58,16 +59,20 @@ class _UserPermissionsEditorPageState extends State<UserPermissionsEditorPage> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading user profile: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading user profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -98,6 +103,7 @@ class _UserPermissionsEditorPageState extends State<UserPermissionsEditorPage> {
         isAdmin: _isAdmin,
       );
 
+      if (!mounted) return;
       if (updated != null) {
         setState(() {
           _profile = updated;
@@ -112,18 +118,20 @@ class _UserPermissionsEditorPageState extends State<UserPermissionsEditorPage> {
         throw Exception('Failed to update permissions on repository.');
       }
     } catch (e) {
-      // Revert UI switches on error
-      setState(() {
-        _isCompetitionCreator = oldComp;
-        _isAssociationCreator = oldAssoc;
-        _isAdmin = oldAdmin;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update permissions: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        // Revert UI switches on error
+        setState(() {
+          _isCompetitionCreator = oldComp;
+          _isAssociationCreator = oldAssoc;
+          _isAdmin = oldAdmin;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update permissions: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -392,10 +400,12 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
                 _isExpanded = !_isExpanded;
               });
             },
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(12),
-              topRight: Radius.circular(12),
-            ),
+            borderRadius: _isExpanded
+                ? const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  )
+                : BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(

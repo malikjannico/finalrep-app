@@ -153,13 +153,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Verify location button test
-        final verifyLocBtn = find.widgetWithText(
-          ElevatedButton,
-          'Verify Location',
-        );
-        expect(verifyLocBtn, findsOneWidget);
-        await tester.tap(verifyLocBtn);
+        // Tap Next -> triggers location verification automatically
+        await tester.tap(nextButton);
         await tester.pump(const Duration(milliseconds: 550));
         await tester.pumpAndSettle();
         expect(
@@ -167,13 +162,9 @@ void main() {
           findsOneWidget,
         );
 
-        // Dismiss the SnackBar so it doesn't obscure the next button at the bottom of the screen
+        // Dismiss the SnackBar
         final context = tester.element(find.byKey(const Key('comp_next_btn')));
         ScaffoldMessenger.of(context).clearSnackBars();
-        await tester.pumpAndSettle();
-
-        // Tap Next -> Go to Step 3 (Sport & Format)
-        await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
         expect(find.text('Step 3 of 11'), findsOneWidget);

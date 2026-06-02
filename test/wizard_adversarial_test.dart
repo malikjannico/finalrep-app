@@ -209,19 +209,12 @@ void main() {
         find.byKey(const Key('comp_location_field')),
         'Alexanderplatz 1, 10178 Berlin, Germany',
       );
-      final verifyLocBtn = find.widgetWithText(
-        ElevatedButton,
-        'Verify Location',
-      );
-      await tester.tap(verifyLocBtn);
+      await tester.tap(nextButton); // 2 -> 3 (triggers verification automatically)
       await tester.pump(const Duration(milliseconds: 550));
       await tester.pumpAndSettle();
 
       final context = tester.element(nextButton);
       ScaffoldMessenger.of(context).clearSnackBars();
-      await tester.pumpAndSettle();
-
-      await tester.tap(nextButton); // 2 -> 3
       await tester.pumpAndSettle();
 
       // Step 3: Sport & Format
@@ -313,19 +306,12 @@ void main() {
           find.byKey(const Key('comp_location_field')),
           'Alexanderplatz 1, 10178 Berlin, Germany',
         );
-        final verifyLocBtn = find.widgetWithText(
-          ElevatedButton,
-          'Verify Location',
-        );
-        await tester.tap(verifyLocBtn);
+        await tester.tap(nextButton); // 2 -> 3 (triggers verification automatically)
         await tester.pump(const Duration(milliseconds: 550));
         await tester.pumpAndSettle();
 
         final context = tester.element(nextButton);
         ScaffoldMessenger.of(context).clearSnackBars();
-        await tester.pumpAndSettle();
-
-        await tester.tap(nextButton); // 2 -> 3
         await tester.pumpAndSettle();
 
         // Step 3: Sport & Format
@@ -396,19 +382,12 @@ void main() {
             find.byKey(const Key('comp_location_field')),
             'Alexanderplatz 1, 10178 Berlin, Germany',
           );
-          final verifyLocBtn = find.widgetWithText(
-            ElevatedButton,
-            'Verify Location',
-          );
-          await tester.tap(verifyLocBtn);
+          await tester.tap(nextButton); // 2 -> 3 (triggers verification automatically)
           await tester.pump(const Duration(milliseconds: 550));
           await tester.pumpAndSettle();
 
           final context = tester.element(nextButton);
           ScaffoldMessenger.of(context).clearSnackBars();
-          await tester.pumpAndSettle();
-
-          await tester.tap(nextButton); // 2 -> 3
           await tester.pumpAndSettle();
 
           // Step 3: Sport & Format

@@ -52,7 +52,11 @@ class _LoginPageState extends State<LoginPage> {
       }
       if (mounted) {
         if (!widget.isInline) {
-          Navigator.of(context).pop(); // Return to previous screen upon success
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(); // Return to previous screen upon success
+          } else {
+            context.go('/'); // Fallback to home page if we cannot pop
+          }
         }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

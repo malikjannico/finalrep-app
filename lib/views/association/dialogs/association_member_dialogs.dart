@@ -230,6 +230,7 @@ class _AddMemberDialogState extends State<AddMemberDialog> {
         offset: const Offset(0, 48),
         onSelected: onChanged,
         itemBuilder: (BuildContext context) => items,
+        borderRadius: BorderRadius.circular(12),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: labelText,
@@ -376,6 +377,7 @@ class _UpdateMemberDialogState extends State<UpdateMemberDialog> {
         offset: const Offset(0, 48),
         onSelected: onChanged,
         itemBuilder: (BuildContext context) => items,
+        borderRadius: BorderRadius.circular(12),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: labelText,

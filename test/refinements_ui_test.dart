@@ -619,13 +619,13 @@ void main() {
       expect(find.text('Select Sport Type'), findsOneWidget);
       expect(find.text('Select Formats *'), findsOneWidget);
 
-      // Verify FilterChips exist in modal
-      expect(find.widgetWithText(FilterChip, 'Classic'), findsOneWidget);
-      expect(find.widgetWithText(FilterChip, 'Modern'), findsOneWidget);
+      // Verify formats exist in modal
+      expect(find.text('Classic'), findsOneWidget);
+      expect(find.text('Modern'), findsOneWidget);
 
       // Tap to select the formats since there is no default preselection
-      await tester.tap(find.widgetWithText(FilterChip, 'Classic'));
-      await tester.tap(find.widgetWithText(FilterChip, 'Modern'));
+      await tester.tap(find.text('Classic'));
+      await tester.tap(find.text('Modern'));
       await tester.pumpAndSettle();
 
       // Specify rulebook URL for selected sport in modal
@@ -635,14 +635,15 @@ void main() {
       await tester.pumpAndSettle();
 
       // Confirm in modal
-      final confirmAddSportBtn = find.text('ADD SPORT');
+      final confirmAddSportBtn = find.text('SAVE');
       expect(confirmAddSportBtn, findsOneWidget);
       await tester.tap(confirmAddSportBtn);
       await tester.pumpAndSettle();
 
       // Verify configured sport card list renders correct formats/disciplines
       expect(find.byKey(const ValueKey('sport_card_Streetlifting')), findsOneWidget);
-      expect(find.text('Formats: Classic, Modern'), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const ValueKey('sport_card_Streetlifting')), matching: find.text('Classic')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const ValueKey('sport_card_Streetlifting')), matching: find.text('Modern')), findsOneWidget);
 
       // Verify that edit and remove buttons exist with proper icons and design.md colors
       final editButtonFinder = find.descendant(
@@ -669,15 +670,15 @@ void main() {
       // Verify disciplines of selected formats are grouped by format (headings exist inside card)
       final cardClassicHeaderFinder = find.descendant(
         of: find.byKey(const ValueKey('sport_card_Streetlifting')),
-        matching: find.text('Classic:'),
+        matching: find.text('Classic'),
       );
-      expect(cardClassicHeaderFinder, findsOneWidget);
+      expect(cardClassicHeaderFinder, findsAtLeast(1));
 
       final cardModernHeaderFinder = find.descendant(
         of: find.byKey(const ValueKey('sport_card_Streetlifting')),
-        matching: find.text('Modern:'),
+        matching: find.text('Modern'),
       );
-      expect(cardModernHeaderFinder, findsOneWidget);
+      expect(cardModernHeaderFinder, findsAtLeast(1));
 
       expect(find.text('Pull Up'), findsAtLeast(1));
       expect(find.text('Dip'), findsAtLeast(1));
@@ -693,18 +694,18 @@ void main() {
       // Verify headings inside the active modal dialog
       final modalClassicHeaderFinder = find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.text('Classic:'),
+        matching: find.text('Classic'),
       );
       expect(modalClassicHeaderFinder, findsOneWidget);
 
       final modalModernHeaderFinder = find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.text('Modern:'),
+        matching: find.text('Modern'),
       );
       expect(modalModernHeaderFinder, findsOneWidget);
 
-      // Close the modal by tapping UPDATE SPORT
-      final updateSportBtn = find.text('UPDATE SPORT');
+      // Close the modal by tapping SAVE
+      final updateSportBtn = find.text('SAVE');
       expect(updateSportBtn, findsOneWidget);
       await tester.tap(updateSportBtn);
       await tester.pumpAndSettle();
@@ -825,8 +826,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('sport_card_Streetlifting')), findsOneWidget);
-      expect(find.text('Formats: Modern'), findsOneWidget);
-      expect(find.text('Rulebook: https://example.com/parent_rules.pdf'), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const ValueKey('sport_card_Streetlifting')), matching: find.text('Modern')), findsOneWidget);
+      expect(find.text('https://example.com/parent_rules.pdf'), findsOneWidget);
     });
 
     testWidgets('AssociationDetailPage displays header chips, share button, social chips, and switches tabs', (tester) async {

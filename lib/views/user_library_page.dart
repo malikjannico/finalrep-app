@@ -109,13 +109,10 @@ class _UserLibraryPageState extends State<UserLibraryPage> {
                 ),
               ),
             ],
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Icon(
-                _userIsCompactLayout ? Icons.view_list : Icons.grid_view,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            icon: Icon(
+              _userIsCompactLayout ? Icons.view_list : Icons.grid_view,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],

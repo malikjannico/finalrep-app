@@ -596,12 +596,9 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     if (_association == null) return;
 
     if (_scope != 'global' && !_isLocationVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please verify the location before saving.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      await _verifyLocation();
+    }
+    if (_scope != 'global' && !_isLocationVerified) {
       return;
     }
 
@@ -1013,34 +1010,48 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   }
 
   Widget _buildSuggestionsList(TextEditingController controller) {
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 150),
-      margin: const EdgeInsets.only(top: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        itemCount: _locationSuggestions.length,
-        itemBuilder: (context, idx) {
-          final suggestion = _locationSuggestions[idx];
-          return Material(
-            color: Colors.transparent,
-            child: ListTile(
-              dense: true,
-              title: Text(suggestion),
-              onTap: () {
-                setState(() {
-                  controller.text = suggestion;
-                  _locationSuggestions = [];
-                  _isLocationVerified = false; // Re-verify on changes
-                });
-              },
+    final theme = Theme.of(context);
+    return Listener(
+      onPointerDown: (_) => FocusScope.of(context).unfocus(),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 150),
+        margin: const EdgeInsets.only(top: 4),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 4,
             ),
-          );
-        },
+          ],
+        ),
+        child: ListView.builder(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          itemCount: _locationSuggestions.length,
+          itemBuilder: (context, idx) {
+            final suggestion = _locationSuggestions[idx];
+            return Material(
+              color: Colors.transparent,
+              child: ListTile(
+                dense: true,
+                title: Text(
+                  suggestion,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                ),
+                onTap: () {
+                  setState(() {
+                    controller.text = suggestion;
+                    _locationSuggestions = [];
+                    _isLocationVerified = false; // Re-verify on changes
+                  });
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }

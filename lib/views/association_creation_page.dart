@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +14,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../repositories/profile_repository.dart';
 import '../widgets/verified_location_badge.dart';
+import 'association/dialogs/sport_config_dialog.dart';
 
 class AssociationCreationPage extends StatefulWidget {
   const AssociationCreationPage({super.key});
@@ -49,6 +51,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   bool _isVerifyingLocation = false;
   String _activeLocationField = '';
   List<String> _locationSuggestions = [];
+  Timer? _debounce;
 
   // Form Fields - Step 4: Sports & Formats Config
   String _activeSportType = 'Streetlifting';
@@ -159,6 +162,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       }
     }
     _nameController.dispose();
+    _debounce?.cancel();
     _descController.dispose();
     _profilePictureUrlController.dispose();
     _bannerUrlController.dispose();
@@ -283,6 +287,8 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
 
   // Location suggestions logic
   Future<void> _updateLocationSuggestions(String field, String query) async {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
     if (query.isEmpty) {
       setState(() {
         _locationSuggestions = [];
@@ -301,40 +307,42 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       return;
     }
 
-    try {
-      final String apiBase = MockSafety.apiBaseUrl.endsWith('/') 
-          ? MockSafety.apiBaseUrl.substring(0, MockSafety.apiBaseUrl.length - 1)
-          : MockSafety.apiBaseUrl;
-      final encodedQuery = Uri.encodeComponent(query);
-      final url = Uri.parse('$apiBase/location/search?q=$encodedQuery&limit=5');
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      try {
+        final String apiBase = MockSafety.apiBaseUrl.endsWith('/') 
+            ? MockSafety.apiBaseUrl.substring(0, MockSafety.apiBaseUrl.length - 1)
+            : MockSafety.apiBaseUrl;
+        final encodedQuery = Uri.encodeComponent(query);
+        final url = Uri.parse('$apiBase/location/search?q=$encodedQuery&limit=5');
 
-      final response = await http.get(url);
+        final response = await http.get(url);
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final List<String> suggestions = [];
-        for (var item in data) {
-          final displayName = item['display_name'] as String?;
-          if (displayName != null) {
-            final parts = displayName.split(',');
-            if (parts.isNotEmpty) {
-              final mainText = parts[0].trim();
-              if (!suggestions.contains(mainText)) {
-                suggestions.add(mainText);
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          final List<String> suggestions = [];
+          for (var item in data) {
+            final displayName = item['display_name'] as String?;
+            if (displayName != null) {
+              final parts = displayName.split(',');
+              if (parts.isNotEmpty) {
+                final mainText = parts[0].trim();
+                if (!suggestions.contains(mainText)) {
+                  suggestions.add(mainText);
+                }
               }
             }
           }
+          if (mounted) {
+            setState(() {
+              _locationSuggestions = suggestions;
+              _activeLocationField = field;
+            });
+          }
         }
-        if (mounted) {
-          setState(() {
-            _locationSuggestions = suggestions;
-            _activeLocationField = field;
-          });
-        }
+      } catch (e) {
+        debugPrint('Error fetching location suggestions: $e');
       }
-    } catch (e) {
-      debugPrint('Error fetching location suggestions: $e');
-    }
+    });
   }
 
   // Custom Dropdown Builder styled after Search Scope dropdown
@@ -357,6 +365,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
         offset: const Offset(0, 48),
         onSelected: onChanged,
         itemBuilder: (BuildContext context) => items,
+        borderRadius: BorderRadius.circular(12),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: labelText,
@@ -701,22 +710,28 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                       constraints: BoxConstraints(maxWidth: isDesktop ? 800 : double.infinity),
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(24.0),
-                        child: Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: _buildCurrentStepContent(theme),
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Card(
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: _buildCurrentStepContent(theme),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildStepperActions(theme),
+                          ],
                         ),
                       ),
                     ),
                   ),
                 ),
-                _buildStepperActions(theme),
               ],
             ),
     );
@@ -971,14 +986,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
               ],
             ),
           ],
-          if (_scope != 'global') ...[
-            const SizedBox(height: 16),
-            VerifiedLocationBadge(
-              isVerifying: _isVerifyingLocation,
-              isVerified: _isLocationVerified,
-              onVerify: _verifyLocation,
-            ),
-          ],
+
           const SizedBox(height: 16),
           _buildCustomDropdownField<String?>(
             labelText: 'Parent Association',
@@ -1211,34 +1219,48 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   }
 
   Widget _buildSuggestionsList(TextEditingController controller) {
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 150),
-      margin: const EdgeInsets.only(top: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        itemCount: _locationSuggestions.length,
-        itemBuilder: (context, idx) {
-          final suggestion = _locationSuggestions[idx];
-          return Material(
-            color: Colors.transparent,
-            child: ListTile(
-              dense: true,
-              title: Text(suggestion),
-              onTap: () {
-                setState(() {
-                  controller.text = suggestion;
-                  _locationSuggestions = [];
-                  _isLocationVerified = false; // Re-verify on changes
-                });
-              },
+    final theme = Theme.of(context);
+    return Listener(
+      onPointerDown: (_) => FocusScope.of(context).unfocus(),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 150),
+        margin: const EdgeInsets.only(top: 4),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 4,
             ),
-          );
-        },
+          ],
+        ),
+        child: ListView.builder(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          itemCount: _locationSuggestions.length,
+          itemBuilder: (context, idx) {
+            final suggestion = _locationSuggestions[idx];
+            return Material(
+              color: Colors.transparent,
+              child: ListTile(
+                dense: true,
+                title: Text(
+                  suggestion,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                ),
+                onTap: () {
+                  setState(() {
+                    controller.text = suggestion;
+                    _locationSuggestions = [];
+                    _isLocationVerified = false; // Re-verify on changes
+                  });
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -1329,20 +1351,26 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                 
                 return Card(
                   key: ValueKey('sport_card_$sport'),
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: const EdgeInsets.only(bottom: 16),
                   shape: RoundedRectangleBorder(
                     side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(sport, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                            Text(
+                              sport,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1364,49 +1392,76 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Text('Formats: ${fmts.join(', ')}', style: theme.textTheme.bodyMedium),
-                        if (rulebookUrl.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text('Rulebook: $rulebookUrl', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
-                        ],
-                        const SizedBox(height: 8),
-                        const Divider(),
-                        const SizedBox(height: 4),
-                        Text('Disciplines by Format:', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Formats',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: fmts.map((fmt) {
                             final key = '$sport - $fmt';
                             final discs = disciplinesBySportAndFormat[key] ?? <String>[];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '$fmt:',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onSurfaceVariant,
+                            return Card(
+                              elevation: 0,
+                              margin: const EdgeInsets.only(bottom: 8),
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              color: theme.colorScheme.surfaceContainerLow.withOpacity(0.5),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      fmt,
+                                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    children: discs.map((d) => Chip(
-                                      label: Text(d, style: const TextStyle(fontSize: 10)),
-                                      backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
-                                      visualDensity: VisualDensity.compact,
-                                    )).toList(),
-                                  ),
-                                ],
+                                    if (discs.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: discs.map((d) => Chip(
+                                          label: Text(d, style: const TextStyle(fontSize: 10)),
+                                          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.25),
+                                          visualDensity: VisualDensity.compact,
+                                        )).toList(),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
                             );
                           }).toList(),
                         ),
+                        const SizedBox(height: 8),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Rulebooks',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (rulebookUrl.isNotEmpty)
+                          Text(
+                            rulebookUrl,
+                            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
+                          )
+                        else
+                          Text(
+                            'No rulebook set.',
+                            style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                          ),
                       ],
                     ),
                   ),
@@ -1434,15 +1489,16 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
     final sportConfig = provider.sportConfig;
     final sports = sportConfig?.sports.map((s) => s.name).toList() ?? ['Streetlifting'];
 
-    showDialog<_SportConfigResult>(
+    showDialog<SportConfigResult>(
       context: context,
-      builder: (context) => _SportConfigDialog(
+      builder: (context) => SportConfigDialog(
         editSportType: editSportType,
         sports: sports,
         sportConfig: sportConfig,
         selectedSportsFormats: _selectedSportsFormats,
         rulebookControllers: _rulebookControllers,
         activeSportType: _activeSportType,
+        appliedSharedResources: const <String, dynamic>{},
       ),
     ).then((result) {
       if (result != null && mounted) {
@@ -1525,16 +1581,8 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   }
 
   Widget _buildStepperActions(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-          ),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -1551,56 +1599,54 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
           else
             const SizedBox(),
           ElevatedButton(
-            onPressed: () {
-              if (_currentStep == 0) {
-                if (_formKey1.currentState!.validate()) {
-                  setState(() {
-                    _currentStep++;
-                  });
-                }
-              } else if (_currentStep == 1) {
-                if (_formKey2.currentState!.validate()) {
-                  if (_scope != 'global' && !_isLocationVerified) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please verify the location before proceeding.'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                    return;
-                  }
-                  setState(() {
-                    _currentStep++;
-                    _locationSuggestions = [];
-                  });
-                }
-              } else if (_currentStep == 2) {
-                if (_formKey3.currentState!.validate()) {
-                  setState(() {
-                    _currentStep++;
-                  });
-                }
-              } else if (_currentStep == 3) {
-                if (_formKey4.currentState!.validate()) {
-                  if (_selectedSportsFormats.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please configure and add at least one sport to proceed.'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                    return;
-                  }
-                  setState(() {
-                    _currentStep++;
-                  });
-                }
-              } else {
-                if (_formKey5.currentState!.validate()) {
-                  _submitAssociation();
-                }
-              }
-            },
+            onPressed: _isVerifyingLocation
+                ? null
+                : () async {
+                    if (_currentStep == 0) {
+                      if (_formKey1.currentState!.validate()) {
+                        setState(() {
+                          _currentStep++;
+                        });
+                      }
+                    } else if (_currentStep == 1) {
+                      if (_formKey2.currentState!.validate()) {
+                        if (_scope != 'global' && !_isLocationVerified) {
+                          await _verifyLocation();
+                        }
+                        if (_scope == 'global' || _isLocationVerified) {
+                          setState(() {
+                            _currentStep++;
+                            _locationSuggestions = [];
+                          });
+                        }
+                      }
+                    } else if (_currentStep == 2) {
+                      if (_formKey3.currentState!.validate()) {
+                        setState(() {
+                          _currentStep++;
+                        });
+                      }
+                    } else if (_currentStep == 3) {
+                      if (_formKey4.currentState!.validate()) {
+                        if (_selectedSportsFormats.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please configure and add at least one sport to proceed.'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
+                        setState(() {
+                          _currentStep++;
+                        });
+                      }
+                    } else {
+                      if (_formKey5.currentState!.validate()) {
+                        _submitAssociation();
+                      }
+                    }
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE94E1B),
               foregroundColor: Colors.white,
@@ -1609,10 +1655,19 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: Text(
-              _currentStep == _totalSteps - 1 ? 'SUBMIT' : 'NEXT',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            child: _isVerifyingLocation
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    _currentStep == _totalSteps - 1 ? 'SUBMIT' : 'NEXT',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
           ),
         ],
       ),
@@ -1620,266 +1675,3 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   }
 }
 
-class _SportConfigResult {
-  final String sport;
-  final List<String> formats;
-  final String rulebookUrl;
-  _SportConfigResult({required this.sport, required this.formats, required this.rulebookUrl});
-}
-
-class _SportConfigDialog extends StatefulWidget {
-  final String? editSportType;
-  final List<String> sports;
-  final SportConfig? sportConfig;
-  final Map<String, List<String>> selectedSportsFormats;
-  final Map<String, TextEditingController> rulebookControllers;
-  final String activeSportType;
-
-  const _SportConfigDialog({
-    Key? key,
-    this.editSportType,
-    required this.sports,
-    required this.sportConfig,
-    required this.selectedSportsFormats,
-    required this.rulebookControllers,
-    required this.activeSportType,
-  }) : super(key: key);
-
-  @override
-  State<_SportConfigDialog> createState() => _SportConfigDialogState();
-}
-
-class _SportConfigDialogState extends State<_SportConfigDialog> {
-  late String _localActiveSport;
-  late List<String> _localActiveFormats;
-  late TextEditingController _rulebookController;
-
-  @override
-  void initState() {
-    super.initState();
-    _localActiveSport = widget.editSportType ?? 
-        (widget.sports.contains(widget.activeSportType) ? widget.activeSportType : widget.sports.first);
-    _localActiveFormats = List<String>.from(widget.selectedSportsFormats[_localActiveSport] ?? []);
-    _rulebookController = TextEditingController(text: widget.rulebookControllers[_localActiveSport]?.text ?? '');
-  }
-
-  @override
-  void dispose() {
-    _rulebookController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final List<String> formats = widget.sportConfig?.formats
-            .where((f) => f.sportName == _localActiveSport)
-            .map((f) => f.name)
-            .toList() ??
-        ['Modern', 'Classic'];
-
-    return AlertDialog(
-      title: Text(widget.editSportType == null ? 'Configure Sport' : 'Edit Sport Configuration'),
-      content: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.editSportType == null) ...[
-                _buildCustomDropdownFieldModal<String>(
-                  context: context,
-                  labelText: 'Select Sport Type',
-                  value: _localActiveSport,
-                  prefixIcon: Icon(Icons.sports, color: theme.colorScheme.primary, size: 20),
-                  items: widget.sports
-                      .map((s) => PopupMenuItem<String>(
-                            value: s,
-                            child: Text(s),
-                          ))
-                      .toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _localActiveSport = val;
-                      _localActiveFormats = List<String>.from(widget.selectedSportsFormats[val] ?? []);
-                      _rulebookController.text = widget.rulebookControllers[val]?.text ?? '';
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-              ] else ...[
-                Text(
-                  'Sport: $_localActiveSport',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-              ],
-              Text('Select Formats *', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: formats.map((fmt) {
-                  final isSelected = _localActiveFormats.contains(fmt);
-                  return FilterChip(
-                    label: Text(fmt),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _localActiveFormats.add(fmt);
-                        } else {
-                          _localActiveFormats.remove(fmt);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _rulebookController,
-                decoration: const InputDecoration(
-                  labelText: 'Rulebook URL',
-                  hintText: 'https://example.com/rules.pdf',
-                  prefixIcon: Icon(Icons.link_outlined),
-                ),
-              ),
-              if (_localActiveFormats.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text(
-                  'Disciplines by Format:',
-                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _localActiveFormats.map((fmt) {
-                    final List<String> linked = widget.sportConfig?.links
-                            .where((link) => link.sportName == _localActiveSport && link.formatName == fmt)
-                            .map((link) => link.disciplineName)
-                            .toList() ??
-                        <String>[];
-                    final List<String> discs = linked.isNotEmpty
-                        ? linked
-                        : (_localActiveSport == 'Streetlifting'
-                            ? (fmt == 'Classic'
-                                ? ['Pull-up', 'Dip']
-                                : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
-                            : <String>[]);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '$fmt:',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: discs.map((d) => Chip(
-                              label: Text(d, style: const TextStyle(fontSize: 10)),
-                              backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.3),
-                              visualDensity: VisualDensity.compact,
-                            )).toList(),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: const Text('CANCEL'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            if (_localActiveFormats.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Please select at least one format for this sport.'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-              return;
-            }
-            Navigator.of(context).pop(
-              _SportConfigResult(
-                sport: _localActiveSport,
-                formats: _localActiveFormats,
-                rulebookUrl: _rulebookController.text.trim(),
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFE94E1B),
-            foregroundColor: Colors.white,
-          ),
-          child: Text(widget.editSportType == null ? 'ADD SPORT' : 'UPDATE SPORT'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCustomDropdownFieldModal<T>({
-    required BuildContext context,
-    required String labelText,
-    required T value,
-    required List<PopupMenuEntry<T>> items,
-    required Function(T) onChanged,
-    Widget? prefixIcon,
-    String Function(T)? displayValue,
-  }) {
-    final theme = Theme.of(context);
-    final displayStr = displayValue != null ? displayValue(value) : value.toString();
-    return Theme(
-      data: theme.copyWith(
-        cardColor: theme.colorScheme.surface,
-      ),
-      child: PopupMenuButton<T>(
-        tooltip: labelText,
-        offset: const Offset(0, 48),
-        onSelected: onChanged,
-        itemBuilder: (BuildContext context) => items,
-        child: InputDecorator(
-          decoration: InputDecoration(
-            labelText: labelText,
-            prefixIcon: prefixIcon,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  displayStr,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(
-                Icons.arrow_drop_down,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
