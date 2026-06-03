@@ -65,148 +65,282 @@ class _AddMemberDialogState extends State<AddMemberDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AlertDialog(
-      title: const Text('Add Association Member'),
-      content: Container(
-        constraints: const BoxConstraints(minWidth: 800, minHeight: 400, maxWidth: 1200),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildCustomDropdownFieldModal<String>(
-                context: context,
-                labelText: 'Permission Role',
-                value: _role,
-                displayValue: (val) => val[0].toUpperCase() + val.substring(1),
-                items: const [
-                  PopupMenuItem(value: 'owner', child: Text('Owner')),
-                  PopupMenuItem(value: 'editor', child: Text('Editor')),
-                  PopupMenuItem(value: 'manager', child: Text('Manager')),
-                  PopupMenuItem(value: 'partner', child: Text('Partner')),
-                ],
-                onChanged: (val) {
-                  setState(() {
-                    _role = val;
-                    if (_role == 'owner' && _selectedUserIds.length > 1) {
-                      final first = _selectedUserIds.first;
-                      _selectedUserIds.clear();
-                      _selectedUserIds.add(first);
-                    }
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _searchController,
-                onChanged: _performSearch,
-                decoration: InputDecoration(
-                  labelText: 'Search by username or name',
-                  hintText: 'e.g. johndoe',
-                  suffixIcon: IconButton(
-                     icon: const Icon(Icons.search),
-                     onPressed: () => _performSearch(_searchController.text),
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
+
+    final allSelected = _searchResults.isNotEmpty && _searchResults.every((u) => _selectedUserIds.contains(u.id));
+    final anySelected = _searchResults.any((u) => _selectedUserIds.contains(u.id));
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        constraints: BoxConstraints(
+          minWidth: isMobile ? 0 : 800,
+          maxWidth: isMobile ? 600 : 1000,
+          minHeight: isMobile ? 300 : 500,
+          maxHeight: isMobile ? MediaQuery.of(context).size.height * 0.9 : 700,
+        ),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Add Association Member',
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
-                onSubmitted: _performSearch,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Search Results',
-                style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 180,
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.colorScheme.outlineVariant),
-                  borderRadius: BorderRadius.circular(8),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                child: _isSearching
-                    ? const Center(child: CircularProgressIndicator())
-                    : _searchResults.isEmpty
-                        ? const Center(child: Text('Search and select users.'))
-                        : SingleChildScrollView(
-                            child: Column(
-                              children: _searchResults.map((user) {
-                                final isSelected = _selectedUserIds.contains(user.id);
-                                final avatarUrl = user.profilePictureUrl;
-                                return CheckboxListTile(
-                                  secondary: CircleAvatar(
-                                    radius: 16,
-                                    backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                                        ? NetworkImage(ImageUrlResolver.resolve(context, avatarUrl))
-                                        : null,
-                                    child: avatarUrl == null || avatarUrl.isEmpty
-                                        ? Text(
-                                            (user.username.isNotEmpty ? user.username[0] : 'U').toUpperCase(),
-                                            style: const TextStyle(fontSize: 12),
-                                          )
-                                        : null,
-                                  ),
-                                  title: Text(user.fullName),
-                                  subtitle: Text(
-                                    user.username.isNotEmpty ? '@${user.username}' : '',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  value: isSelected,
-                                  onChanged: (bool? val) {
-                                    setState(() {
-                                      if (_role == 'owner') {
-                                        _selectedUserIds.clear();
-                                        if (val == true) {
-                                          _selectedUserIds.add(user.id);
-                                        }
-                                      } else {
-                                        if (val == true) {
-                                          _selectedUserIds.add(user.id);
-                                        } else {
-                                          _selectedUserIds.remove(user.id);
-                                        }
-                                      }
-                                    });
-                                  },
-                                );
-                              }).toList(),
+              ],
+            ),
+            const SizedBox(height: 16),
+            isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildRoleDropdown(theme),
+                      const SizedBox(height: 16),
+                      _buildCustomTitleField(theme),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: _buildRoleDropdown(theme)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildCustomTitleField(theme)),
+                    ],
+                  ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              onChanged: _performSearch,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Search by username or name...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_selectedUserIds.length} selected',
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                if (_role != 'owner' && _searchResults.isNotEmpty)
+                  Row(
+                    children: [
+                      const Text('Select All shown'),
+                      Checkbox(
+                        value: allSelected ? true : (anySelected ? null : false),
+                        tristate: true,
+                        activeColor: const Color(0xFFE94E1B),
+                        onChanged: (bool? checked) {
+                          setState(() {
+                            if (checked == true) {
+                              for (var user in _searchResults) {
+                                _selectedUserIds.add(user.id);
+                              }
+                            } else {
+                              for (var user in _searchResults) {
+                                _selectedUserIds.remove(user.id);
+                              }
+                            }
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _isSearching
+                  ? const Center(child: CircularProgressIndicator())
+                  : _searchResults.isEmpty
+                      ? Center(
+                          child: Text(
+                            _searchController.text.isEmpty
+                                ? 'Search by username or name to find users.'
+                                : 'No users found.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Custom Title',
-                  hintText: 'e.g. Chief Administrator',
-                ),
-              ),
-            ],
-          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _searchResults.length,
+                          itemBuilder: (context, idx) {
+                            final user = _searchResults[idx];
+                            final isSelected = _selectedUserIds.contains(user.id);
+                            final avatarUrl = user.profilePictureUrl;
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              child: CheckboxListTile(
+                                activeColor: const Color(0xFFE94E1B),
+                                secondary: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: theme.colorScheme.primaryContainer,
+                                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                                      ? NetworkImage(ImageUrlResolver.resolve(context, avatarUrl))
+                                      : null,
+                                  child: avatarUrl == null || avatarUrl.isEmpty
+                                      ? Text(
+                                          (user.username.isNotEmpty ? user.username[0] : 'U').toUpperCase(),
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onPrimaryContainer,
+                                            fontSize: 12,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                title: Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text(
+                                  user.username.isNotEmpty ? '@${user.username}' : '',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                value: isSelected,
+                                onChanged: (bool? val) {
+                                  setState(() {
+                                    if (_role == 'owner') {
+                                      _selectedUserIds.clear();
+                                      if (val == true) {
+                                        _selectedUserIds.add(user.id);
+                                      }
+                                    } else {
+                                      if (val == true) {
+                                        _selectedUserIds.add(user.id);
+                                      } else {
+                                        _selectedUserIds.remove(user.id);
+                                      }
+                                    }
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                        ),
+            ),
+            const SizedBox(height: 16),
+            isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _selectedUserIds.isEmpty
+                            ? null
+                            : () {
+                                Navigator.of(context).pop(AddMemberResult(
+                                  userIds: _selectedUserIds.toList(),
+                                  role: _role,
+                                  customTitle: _titleController.text.trim().isEmpty
+                                      ? null
+                                      : _titleController.text.trim(),
+                                ));
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('ADD'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('CANCEL'),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('CANCEL'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _selectedUserIds.isEmpty
+                            ? null
+                            : () {
+                                Navigator.of(context).pop(AddMemberResult(
+                                  userIds: _selectedUserIds.toList(),
+                                  role: _role,
+                                  customTitle: _titleController.text.trim().isEmpty
+                                      ? null
+                                      : _titleController.text.trim(),
+                                ));
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        child: const Text('ADD'),
+                      ),
+                    ],
+                  ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('CANCEL'),
-        ),
-        ElevatedButton(
-          onPressed: _selectedUserIds.isEmpty
-              ? null
-              : () {
-                  Navigator.of(context).pop(AddMemberResult(
-                    userIds: _selectedUserIds.toList(),
-                    role: _role,
-                    customTitle: _titleController.text.trim().isEmpty ? null : _titleController.text.trim(),
-                  ));
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFE94E1B),
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('ADD'),
-        ),
+    );
+  }
+
+  Widget _buildRoleDropdown(ThemeData theme) {
+    return _buildCustomDropdownFieldModal<String>(
+      context: context,
+      labelText: 'Permission Role',
+      value: _role,
+      displayValue: (val) => val[0].toUpperCase() + val.substring(1),
+      items: const [
+        PopupMenuItem(value: 'owner', child: Text('Owner')),
+        PopupMenuItem(value: 'editor', child: Text('Editor')),
+        PopupMenuItem(value: 'manager', child: Text('Manager')),
+        PopupMenuItem(value: 'partner', child: Text('Partner')),
       ],
+      onChanged: (val) {
+        setState(() {
+          _role = val;
+          if (_role == 'owner' && _selectedUserIds.length > 1) {
+            final first = _selectedUserIds.first;
+            _selectedUserIds.clear();
+            _selectedUserIds.add(first);
+          }
+        });
+      },
+    );
+  }
+
+  Widget _buildCustomTitleField(ThemeData theme) {
+    return TextFormField(
+      controller: _titleController,
+      decoration: const InputDecoration(
+        labelText: 'Custom Title',
+        hintText: 'e.g. Chief Administrator',
+        border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+        contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      ),
     );
   }
 
@@ -235,6 +369,8 @@ class _AddMemberDialogState extends State<AddMemberDialog> {
           decoration: InputDecoration(
             labelText: labelText,
             prefixIcon: prefixIcon,
+            border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
           ),
           child: Row(
             children: [

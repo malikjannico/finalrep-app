@@ -159,7 +159,7 @@ class MetadataTabView extends StatelessWidget {
                           labelText: 'Scope',
                           value: state.scope,
                           enabled: state.isEditingMetadata,
-                          prefixIcon: Icon(Icons.map_outlined, color: theme.colorScheme.primary, size: 20),
+                          prefixIcon: Icon(Icons.map_outlined, color: state.isEditingMetadata ? theme.colorScheme.primary : null, size: 20),
                           displayValue: (val) {
                             if (val == 'global') return 'Global';
                             if (val == 'continental') return 'Continental';
@@ -864,6 +864,7 @@ class MetadataTabView extends StatelessWidget {
           decoration: InputDecoration(
             labelText: labelText,
             prefixIcon: prefixIcon,
+            enabled: enabled,
           ),
           child: Row(
             children: [

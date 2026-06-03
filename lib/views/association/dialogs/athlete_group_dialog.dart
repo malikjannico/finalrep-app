@@ -153,68 +153,147 @@ class _AthleteGroupDialogState extends State<AthleteGroupDialog> {
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('CANCEL'),
-        ),
-        if (widget.group == null)
-          ElevatedButton(
-            onPressed: () async {
-              if (_nameController.text.trim().isEmpty) return;
-              final name = _nameController.text.trim();
-              final newGroup = AthleteGroup(
-                id: 'ag-${DateTime.now().millisecondsSinceEpoch}',
-                associationId: widget.association.id,
-                name: name,
-                sport: _sport,
-                format: _format,
-                gender: _gender,
-                isActive: _isActive,
-              );
-              final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
-              final created = await compProvider.createAthleteGroup(newGroup);
-              if (mounted) {
-                if (created != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Athlete class "$name" created successfully.')),
-                  );
-                  setState(() {
-                    _nameController.clear();
-                  });
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Failed to create athlete class.')),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.colorScheme.secondary,
-              foregroundColor: theme.colorScheme.onSecondary,
-            ),
-            child: const Text('SAVE + CREATE'),
-          ),
-        ElevatedButton(
-          onPressed: () {
-            if (_nameController.text.trim().isEmpty) return;
-            Navigator.of(context).pop(AthleteGroup(
-              id: widget.group?.id ?? 'ag-${DateTime.now().millisecondsSinceEpoch}',
-              associationId: widget.association.id,
-              name: _nameController.text.trim(),
-              sport: _sport,
-              format: _format,
-              gender: _gender,
-              isActive: _isActive,
-            ));
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFE94E1B),
-            foregroundColor: Colors.white,
-          ),
-          child: Text(widget.group == null ? 'CREATE' : 'SAVE'),
-        ),
-      ],
+      actions: MediaQuery.of(context).size.width < 600
+          ? [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        if (_nameController.text.trim().isEmpty) return;
+                        Navigator.of(context).pop(AthleteGroup(
+                          id: widget.group?.id ?? 'ag-${DateTime.now().millisecondsSinceEpoch}',
+                          associationId: widget.association.id,
+                          name: _nameController.text.trim(),
+                          sport: _sport,
+                          format: _format,
+                          gender: _gender,
+                          isActive: _isActive,
+                        ));
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE94E1B),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      child: Text(widget.group == null ? 'CREATE' : 'SAVE'),
+                    ),
+                    if (widget.group == null) ...[
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (_nameController.text.trim().isEmpty) return;
+                          final name = _nameController.text.trim();
+                          final newGroup = AthleteGroup(
+                            id: 'ag-${DateTime.now().millisecondsSinceEpoch}',
+                            associationId: widget.association.id,
+                            name: name,
+                            sport: _sport,
+                            format: _format,
+                            gender: _gender,
+                            isActive: _isActive,
+                          );
+                          final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                          final created = await compProvider.createAthleteGroup(newGroup);
+                          if (mounted) {
+                            if (created != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Athlete class "$name" created successfully.')),
+                              );
+                              setState(() {
+                                _nameController.clear();
+                              });
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Failed to create athlete class.')),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.secondary,
+                          foregroundColor: theme.colorScheme.onSecondary,
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('SAVE + CREATE'),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      child: const Text('CANCEL'),
+                    ),
+                  ],
+                ),
+              )
+            ]
+          : [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('CANCEL'),
+              ),
+              if (widget.group == null)
+                ElevatedButton(
+                  onPressed: () async {
+                    if (_nameController.text.trim().isEmpty) return;
+                    final name = _nameController.text.trim();
+                    final newGroup = AthleteGroup(
+                      id: 'ag-${DateTime.now().millisecondsSinceEpoch}',
+                      associationId: widget.association.id,
+                      name: name,
+                      sport: _sport,
+                      format: _format,
+                      gender: _gender,
+                      isActive: _isActive,
+                    );
+                    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                    final created = await compProvider.createAthleteGroup(newGroup);
+                    if (mounted) {
+                      if (created != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Athlete class "$name" created successfully.')),
+                        );
+                        setState(() {
+                          _nameController.clear();
+                        });
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Failed to create athlete class.')),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.secondary,
+                    foregroundColor: theme.colorScheme.onSecondary,
+                  ),
+                  child: const Text('SAVE + CREATE'),
+                ),
+              ElevatedButton(
+                onPressed: () {
+                  if (_nameController.text.trim().isEmpty) return;
+                  Navigator.of(context).pop(AthleteGroup(
+                    id: widget.group?.id ?? 'ag-${DateTime.now().millisecondsSinceEpoch}',
+                    associationId: widget.association.id,
+                    name: _nameController.text.trim(),
+                    sport: _sport,
+                    format: _format,
+                    gender: _gender,
+                    isActive: _isActive,
+                  ));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE94E1B),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(widget.group == null ? 'CREATE' : 'SAVE'),
+              ),
+            ],
     );
   }
 

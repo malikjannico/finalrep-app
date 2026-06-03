@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:finalrep_app/models/association.dart';
+import 'package:finalrep_app/views/association/widgets/dropdown_filter_chip.dart';
 
 class ShareResourceMultiDialog<T> extends StatefulWidget {
   final String title;
@@ -109,12 +110,19 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        constraints: const BoxConstraints(minWidth: 700, maxWidth: 900, minHeight: 500, maxHeight: 700),
-        padding: const EdgeInsets.all(24.0),
+        constraints: BoxConstraints(
+          minWidth: isMobile ? 0 : 700,
+          maxWidth: isMobile ? 600 : 900,
+          minHeight: isMobile ? 300 : 500,
+          maxHeight: isMobile ? MediaQuery.of(context).size.height * 0.9 : 700,
+        ),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: _currentStep == 1
             ? _buildStep1(theme)
             : _buildStep2(theme),
@@ -128,6 +136,8 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
     final allSelected = items.isNotEmpty && items.every((i) => _selectedItems.contains(i));
     final anySelected = items.any((i) => _selectedItems.contains(i));
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -135,9 +145,11 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              widget.title,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                widget.title,
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
             ),
             IconButton(
               icon: const Icon(Icons.close),
@@ -160,69 +172,60 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
           },
         ),
         const SizedBox(height: 12),
-        // Filter chips row
+        // Dropdown Filter chips row
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              ...widget.filterSports.map((sport) {
-                final isSelected = _selectedSports.contains(sport);
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: FilterChip(
-                    label: Text(sport),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedSports.add(sport);
-                        } else {
-                          _selectedSports.remove(sport);
-                        }
-                      });
-                    },
-                  ),
-                );
-              }),
-              ...widget.filterFormats.map((fmt) {
-                final isSelected = _selectedFormats.contains(fmt);
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: FilterChip(
-                    label: Text(fmt),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedFormats.add(fmt);
-                        } else {
-                          _selectedFormats.remove(fmt);
-                        }
-                      });
-                    },
-                  ),
-                );
-              }),
-              if (widget.filterGenders != null)
-                ...widget.filterGenders!.map((g) {
-                  final isSelected = _selectedGenders.contains(g);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterChip(
-                      label: Text(g),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedGenders.add(g);
-                          } else {
-                            _selectedGenders.remove(g);
-                          }
-                        });
-                      },
-                    ),
-                  );
-                }),
+              DropdownFilterChip<String>(
+                label: 'Sport',
+                items: widget.filterSports,
+                selectedItems: _selectedSports,
+                itemLabel: (s) => s,
+                onSelected: (sport, selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedSports.add(sport);
+                    } else {
+                      _selectedSports.remove(sport);
+                    }
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              DropdownFilterChip<String>(
+                label: 'Format',
+                items: widget.filterFormats,
+                selectedItems: _selectedFormats,
+                itemLabel: (f) => f,
+                onSelected: (fmt, selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedFormats.add(fmt);
+                    } else {
+                      _selectedFormats.remove(fmt);
+                    }
+                  });
+                },
+              ),
+              if (widget.filterGenders != null) ...[
+                const SizedBox(width: 8),
+                DropdownFilterChip<String>(
+                  label: 'Gender',
+                  items: widget.filterGenders!,
+                  selectedItems: _selectedGenders,
+                  itemLabel: (g) => g,
+                  onSelected: (gender, selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedGenders.add(gender);
+                      } else {
+                        _selectedGenders.remove(gender);
+                      }
+                    });
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -319,31 +322,61 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
         ),
         const SizedBox(height: 16),
         // Action Buttons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('CANCEL'),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: _selectedItems.isEmpty
-                  ? null
-                  : () {
-                      setState(() {
-                        _currentStep = 2;
-                      });
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE94E1B),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        isMobile
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: _selectedItems.isEmpty
+                        ? null
+                        : () {
+                            setState(() {
+                              _currentStep = 2;
+                            });
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94E1B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: const Text('NEXT'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: const Text('CANCEL'),
+                  ),
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('CANCEL'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _selectedItems.isEmpty
+                        ? null
+                        : () {
+                            setState(() {
+                              _currentStep = 2;
+                            });
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94E1B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                    child: const Text('NEXT'),
+                  ),
+                ],
               ),
-              child: const Text('NEXT'),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -355,6 +388,7 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
         .map((e) => e.country ?? 'Global')
         .toSet()
         .toList();
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,9 +397,11 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Set Sharing Mode & Targets',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                'Set Sharing Mode & Targets',
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
             ),
             IconButton(
               icon: const Icon(Icons.close),
@@ -411,49 +447,42 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
             },
           ),
           const SizedBox(height: 8),
-          // Association filter chips (scope, country)
+          // Association Dropdown filter chips (scope, country)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                ...['global', 'continental', 'national', 'local'].map((scope) {
-                  final isSelected = _assocSelectedScopes.contains(scope);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterChip(
-                      label: Text(scope.toUpperCase()),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _assocSelectedScopes.add(scope);
-                          } else {
-                            _assocSelectedScopes.remove(scope);
-                          }
-                        });
-                      },
-                    ),
-                  );
-                }),
-                ...allCountries.map((country) {
-                  final isSelected = _assocSelectedCountries.contains(country);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterChip(
-                      label: Text(country),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _assocSelectedCountries.add(country);
-                          } else {
-                            _assocSelectedCountries.remove(country);
-                          }
-                        });
-                      },
-                    ),
-                  );
-                }),
+                DropdownFilterChip<String>(
+                  label: 'Scope',
+                  items: const ['global', 'continental', 'national', 'local'],
+                  selectedItems: _assocSelectedScopes,
+                  itemLabel: (s) => s.toUpperCase(),
+                  onSelected: (scope, selected) {
+                    setState(() {
+                      if (selected) {
+                        _assocSelectedScopes.add(scope);
+                      } else {
+                        _assocSelectedScopes.remove(scope);
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(width: 8),
+                DropdownFilterChip<String>(
+                  label: 'Country',
+                  items: allCountries,
+                  selectedItems: _assocSelectedCountries,
+                  itemLabel: (c) => c,
+                  onSelected: (country, selected) {
+                    setState(() {
+                      if (selected) {
+                        _assocSelectedCountries.add(country);
+                      } else {
+                        _assocSelectedCountries.remove(country);
+                      }
+                    });
+                  },
+                ),
               ],
             ),
           ),
@@ -504,42 +533,96 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
         ],
         const SizedBox(height: 16),
         // Action Buttons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _currentStep = 1;
-                });
-              },
-              child: const Text('BACK'),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('CANCEL'),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop({
-                  'items': _selectedItems.toList(),
-                  'sharing': {
-                    'mode': _sharingMode,
-                    'targets': _targetAssociationIds.toList(),
-                  }
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE94E1B),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        isMobile
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop({
+                        'items': _selectedItems.toList(),
+                        'sharing': {
+                          'mode': _sharingMode,
+                          'targets': _targetAssociationIds.toList(),
+                        }
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94E1B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: const Text('SHARE'),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _currentStep = 1;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFE94E1B)),
+                            foregroundColor: const Color(0xFFE94E1B),
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          child: const Text('BACK'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          child: const Text('CANCEL'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentStep = 1;
+                      });
+                    },
+                    child: const Text('BACK'),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('CANCEL'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop({
+                        'items': _selectedItems.toList(),
+                        'sharing': {
+                          'mode': _sharingMode,
+                          'targets': _targetAssociationIds.toList(),
+                        }
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94E1B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                    child: const Text('SHARE'),
+                  ),
+                ],
               ),
-              child: const Text('SHARE'),
-            ),
-          ],
-        ),
       ],
     );
   }

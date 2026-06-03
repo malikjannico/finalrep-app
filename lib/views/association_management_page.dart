@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -77,9 +78,15 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   static List<CompetitionGroup> _cachedAppliedCompGroups = [];
   static List<AthleteGroup> _cachedAppliedAthleteGroups = [];
 
+  static int? _lastActiveTabIndex;
+  static String? _lastActiveTabAssociationId;
+  static DateTime? _lastActiveTabTime;
+
   late TabController _tabController;
   TabController get tabController => _tabController;
   int _currentIndex = 0;
+  int _activeIndexedStackIndex = 0;
+  final Set<int> _activatedIndices = {};
   Association? _association;
   List<AssociationMember> _members = [];
   final Map<String, Profile> _memberProfiles = {};
@@ -228,6 +235,9 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     if (_tabController.index != _currentIndex) {
       setState(() {
         _currentIndex = _tabController.index;
+        _activeIndexedStackIndex = _tabController.index;
+        _activatedIndices.add(_tabController.index);
+        _lastActiveTabIndex = _tabController.index;
       });
     }
     if (!_tabController.indexIsChanging) {
@@ -302,6 +312,10 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     super.initState();
     final initialIndex = _getTabIndexFromTabName(widget.initialTab);
     _currentIndex = initialIndex;
+    _activeIndexedStackIndex = initialIndex;
+    _activatedIndices.add(initialIndex);
+    _lastActiveTabIndex = initialIndex;
+
     _tabController = TabController(length: 5, vsync: this, initialIndex: initialIndex);
     _tabController.addListener(_onTabChanged);
     _nameController = TextEditingController();
@@ -343,8 +357,15 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     if (widget.initialTab != oldWidget.initialTab && widget.initialTab != null) {
       final newIndex = _getTabIndexFromTabName(widget.initialTab);
       if (_tabController.index != newIndex) {
-        _tabController.animateTo(newIndex);
-        _currentIndex = newIndex;
+        _tabController.index = newIndex;
+      }
+      if (_currentIndex != newIndex) {
+        setState(() {
+          _currentIndex = newIndex;
+          _activeIndexedStackIndex = newIndex;
+          _activatedIndices.add(newIndex);
+          _lastActiveTabIndex = newIndex;
+        });
       }
     }
   }
@@ -1360,22 +1381,72 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
       if (widget.isInline) {
         return const Center(child: CircularProgressIndicator());
       }
-      return Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-              } else {
-                context.go('/management/associations');
-              }
-            },
+      if (isMobileWidth) {
+        return Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  context.go('/management/associations');
+                }
+              },
+            ),
+            title: Text(
+              'Manage Association',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          title: const Text('Manage Association'),
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      } else {
+        return Scaffold(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'My Associations  /  ...',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Manage Association',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          ),
+        );
+      }
     }
 
     // Dashboard View (if no associationId provided)
@@ -1574,7 +1645,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
           ),
           body: mainWidget,
           floatingActionButton: !isDesktop && (authProvider.isAssociationCreator || authProvider.isAdmin)
-              ? FloatingActionButton(
+              ? FloatingActionButton.extended(
                   key: const Key('create_association_fab'),
                   backgroundColor: const Color(0xFFE94E1B),
                   foregroundColor: Colors.white,
@@ -1586,7 +1657,8 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
                     );
                     _loadData();
                   },
-                  child: const Icon(Icons.add),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Association'),
                 )
               : null,
         );
@@ -1693,39 +1765,100 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Navigation Drawer Left Side
-              NavigationDrawer(
-                selectedIndex: _currentIndex,
-                onDestinationSelected: (idx) {
-                  setState(() {
-                    _tabController.animateTo(idx);
-                  });
-                },
-                children: [
-                  const SizedBox(height: 16),
-                  ...navItems.map((item) {
-                    return NavigationDrawerDestination(
-                      icon: Icon(item['icon'] as IconData),
-                      label: Flexible(
-                        child: Text(
-                          item['label'] as String,
-                          overflow: TextOverflow.ellipsis,
+              // Custom Left Navigation Drawer
+              Container(
+                width: 250,
+                decoration: BoxDecoration(
+                  border: Border(
+                    right: BorderSide(
+                      color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: ListView(
+                  children: [
+                    const SizedBox(height: 16),
+                    ...List.generate(navItems.length, (idx) {
+                      final item = navItems[idx];
+                      final isSelected = _currentIndex == idx;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                        child: InkWell(
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
+                          onTap: () {
+                            if (idx == _currentIndex) return;
+                            
+                            final tabName = _getTabNameFromIndex(idx);
+                            final id = widget.associationId;
+
+                            setState(() {
+                              _currentIndex = idx;
+                              _activeIndexedStackIndex = idx;
+                              _activatedIndices.add(idx);
+                              _lastActiveTabIndex = idx;
+                            });
+
+                            if (id != null) {
+                              final newPath = '/management/associations/$id/$tabName';
+                              try {
+                                if (GoRouterState.of(context).matchedLocation != newPath) {
+                                  context.go(newPath);
+                                }
+                              } catch (_) {}
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(28),
+                          child: Container(
+                            height: 56,
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? theme.colorScheme.secondaryContainer
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  item['icon'] as IconData,
+                                  color: isSelected
+                                      ? theme.colorScheme.onSecondaryContainer
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    item['label'] as String,
+                                    style: theme.textTheme.labelLarge?.copyWith(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected
+                                          ? theme.colorScheme.onSecondaryContainer
+                                          : theme.colorScheme.onSurface,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    );
-                  }),
-                ],
+                      );
+                    }),
+                  ],
+                ),
               ),
               // Content page right side
               Expanded(
                 child: IndexedStack(
-                  index: _currentIndex,
+                  index: _activeIndexedStackIndex,
                   children: [
-                    MetadataTabView(state: this),
-                    MembersTabView(state: this),
-                    CompetitionGroupsTabView(state: this),
-                    AthleteGroupsTabView(state: this),
-                    _buildNetworkTab(theme),
+                    _activatedIndices.contains(0) ? MetadataTabView(state: this) : const SizedBox.shrink(),
+                    _activatedIndices.contains(1) ? MembersTabView(state: this) : const SizedBox.shrink(),
+                    _activatedIndices.contains(2) ? CompetitionGroupsTabView(state: this) : const SizedBox.shrink(),
+                    _activatedIndices.contains(3) ? AthleteGroupsTabView(state: this) : const SizedBox.shrink(),
+                    _activatedIndices.contains(4) ? _buildNetworkTab(theme) : const SizedBox.shrink(),
                   ],
                 ),
               ),
@@ -1805,11 +1938,11 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
             child: IndexedStack(
               index: _currentIndex,
               children: [
-                MetadataTabView(state: this),
-                MembersTabView(state: this),
-                CompetitionGroupsTabView(state: this),
-                AthleteGroupsTabView(state: this),
-                _buildNetworkTab(theme),
+                _activatedIndices.contains(0) ? MetadataTabView(state: this) : const SizedBox.shrink(),
+                _activatedIndices.contains(1) ? MembersTabView(state: this) : const SizedBox.shrink(),
+                _activatedIndices.contains(2) ? CompetitionGroupsTabView(state: this) : const SizedBox.shrink(),
+                _activatedIndices.contains(3) ? AthleteGroupsTabView(state: this) : const SizedBox.shrink(),
+                _activatedIndices.contains(4) ? _buildNetworkTab(theme) : const SizedBox.shrink(),
               ],
             ),
           ),
@@ -2939,13 +3072,15 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Parent Association Header
-          _buildNetworkHeader(
-            key: 'network/parent',
-            title: 'Parent Association',
-            countText: null, // No count for parent association
-            theme: theme,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Text(
+              'Parent Association',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
           if (parent == null)
             Card(
               elevation: 0,
@@ -2983,33 +3118,44 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
           const SizedBox(height: 32),
 
           // Sub-Associations Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: _buildNetworkHeader(
-                  key: 'network/subs',
-                  title: 'Sub-Associations',
-                  countText: '${subAssociations.length}',
-                  theme: theme,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${subAssociations.length}',
+                      key: const Key('network/subs/count'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Sub-Associations',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              if (_isOwner && isDesktop) ...[
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  onPressed: _showAddSubAssociationModal,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add Sub-Association'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE94E1B),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                if (_isOwner && isDesktop)
+                  ElevatedButton.icon(
+                    onPressed: _showAddSubAssociationModal,
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add Sub-Association'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94E1B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
                   ),
-                ),
               ],
-            ],
+            ),
           ),
-          const SizedBox(height: 8),
           if (subAssociations.isEmpty)
             Card(
               elevation: 0,

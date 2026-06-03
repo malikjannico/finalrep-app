@@ -69,114 +69,191 @@ class _AddSubAssociationDialogState extends State<AddSubAssociationDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
+
+    final allSelected = _searchResults.isNotEmpty && _searchResults.every((a) => _selectedIds.contains(a.id));
+    final anySelected = _searchResults.any((a) => _selectedIds.contains(a.id));
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        constraints: const BoxConstraints(minWidth: 800, minHeight: 400, maxWidth: 1200),
-        padding: const EdgeInsets.all(24.0),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Add Sub-Associations',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _searchController,
-                onChanged: _performSearch,
-                decoration: InputDecoration(
-                  labelText: 'Search existing associations',
-                  hintText: 'Search by name or scope...',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => _performSearch(_searchController.text),
+        constraints: BoxConstraints(
+          minWidth: isMobile ? 0 : 800,
+          maxWidth: isMobile ? 600 : 1000,
+          minHeight: isMobile ? 300 : 500,
+          maxHeight: isMobile ? MediaQuery.of(context).size.height * 0.9 : 700,
+        ),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Add Sub-Associations',
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Available Associations (${_searchResults.length})',
-                style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 250,
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.colorScheme.outlineVariant),
-                  borderRadius: BorderRadius.circular(8),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                child: _searchResults.isEmpty
-                    ? const Center(child: Text('No available associations found.'))
-                    : SingleChildScrollView(
-                        child: Column(
-                          children: _searchResults.map((assoc) {
-                            final isSelected = _selectedIds.contains(assoc.id);
-                            final logoUrl = ImageUrlResolver.resolve(context, assoc.profilePictureUrl);
-                            final initials = assoc.name.isNotEmpty ? assoc.name[0].toUpperCase() : 'A';
-
-                            return CheckboxListTile(
-                              secondary: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: theme.colorScheme.primaryContainer,
-                                backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
-                                child: logoUrl.isEmpty
-                                    ? Text(
-                                        initials,
-                                        style: TextStyle(
-                                          color: theme.colorScheme.onPrimaryContainer,
-                                          fontSize: 12,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              title: Text(assoc.name),
-                              subtitle: Text(
-                                assoc.scope.toUpperCase() + (assoc.country != null ? ' - ${assoc.country}' : ''),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              value: isSelected,
-                              onChanged: (bool? val) {
-                                  setState(() {
-                                    if (val == true) {
-                                      _selectedIds.add(assoc.id);
-                                    } else {
-                                      _selectedIds.remove(assoc.id);
-                                    }
-                                  });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                      ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              onChanged: _performSearch,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Search by name, description or scope...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('CANCEL'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _selectedIds.isEmpty
-                        ? null
-                        : () => Navigator.of(context).pop(_selectedIds.toList()),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE94E1B),
-                      foregroundColor: Colors.white,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_selectedIds.length} / ${_searchResults.length} selected',
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                Row(
+                  children: [
+                    const Text('Select All shown'),
+                    Checkbox(
+                      value: allSelected ? true : (anySelected ? null : false),
+                      tristate: true,
+                      activeColor: const Color(0xFFE94E1B),
+                      onChanged: (bool? checked) {
+                        setState(() {
+                          if (checked == true) {
+                            for (var assoc in _searchResults) {
+                              _selectedIds.add(assoc.id);
+                            }
+                          } else {
+                            for (var assoc in _searchResults) {
+                              _selectedIds.remove(assoc.id);
+                            }
+                          }
+                        });
+                      },
                     ),
-                    child: const Text('ADD'),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _searchResults.isEmpty
+                  ? const Center(child: Text('No available associations found.'))
+                  : ListView.builder(
+                      itemCount: _searchResults.length,
+                      itemBuilder: (context, idx) {
+                        final assoc = _searchResults[idx];
+                        final isSelected = _selectedIds.contains(assoc.id);
+                        final logoUrl = ImageUrlResolver.resolve(context, assoc.profilePictureUrl);
+                        final initials = assoc.name.isNotEmpty ? assoc.name[0].toUpperCase() : 'A';
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: CheckboxListTile(
+                            activeColor: const Color(0xFFE94E1B),
+                            secondary: CircleAvatar(
+                              radius: 16,
+                              backgroundColor: theme.colorScheme.primaryContainer,
+                              backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+                              child: logoUrl.isEmpty
+                                  ? Text(
+                                      initials,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onPrimaryContainer,
+                                        fontSize: 12,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            title: Text(assoc.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text(
+                              assoc.scope.toUpperCase() + (assoc.country != null ? ' - ${assoc.country}' : ''),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            value: isSelected,
+                            onChanged: (bool? val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedIds.add(assoc.id);
+                                } else {
+                                  _selectedIds.remove(assoc.id);
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 16),
+            isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _selectedIds.isEmpty
+                            ? null
+                            : () => Navigator.of(context).pop(_selectedIds.toList()),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('ADD'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('CANCEL'),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('CANCEL'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _selectedIds.isEmpty
+                            ? null
+                            : () => Navigator.of(context).pop(_selectedIds.toList()),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        child: const Text('ADD'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );

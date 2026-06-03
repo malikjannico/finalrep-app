@@ -130,7 +130,7 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
       ),
       body: mainWidget,
       floatingActionButton: !isDesktop
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
               key: const Key('create_competition_fab'),
               backgroundColor: const Color(0xFFE94E1B),
               foregroundColor: Colors.white,
@@ -141,7 +141,8 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
                   ),
                 );
               },
-              child: const Icon(Icons.add),
+              icon: const Icon(Icons.add),
+              label: const Text('Create Competition'),
             )
           : null,
     );

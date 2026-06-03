@@ -85,6 +85,7 @@ class AthleteGroupsTabView extends StatelessWidget {
                                 ),
                               ),
                             if (MediaQuery.of(context).size.width >= 900) ...[
+                              const SizedBox(width: 8),
                               ElevatedButton.icon(
                                 onPressed: state.showAddAthleteGroupModal,
                                 icon: const Icon(Icons.add, size: 16),

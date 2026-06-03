@@ -237,24 +237,11 @@ final GoRouter goRouter = GoRouter(
       },
     ),
     GoRoute(
-      path: '/management/associations/:id/metadata',
-      pageBuilder: (context, state) => _buildAssociationManagementTab(context, state, 'metadata'),
-    ),
-    GoRoute(
-      path: '/management/associations/:id/members',
-      pageBuilder: (context, state) => _buildAssociationManagementTab(context, state, 'members'),
-    ),
-    GoRoute(
-      path: '/management/associations/:id/compgroups',
-      pageBuilder: (context, state) => _buildAssociationManagementTab(context, state, 'compgroups'),
-    ),
-    GoRoute(
-      path: '/management/associations/:id/athletegroups',
-      pageBuilder: (context, state) => _buildAssociationManagementTab(context, state, 'athletegroups'),
-    ),
-    GoRoute(
-      path: '/management/associations/:id/network',
-      pageBuilder: (context, state) => _buildAssociationManagementTab(context, state, 'network'),
+      path: '/management/associations/:id/:tab',
+      pageBuilder: (context, state) {
+        final tab = state.pathParameters['tab'] ?? 'metadata';
+        return _buildAssociationManagementTab(context, state, tab);
+      },
     ),
 
 

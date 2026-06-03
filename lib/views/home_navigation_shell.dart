@@ -801,7 +801,7 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
       floatingActionButton: !isDesktop && _currentTabCollection == 'Management'
           ? (_currentTabIndex == 0
               ? (authProvider.isAdmin || authProvider.currentUserProfile?.isCompetitionCreator == true
-                  ? FloatingActionButton(
+                  ? FloatingActionButton.extended(
                       key: const Key('create_competition_fab'),
                       backgroundColor: const Color(0xFFE94E1B),
                       foregroundColor: Colors.white,
@@ -812,12 +812,13 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                           ),
                         );
                       },
-                      child: const Icon(Icons.add),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Create Competition'),
                     )
                   : null)
               : (_currentTabIndex == 1
                   ? (authProvider.isAdmin || authProvider.currentUserProfile?.isAssociationCreator == true
-                      ? FloatingActionButton(
+                      ? FloatingActionButton.extended(
                           key: const Key('create_association_fab'),
                           backgroundColor: const Color(0xFFE94E1B),
                           foregroundColor: Colors.white,
@@ -829,7 +830,8 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                             );
                             provider.fetchAssociations();
                           },
-                          child: const Icon(Icons.add),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Create Association'),
                         )
                       : null)
                   : null))

@@ -5,6 +5,7 @@ import 'package:finalrep_app/models/competition_group.dart';
 import 'package:finalrep_app/models/athlete_group.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/views/association/widgets/hierarchy_helpers.dart';
+import 'package:finalrep_app/views/association/widgets/dropdown_filter_chip.dart';
 
 class _SharedRulebookItem {
   final String sport;
@@ -233,19 +234,29 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
     final formatsList = compProvider.sportConfig?.formats.map((f) => f.name).toSet().toList() ?? ['Modern', 'Classic'];
     final gendersList = const ['men', 'women', 'mixed'];
 
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        constraints: const BoxConstraints(minWidth: 800, maxWidth: 1000, minHeight: 500, maxHeight: 700),
-        padding: const EdgeInsets.all(24.0),
+        constraints: BoxConstraints(
+          minWidth: isMobile ? 0 : 800,
+          maxWidth: isMobile ? 600 : 1000,
+          minHeight: isMobile ? 300 : 500,
+          maxHeight: isMobile ? MediaQuery.of(context).size.height * 0.9 : 700,
+        ),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  titleText,
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    titleText,
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -270,69 +281,60 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
                 },
               ),
               const SizedBox(height: 12),
-              // Filter chips
+              // Dropdown Filter chips
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    ...sportsList.map((sport) {
-                      final isSelected = _selectedSports.contains(sport);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: FilterChip(
-                          label: Text(sport),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedSports.add(sport);
-                              } else {
-                                _selectedSports.remove(sport);
-                              }
-                            });
-                          },
-                        ),
-                      );
-                    }),
-                    ...formatsList.map((format) {
-                      final isSelected = _selectedFormats.contains(format);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: FilterChip(
-                          label: Text(format),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedFormats.add(format);
-                              } else {
-                                _selectedFormats.remove(format);
-                              }
-                            });
-                          },
-                        ),
-                      );
-                    }),
-                    if (widget.resourceType == 'athlete_groups')
-                      ...gendersList.map((g) {
-                        final isSelected = _selectedGenders.contains(g);
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: FilterChip(
-                            label: Text(g == 'women' ? 'Women' : (g.isEmpty ? '' : g[0].toUpperCase() + g.substring(1))),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                if (selected) {
-                                  _selectedGenders.add(g);
-                                } else {
-                                  _selectedGenders.remove(g);
-                                }
-                              });
-                            },
-                          ),
-                        );
-                      }),
+                    DropdownFilterChip<String>(
+                      label: 'Sport',
+                      items: sportsList,
+                      selectedItems: _selectedSports,
+                      itemLabel: (s) => s,
+                      onSelected: (sport, selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedSports.add(sport);
+                          } else {
+                            _selectedSports.remove(sport);
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownFilterChip<String>(
+                      label: 'Format',
+                      items: formatsList,
+                      selectedItems: _selectedFormats,
+                      itemLabel: (f) => f,
+                      onSelected: (format, selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedFormats.add(format);
+                          } else {
+                            _selectedFormats.remove(format);
+                          }
+                        });
+                      },
+                    ),
+                    if (widget.resourceType == 'athlete_groups') ...[
+                      const SizedBox(width: 8),
+                      DropdownFilterChip<String>(
+                        label: 'Gender',
+                        items: gendersList,
+                        selectedItems: _selectedGenders,
+                        itemLabel: (g) => g == 'women' ? 'Women' : (g.isEmpty ? '' : g[0].toUpperCase() + g.substring(1)),
+                        onSelected: (gender, selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedGenders.add(gender);
+                            } else {
+                              _selectedGenders.remove(gender);
+                            }
+                          });
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -351,31 +353,61 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
                           : _buildAthleteGroupsList(theme),
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('CANCEL'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop({
-                      'rulebooks': _selectedRulebooks,
-                      'competition_groups': _selectedCompGroups,
-                      'athlete_groups': _selectedAthleteGroups,
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE94E1B),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop({
+                            'rulebooks': _selectedRulebooks,
+                            'competition_groups': _selectedCompGroups,
+                            'athlete_groups': _selectedAthleteGroups,
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('APPLY SELECTED'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('CANCEL'),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('CANCEL'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop({
+                            'rulebooks': _selectedRulebooks,
+                            'competition_groups': _selectedCompGroups,
+                            'athlete_groups': _selectedAthleteGroups,
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        child: const Text('APPLY SELECTED'),
+                      ),
+                    ],
                   ),
-                  child: const Text('APPLY SELECTED'),
-                ),
-              ],
-            ),
           ],
         ),
       ),
