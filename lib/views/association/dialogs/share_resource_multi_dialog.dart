@@ -9,13 +9,14 @@ class ShareResourceMultiDialog<T> extends StatefulWidget {
   final List<String> Function(T) itemSubtitles;
   final List<String> Function(T)? itemGenders;
   final String Function(T) itemSport;
-  final String Function(T) Function()? itemFormat; // Optional, or string extractor
+  final List<String> Function(T)? itemFormats;
   final List<String> filterSports;
   final List<String> filterFormats;
   final List<String>? filterGenders;
   final Association currentAssociation;
   final List<Association> allAssociations;
   final Map<String, dynamic>? initialSharingConfig;
+  final bool Function(T)? itemIsShared;
 
   const ShareResourceMultiDialog({
     Key? key,
@@ -25,13 +26,14 @@ class ShareResourceMultiDialog<T> extends StatefulWidget {
     required this.itemSubtitles,
     this.itemGenders,
     required this.itemSport,
-    this.itemFormat,
+    this.itemFormats,
     required this.filterSports,
     required this.filterFormats,
     this.filterGenders,
     required this.currentAssociation,
     required this.allAssociations,
     this.initialSharingConfig,
+    this.itemIsShared,
   }) : super(key: key);
 
   @override
@@ -47,6 +49,7 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
   final Set<String> _selectedSports = {};
   final Set<String> _selectedFormats = {};
   final Set<String> _selectedGenders = {};
+  final Set<String> _selectedSharingStates = {};
 
   // Step 2: Sharing configuration states
   String _sharingMode = 'private';
@@ -75,8 +78,16 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
       final sport = widget.itemSport(item);
       final matchesSport = _selectedSports.isEmpty || _selectedSports.contains(sport);
 
-      final format = widget.itemSubtitles(item).firstWhere((s) => widget.filterFormats.contains(s), orElse: () => '');
-      final matchesFormat = _selectedFormats.isEmpty || _selectedFormats.contains(format);
+      bool matchesFormat = true;
+      if (_selectedFormats.isNotEmpty) {
+        if (widget.itemFormats != null) {
+          final fmts = widget.itemFormats!(item);
+          matchesFormat = fmts.any((f) => _selectedFormats.contains(f));
+        } else {
+          final format = widget.itemSubtitles(item).firstWhere((s) => widget.filterFormats.contains(s), orElse: () => '');
+          matchesFormat = _selectedFormats.contains(format);
+        }
+      }
 
       bool matchesGender = true;
       if (widget.itemGenders != null && _selectedGenders.isNotEmpty) {
@@ -84,7 +95,19 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
         matchesGender = genders.any((g) => _selectedGenders.contains(g));
       }
 
-      return matchesQuery && matchesSport && matchesFormat && matchesGender;
+      bool matchesSharingState = true;
+      if (widget.itemIsShared != null && _selectedSharingStates.isNotEmpty) {
+        final isShared = widget.itemIsShared!(item);
+        if (_selectedSharingStates.contains('shared') && _selectedSharingStates.contains('not_shared')) {
+          matchesSharingState = true;
+        } else if (_selectedSharingStates.contains('shared')) {
+          matchesSharingState = isShared;
+        } else if (_selectedSharingStates.contains('not_shared')) {
+          matchesSharingState = !isShared;
+        }
+      }
+
+      return matchesQuery && matchesSport && matchesFormat && matchesGender && matchesSharingState;
     }).toList();
   }
 
@@ -135,6 +158,7 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
     final items = _filteredOwnItems;
     final allSelected = items.isNotEmpty && items.every((i) => _selectedItems.contains(i));
     final anySelected = items.any((i) => _selectedItems.contains(i));
+    final selectedContainsShared = _selectedItems.any((item) => widget.itemIsShared != null && widget.itemIsShared!(item));
 
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -214,13 +238,31 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
                   label: 'Gender',
                   items: widget.filterGenders!,
                   selectedItems: _selectedGenders,
-                  itemLabel: (g) => g,
+                  itemLabel: (g) => g.isEmpty ? '' : g[0].toUpperCase() + g.substring(1),
                   onSelected: (gender, selected) {
                     setState(() {
                       if (selected) {
                         _selectedGenders.add(gender);
                       } else {
                         _selectedGenders.remove(gender);
+                      }
+                    });
+                  },
+                ),
+              ],
+              if (widget.itemIsShared != null) ...[
+                const SizedBox(width: 8),
+                DropdownFilterChip<String>(
+                  label: 'Sharing State',
+                  items: const ['shared', 'not_shared'],
+                  selectedItems: _selectedSharingStates,
+                  itemLabel: (s) => s == 'shared' ? 'Shared' : 'Not Shared',
+                  onSelected: (state, selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedSharingStates.add(state);
+                      } else {
+                        _selectedSharingStates.remove(state);
                       }
                     });
                   },
@@ -273,6 +315,7 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
                     final isSelected = _selectedItems.contains(item);
                     final headline = widget.itemHeadline(item);
                     final subs = widget.itemSubtitles(item);
+                    final isShared = widget.itemIsShared != null && widget.itemIsShared!(item);
 
                     return Container(
                       decoration: BoxDecoration(
@@ -290,19 +333,47 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Wrap(
                             spacing: 6,
-                            children: subs.map((sub) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
-                                  borderRadius: BorderRadius.circular(8),
+                            runSpacing: 4,
+                            children: [
+                              ...subs.map((sub) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    sub,
+                                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                  ),
+                                );
+                              }).toList(),
+                              if (isShared)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.share,
+                                        size: 10,
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Shared',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                child: Text(
-                                  sub,
-                                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
-                                ),
-                              );
-                            }).toList(),
+                            ],
                           ),
                         ),
                         value: isSelected,
@@ -342,6 +413,27 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
                     ),
                     child: const Text('NEXT'),
                   ),
+                  if (selectedContainsShared) ...[
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop({
+                          'items': _selectedItems.toList(),
+                          'sharing': {
+                            'mode': 'private',
+                            'targets': <String>[],
+                          }
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.error,
+                        foregroundColor: theme.colorScheme.onError,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      child: const Text('UNSHARE'),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -360,6 +452,26 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
                     child: const Text('CANCEL'),
                   ),
                   const SizedBox(width: 12),
+                  if (selectedContainsShared) ...[
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop({
+                          'items': _selectedItems.toList(),
+                          'sharing': {
+                            'mode': 'private',
+                            'targets': <String>[],
+                          }
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.error,
+                        foregroundColor: theme.colorScheme.onError,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      child: const Text('UNSHARE'),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   ElevatedButton(
                     onPressed: _selectedItems.isEmpty
                         ? null
@@ -500,6 +612,13 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
                     itemBuilder: (context, idx) {
                       final assoc = targets[idx];
                       final isSelected = _targetAssociationIds.contains(assoc.id);
+                      final territory = assoc.scope.toLowerCase() != 'global'
+                          ? (assoc.areaName ?? assoc.country)
+                          : null;
+                      final showTerritory = territory != null && territory.isNotEmpty;
+                      final scopeLabel = assoc.scope.isEmpty ? '' : assoc.scope[0].toUpperCase() + assoc.scope.substring(1).toLowerCase();
+                      final territoryLabel = territory != null && territory.isNotEmpty ? territory[0].toUpperCase() + territory.substring(1).toLowerCase() : '';
+
                       return Container(
                         decoration: BoxDecoration(
                           border: Border(
@@ -512,7 +631,38 @@ class _ShareResourceMultiDialogState<T> extends State<ShareResourceMultiDialog<T
                         child: CheckboxListTile(
                           activeColor: const Color(0xFFE94E1B),
                           title: Text(assoc.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${assoc.scope.toUpperCase()} • ${assoc.country ?? "Global"}'),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                if (showTerritory)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      territoryLabel,
+                                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                    ),
+                                  ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    scopeLabel,
+                                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                           value: isSelected,
                           onChanged: (bool? checked) {
                             setState(() {

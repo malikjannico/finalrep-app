@@ -118,7 +118,7 @@ class _AddSubAssociationDialogState extends State<AddSubAssociationDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${_selectedIds.length} / ${_searchResults.length} selected',
+                  '${_selectedIds.length} selected',
                   style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Row(
@@ -158,6 +158,14 @@ class _AddSubAssociationDialogState extends State<AddSubAssociationDialog> {
                         final logoUrl = ImageUrlResolver.resolve(context, assoc.profilePictureUrl);
                         final initials = assoc.name.isNotEmpty ? assoc.name[0].toUpperCase() : 'A';
 
+                        final territory = assoc.scope.toLowerCase() != 'global'
+                            ? (assoc.areaName ?? assoc.country)
+                            : null;
+                        final showTerritory = territory != null && territory.isNotEmpty;
+
+                        final scopeLabel = assoc.scope.isEmpty ? '' : assoc.scope[0].toUpperCase() + assoc.scope.substring(1).toLowerCase();
+                        final territoryLabel = territory != null && territory.isNotEmpty ? territory[0].toUpperCase() + territory.substring(1).toLowerCase() : '';
+
                         return Container(
                           decoration: BoxDecoration(
                             border: Border(
@@ -184,10 +192,36 @@ class _AddSubAssociationDialogState extends State<AddSubAssociationDialog> {
                                   : null,
                             ),
                             title: Text(assoc.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text(
-                              assoc.scope.toUpperCase() + (assoc.country != null ? ' - ${assoc.country}' : ''),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: [
+                                  if (showTerritory)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        territoryLabel,
+                                        style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                      ),
+                                    ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      scopeLabel,
+                                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             value: isSelected,

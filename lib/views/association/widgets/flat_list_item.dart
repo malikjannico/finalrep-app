@@ -48,3 +48,40 @@ class FlatMemberCardItem extends FlatListItem {
   final AssociationMember member;
   FlatMemberCardItem({required this.member});
 }
+
+class FlatSportFormatItem extends FlatListItem {
+  final String sport;
+  final String format;
+  final List<String> disciplines;
+  final bool isAppliedShared;
+  final String? owningAssociationName;
+
+  FlatSportFormatItem({
+    required this.sport,
+    required this.format,
+    required this.disciplines,
+    required this.isAppliedShared,
+    this.owningAssociationName,
+  });
+}
+
+class FlatRulebookItem extends FlatListItem {
+  final String sport;
+  final String? format;
+  final String rulebookUrl;
+  final bool isAppliedShared;
+  final String? owningAssociationName;
+  final String? owningAssociationId;
+  final bool hasAppliedShared;
+
+  FlatRulebookItem({
+    required this.sport,
+    this.format,
+    required this.rulebookUrl,
+    required this.isAppliedShared,
+    this.owningAssociationName,
+    this.owningAssociationId,
+    this.hasAppliedShared = false,
+  });
+}
+

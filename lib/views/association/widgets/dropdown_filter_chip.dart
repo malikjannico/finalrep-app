@@ -20,6 +20,7 @@ class DropdownFilterChip<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasSelection = selectedItems.isNotEmpty;
+    final menuKey = GlobalKey<PopupMenuButtonState<T>>();
 
     final labelText = hasSelection
         ? '$label: ${selectedItems.map(itemLabel).join(", ")}'
@@ -30,6 +31,7 @@ class DropdownFilterChip<T> extends StatelessWidget {
         cardColor: theme.colorScheme.surface,
       ),
       child: PopupMenuButton<T>(
+        key: menuKey,
         tooltip: label,
         offset: const Offset(0, 40),
         onSelected: (item) {
@@ -80,7 +82,7 @@ class DropdownFilterChip<T> extends StatelessWidget {
           ),
           selected: hasSelection,
           onSelected: (_) {
-            // Handled by PopupMenuButton trigger
+            menuKey.currentState?.showButtonMenu();
           },
         ),
       ),

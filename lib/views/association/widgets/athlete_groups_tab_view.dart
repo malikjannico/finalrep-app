@@ -30,7 +30,7 @@ class AthleteGroupsTabView extends StatelessWidget {
       children: [
         // Header card/row for count and buttons
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -47,94 +47,55 @@ class AthleteGroupsTabView extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (state.isReorderingAthleteGroups) ...[
-                            TextButton(
-                              onPressed: () {
-                                state.setState(() {
-                                  state.isReorderingAthleteGroups = false;
-                                  state.tempAthleteGroups.clear();
-                                });
-                              },
-                              child: const Text('Cancel'),
-                            ),
+                          if (MediaQuery.of(context).size.width >= 900) ...[
                             ElevatedButton.icon(
-                              onPressed: state.saveReorderedAthleteGroups,
-                              icon: const Icon(Icons.save, size: 16),
-                              label: const Text('Save Order'),
+                              onPressed: state.showAddAthleteGroupModal,
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Add Group'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.colorScheme.primary,
-                                foregroundColor: theme.colorScheme.onPrimary,
+                                backgroundColor: const Color(0xFFE94E1B),
+                                foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                               ),
                             ),
-                          ] else ...[
-                            if (state.athleteGroups.isNotEmpty)
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  state.setState(() {
-                                    state.isReorderingAthleteGroups = true;
-                                    state.tempAthleteGroups = List.from(state.athleteGroups);
-                                  });
-                                },
-                                icon: const Icon(Icons.reorder, size: 16),
-                                label: const Text('Reorder'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: theme.colorScheme.primary,
-                                  side: BorderSide(color: theme.colorScheme.primary),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                ),
-                              ),
-                            if (MediaQuery.of(context).size.width >= 900) ...[
-                              const SizedBox(width: 8),
-                              ElevatedButton.icon(
-                                onPressed: state.showAddAthleteGroupModal,
-                                icon: const Icon(Icons.add, size: 16),
-                                label: const Text('Add Group'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFE94E1B),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
-                            PopupMenuButton<String>(
-                              tooltip: 'Athlete Groups Options',
-                              icon: const Icon(Icons.more_vert),
-                              position: PopupMenuPosition.under,
-                              onSelected: (value) {
-                                if (value == 'apply') {
-                                  state.exploreSharedResources(resourceType: 'athlete_groups');
-                                } else if (value == 'share') {
-                                  state.shareAthleteGroupsMulti();
-                                }
-                              },
-                              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                                PopupMenuItem<String>(
-                                  value: 'apply',
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.explore_outlined, size: 20, color: theme.colorScheme.onSurfaceVariant),
-                                      const SizedBox(width: 12),
-                                      const Text('Apply Shared'),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem<String>(
-                                  value: 'share',
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.share, size: 20, color: theme.colorScheme.onSurfaceVariant),
-                                      const SizedBox(width: 12),
-                                      const Text('Share Groups'),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                            const SizedBox(width: 4),
                           ],
+                          PopupMenuButton<String>(
+                            tooltip: 'Athlete Groups Options',
+                            icon: const Icon(Icons.more_vert),
+                            position: PopupMenuPosition.under,
+                            onSelected: (value) {
+                              if (value == 'apply') {
+                                state.exploreSharedResources(resourceType: 'athlete_groups');
+                              } else if (value == 'share') {
+                                state.shareAthleteGroupsMulti();
+                              }
+                            },
+                            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                              PopupMenuItem<String>(
+                                value: 'apply',
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.explore_outlined, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                                    const SizedBox(width: 12),
+                                    const Text('Apply Shared'),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'share',
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.share, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                                    const SizedBox(width: 12),
+                                    const Text('Share Groups'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                   ],
@@ -144,25 +105,25 @@ class AthleteGroupsTabView extends StatelessWidget {
           ),
         ),
         // Search & Filter controls
-        if (!state.isReorderingAthleteGroups)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Search athlete groups by name...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                  ),
-                  onChanged: (val) {
-                    state.setState(() {
-                      state.agSearchQuery = val;
-                    });
-                  },
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Search athlete groups by name...',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                  contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                 ),
+                onChanged: (val) {
+                  state.setState(() {
+                    state.agSearchQuery = val;
+                  });
+                },
+              ),
+              if (totalCount > 0) ...[
                 const SizedBox(height: 12),
                 // Dropdown Filter Chips
                 SingleChildScrollView(
@@ -235,8 +196,9 @@ class AthleteGroupsTabView extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
+            ],
           ),
+        ),
         const SizedBox(height: 16),
         // Groups checklist
         if (state.athleteGroups.isEmpty && state.appliedAthleteGroups.isEmpty)
@@ -356,14 +318,12 @@ class AthleteGroupsTabView extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 ag.format,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
                                   fontSize: 10,
                                 ),
                               ),
@@ -371,14 +331,12 @@ class AthleteGroupsTabView extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerHighest,
+                                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 displayGender,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.bold,
                                   fontSize: 10,
                                 ),
                               ),
@@ -393,8 +351,6 @@ class AthleteGroupsTabView extends StatelessWidget {
                                 child: Text(
                                   'Shared by $ownerName',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.secondary,
-                                    fontWeight: FontWeight.bold,
                                     fontSize: 10,
                                   ),
                                 ),
@@ -430,105 +386,7 @@ class AthleteGroupsTabView extends StatelessWidget {
                               : null),
                     ),
                   );
-                } else if (item is FlatReorderableGroupItem) {
-                  return ReorderableListView.builder(
-                    shrinkWrap: true,
-                    buildDefaultDragHandles: false,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: item.athleteGroups.length,
-                    proxyDecorator: (Widget child, int index, Animation<double> animation) {
-                      return AnimatedBuilder(
-                        animation: animation,
-                        builder: (BuildContext context, Widget? child) {
-                          return Material(
-                            elevation: 6.0,
-                            color: theme.colorScheme.secondaryContainer.withOpacity(0.95),
-                            borderRadius: BorderRadius.circular(12),
-                            shadowColor: theme.colorScheme.shadow,
-                            child: child,
-                          );
-                        },
-                        child: child,
-                      );
-                    },
-                    onReorder: (oldIndex, newIndex) {
-                      state.setState(() {
-                        if (oldIndex < newIndex) {
-                          newIndex -= 1;
-                        }
-                        final draggedGroup = item.athleteGroups.removeAt(oldIndex);
-                        item.athleteGroups.insert(newIndex, draggedGroup);
 
-                        // Update the global list tempAthleteGroups to match new order
-                        final orderedIds = item.athleteGroups.map((g) => g.id).toList();
-                        final newTempList = <AthleteGroup>[];
-                        int subIdx = 0;
-                        for (var g in state.tempAthleteGroups) {
-                          if (orderedIds.contains(g.id)) {
-                            newTempList.add(item.athleteGroups[subIdx++]);
-                          } else {
-                            newTempList.add(g);
-                          }
-                        }
-                        state.tempAthleteGroups = newTempList;
-                      });
-                    },
-                    itemBuilder: (context, index) {
-                      final ag = item.athleteGroups[index];
-                      final displayGender = ag.gender == 'women' ? 'Women' : (ag.gender.isEmpty ? '' : ag.gender[0].toUpperCase() + ag.gender.substring(1));
-                      return Container(
-                        key: ValueKey(ag.id),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: theme.colorScheme.outlineVariant.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                        child: ListTile(
-                          leading: ReorderableDragStartListener(
-                            index: index,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8.0),
-                              child: Icon(Icons.drag_handle),
-                            ),
-                          ),
-                          title: Text(ag.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 4.0),
-                            child: Wrap(
-                              spacing: 8,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.primaryContainer.withOpacity(0.4),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    ag.format,
-                                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.primary),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    displayGender,
-                                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
                 }
                 return const SizedBox.shrink();
               },

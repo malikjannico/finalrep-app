@@ -241,13 +241,14 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: BoxConstraints(
-          minWidth: isMobile ? 0 : 800,
-          maxWidth: isMobile ? 600 : 1000,
+          minWidth: isMobile ? 0 : 700,
+          maxWidth: isMobile ? 600 : 900,
           minHeight: isMobile ? 300 : 500,
           maxHeight: isMobile ? MediaQuery.of(context).size.height * 0.9 : 700,
         ),
         padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -514,7 +515,7 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          '$selectedCount / $itemsCount selected',
+          '$selectedCount selected',
           style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         Row(
@@ -556,9 +557,9 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
           ),
           child: CheckboxListTile(
             activeColor: const Color(0xFFE94E1B),
-            title: Text('${item.sport} - ${item.format}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(item.url, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4.0),
+              padding: const EdgeInsets.only(top: 6.0),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -570,15 +571,37 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Shared by ${item.owningAssociation.name}',
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.secondary),
+                      item.sport,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 10,
+                      ),
                     ),
                   ),
-                  Text(
-                    'Url: ${item.url}',
-                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.onSurfaceVariant),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      item.format,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Shared by ${item.owningAssociation.name}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 10,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -634,15 +657,15 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  Container(
+                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       group.format,
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.primary),
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
                     ),
                   ),
                   Container(
@@ -653,7 +676,7 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
                     ),
                     child: Text(
                       'Shared by $ownerName',
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.secondary),
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
                     ),
                   ),
                 ],
@@ -711,21 +734,21 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  Container(
+                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       group.format,
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.primary),
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -741,7 +764,7 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
                     ),
                     child: Text(
                       'Shared by $ownerName',
-                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.secondary),
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
                     ),
                   ),
                 ],

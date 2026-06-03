@@ -160,47 +160,39 @@ class MembersTabView extends StatelessWidget {
                               )
                             : null,
                       ),
-                      title: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              displayName,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (MediaQuery.of(context).size.width < 600 &&
-                              member.customTitle != null &&
-                              member.customTitle!.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            _buildCustomTitleChip(theme, member.customTitle!),
-                          ],
-                        ],
+                      title: Text(
+                        displayName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle: displayUsername.isNotEmpty
-                          ? Text(
-                              displayUsername,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                      subtitle: (displayUsername.isNotEmpty || (member.customTitle != null && member.customTitle!.isNotEmpty))
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (displayUsername.isNotEmpty)
+                                  Flexible(
+                                    child: Text(
+                                      displayUsername,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                if (member.customTitle != null &&
+                                    member.customTitle!.isNotEmpty) ...[
+                                  if (displayUsername.isNotEmpty) const SizedBox(width: 8),
+                                  _buildCustomTitleBadge(theme, member.customTitle!),
+                                ],
+                              ],
                             )
                           : null,
-                      trailing: ((member.customTitle == null ||
-                                  member.customTitle!.isEmpty ||
-                                  MediaQuery.of(context).size.width < 600) &&
-                              !state.hasManagePermission)
+                      trailing: !state.hasManagePermission
                           ? null
                           : Row(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                if (MediaQuery.of(context).size.width >= 600 &&
-                                    member.customTitle != null &&
-                                    member.customTitle!.isNotEmpty) ...[
-                                  _buildCustomTitleChip(theme, member.customTitle!),
-                                  if (state.hasManagePermission) const SizedBox(width: 8),
-                                ],
                                 if (state.hasManagePermission)
                                   ...isOwner
                                       ? [
@@ -245,24 +237,18 @@ class MembersTabView extends StatelessWidget {
     );
   }
 
-  Widget _buildCustomTitleChip(ThemeData theme, String title) {
-    return Chip(
-      label: Text(
-        title.toUpperCase(),
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      padding: EdgeInsets.zero,
-      labelPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      backgroundColor: theme.colorScheme.outlineVariant.withOpacity(0.3),
-      side: BorderSide.none,
-      shape: RoundedRectangleBorder(
+  Widget _buildCustomTitleBadge(ThemeData theme, String title) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
         borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        title,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontSize: 10,
+        ),
       ),
     );
   }

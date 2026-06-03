@@ -28,7 +28,7 @@ class CompetitionGroupsTabView extends StatelessWidget {
       children: [
         // Header card/row for count and buttons
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: const EdgeInsets.only(left: 24.0, right: 24.0, top: 24.0, bottom: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -121,56 +121,58 @@ class CompetitionGroupsTabView extends StatelessWidget {
                   });
                 },
               ),
-              const SizedBox(height: 12),
-              // Dropdown Filter Chips
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildFilterDropdownChip(
-                      label: 'Sport',
-                      options: sportsList,
-                      selectedValues: state.cgSelectedSports,
-                      onToggled: (sport) {
-                        state.setState(() {
-                          if (state.cgSelectedSports.contains(sport)) {
-                            state.cgSelectedSports.remove(sport);
-                          } else {
-                            state.cgSelectedSports.add(sport);
-                          }
-                        });
-                      },
-                      onClear: () {
-                        state.setState(() {
-                          state.cgSelectedSports.clear();
-                        });
-                      },
-                      theme: theme,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterDropdownChip(
-                      label: 'Format',
-                      options: formatsList,
-                      selectedValues: state.cgSelectedFormats,
-                      onToggled: (format) {
-                        state.setState(() {
-                          if (state.cgSelectedFormats.contains(format)) {
-                            state.cgSelectedFormats.remove(format);
-                          } else {
-                            state.cgSelectedFormats.add(format);
-                          }
-                        });
-                      },
-                      onClear: () {
-                        state.setState(() {
-                          state.cgSelectedFormats.clear();
-                        });
-                      },
-                      theme: theme,
-                    ),
-                  ],
+              if (totalCount > 0) ...[
+                const SizedBox(height: 12),
+                // Dropdown Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterDropdownChip(
+                        label: 'Sport',
+                        options: sportsList,
+                        selectedValues: state.cgSelectedSports,
+                        onToggled: (sport) {
+                          state.setState(() {
+                            if (state.cgSelectedSports.contains(sport)) {
+                              state.cgSelectedSports.remove(sport);
+                            } else {
+                              state.cgSelectedSports.add(sport);
+                            }
+                          });
+                        },
+                        onClear: () {
+                          state.setState(() {
+                            state.cgSelectedSports.clear();
+                          });
+                        },
+                        theme: theme,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterDropdownChip(
+                        label: 'Format',
+                        options: formatsList,
+                        selectedValues: state.cgSelectedFormats,
+                        onToggled: (format) {
+                          state.setState(() {
+                            if (state.cgSelectedFormats.contains(format)) {
+                              state.cgSelectedFormats.remove(format);
+                            } else {
+                              state.cgSelectedFormats.add(format);
+                            }
+                          });
+                        },
+                        onClear: () {
+                          state.setState(() {
+                            state.cgSelectedFormats.clear();
+                          });
+                        },
+                        theme: theme,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -291,14 +293,12 @@ class CompetitionGroupsTabView extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 group.format,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
                                   fontSize: 10,
                                 ),
                               ),
@@ -313,8 +313,6 @@ class CompetitionGroupsTabView extends StatelessWidget {
                                 child: Text(
                                   'Shared by $ownerName',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.secondary,
-                                    fontWeight: FontWeight.bold,
                                     fontSize: 10,
                                   ),
                                 ),

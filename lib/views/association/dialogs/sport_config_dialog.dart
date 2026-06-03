@@ -18,6 +18,10 @@ class SportConfigDialog extends StatefulWidget {
   final String activeSportType;
   final Map<String, dynamic> appliedSharedResources;
 
+  final bool hideRulebook;
+  final bool limitToConfiguredFormats;
+  final bool isRulebookOnly;
+
   const SportConfigDialog({
     Key? key,
     this.editSportType,
@@ -27,6 +31,9 @@ class SportConfigDialog extends StatefulWidget {
     required this.rulebookControllers,
     required this.activeSportType,
     required this.appliedSharedResources,
+    this.hideRulebook = false,
+    this.limitToConfiguredFormats = false,
+    this.isRulebookOnly = false,
   }) : super(key: key);
 
   @override
@@ -52,12 +59,18 @@ class _SportConfigDialogState extends State<SportConfigDialog> {
   }
 
   void _updateFormatsList(String sport) {
-    _allSportFormats = widget.sportConfig?.formats
+    var formats = widget.sportConfig?.formats
             .where((f) => f.sportName == sport)
             .map((f) => f.name)
             .toList() ??
         ['Modern', 'Classic'];
-    
+
+    if (widget.limitToConfiguredFormats) {
+      final configured = widget.selectedSportsFormats[sport] ?? [];
+      formats = formats.where((fmt) => configured.contains(fmt)).toList();
+    }
+    _allSportFormats = formats;
+
     final query = _formatSearchController.text.trim().toLowerCase();
     if (query.isEmpty) {
       _filteredFormats = List<String>.from(_allSportFormats);
@@ -79,8 +92,12 @@ class _SportConfigDialogState extends State<SportConfigDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final titleText = widget.isRulebookOnly
+        ? (widget.editSportType == null ? 'Add Rulebook' : 'Edit Rulebook')
+        : (widget.editSportType == null ? 'Add Sport and Format' : 'Edit Sport Configuration');
+
     return AlertDialog(
-      title: Text(widget.editSportType == null ? 'Configure Sport' : 'Edit Sport Configuration'),
+      title: Text(titleText),
       content: Container(
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
         child: Column(
@@ -122,15 +139,6 @@ class _SportConfigDialogState extends State<SportConfigDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      controller: _rulebookController,
-                      decoration: const InputDecoration(
-                        labelText: 'Rulebook URL',
-                        hintText: 'https://example.com/rules.pdf',
-                        prefixIcon: Icon(Icons.link_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
                     Text('Select Formats *', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     TextField(
@@ -165,109 +173,103 @@ class _SportConfigDialogState extends State<SportConfigDialog> {
                                     : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
                                 : <String>[]);
 
-                        return Card(
-                          elevation: 0,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
-                              width: isSelected ? 2 : 1,
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                                width: 1,
+                              ),
                             ),
                           ),
-                          color: isSelected
-                              ? theme.colorScheme.primaryContainer.withOpacity(0.15)
-                              : theme.colorScheme.surface,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: isAppliedShared
+                          child: CheckboxListTile(
+                            activeColor: const Color(0xFFE94E1B),
+                            value: isSelected,
+                            onChanged: isAppliedShared
                                 ? null
-                                : () {
+                                : (bool? checked) {
                                     setState(() {
-                                      if (isSelected) {
-                                        _localActiveFormats.remove(fmt);
+                                      if (checked == true) {
+                                        if (!_localActiveFormats.contains(fmt)) {
+                                          _localActiveFormats.add(fmt);
+                                        }
                                       } else {
-                                        _localActiveFormats.add(fmt);
+                                        _localActiveFormats.remove(fmt);
                                       }
                                     });
                                   },
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Checkbox(
-                                    value: isSelected,
-                                    onChanged: isAppliedShared
-                                        ? null
-                                        : (bool? checked) {
-                                            setState(() {
-                                              if (checked == true) {
-                                                if (!_localActiveFormats.contains(fmt)) {
-                                                  _localActiveFormats.add(fmt);
-                                                }
-                                              } else {
-                                                _localActiveFormats.remove(fmt);
-                                              }
-                                            });
-                                          },
-                                  ),
+                            title: Row(
+                              children: [
+                                Text(
+                                  fmt,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                if (isAppliedShared) ...[
                                   const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primaryContainer.withOpacity(0.5),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              fmt,
-                                              style: theme.textTheme.titleMedium?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                                              ),
-                                            ),
-                                            if (isAppliedShared) ...[
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.orange.withOpacity(0.2),
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: const Text(
-                                                  'SHARED',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    color: Colors.orange,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
+                                        Icon(
+                                          Icons.share,
+                                          size: 10,
+                                          color: theme.colorScheme.onPrimaryContainer,
                                         ),
-                                        if (discs.isNotEmpty) ...[
-                                          const SizedBox(height: 8),
-                                          Wrap(
-                                            spacing: 6,
-                                            runSpacing: 6,
-                                            children: discs.map((d) => Chip(
-                                              label: Text(d, style: const TextStyle(fontSize: 10)),
-                                              backgroundColor: theme.colorScheme.secondaryContainer.withOpacity(0.4),
-                                              visualDensity: VisualDensity.compact,
-                                            )).toList(),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Shared',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            fontSize: 10,
+                                            color: theme.colorScheme.onPrimaryContainer,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                        ],
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ],
-                              ),
+                              ],
                             ),
+                            subtitle: discs.isNotEmpty
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: discs.map((d) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          d,
+                                          style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                        ),
+                                      )).toList(),
+                                    ),
+                                  )
+                                : null,
                           ),
                         );
                       }).toList(),
                     ),
+                    if (!widget.hideRulebook) ...[
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: _rulebookController,
+                        decoration: const InputDecoration(
+                          labelText: 'Rulebook URL',
+                          hintText: 'https://example.com/rules.pdf',
+                          prefixIcon: Icon(Icons.link_outlined),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

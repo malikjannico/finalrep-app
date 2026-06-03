@@ -54,20 +54,30 @@ class _ShareResourceDialogState extends State<ShareResourceDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        constraints: const BoxConstraints(minWidth: 600, maxWidth: 800, minHeight: 400, maxHeight: 600),
-        padding: const EdgeInsets.all(24.0),
+        constraints: BoxConstraints(
+          minWidth: isMobile ? 0 : 700,
+          maxWidth: isMobile ? 600 : 900,
+          minHeight: isMobile ? 300 : 500,
+          maxHeight: isMobile ? MediaQuery.of(context).size.height * 0.9 : 700,
+        ),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  widget.title,
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -83,7 +93,10 @@ class _ShareResourceDialogState extends State<ShareResourceDialog> {
                   children: [
                     DropdownButtonFormField<String>(
                       value: _mode,
-                      decoration: const InputDecoration(labelText: 'Sharing Mode'),
+                      decoration: const InputDecoration(
+                        labelText: 'Sharing Mode',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                      ),
                       items: const [
                         DropdownMenuItem(value: 'private', child: Text('Private (No sharing)')),
                         DropdownMenuItem(value: 'sub_recursive', child: Text('All Sub-Associations (Recursive)')),
@@ -106,7 +119,8 @@ class _ShareResourceDialogState extends State<ShareResourceDialog> {
                         decoration: const InputDecoration(
                           labelText: 'Search Associations to Share with',
                           hintText: 'Search by name or scope...',
-                          suffixIcon: Icon(Icons.search),
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -128,19 +142,68 @@ class _ShareResourceDialogState extends State<ShareResourceDialog> {
                                 itemBuilder: (context, idx) {
                                   final assoc = _searchResults[idx];
                                   final isSelected = _targets.contains(assoc.id);
-                                  return CheckboxListTile(
-                                    title: Text(assoc.name),
-                                    subtitle: Text('${assoc.scope.toUpperCase()} • ${assoc.country ?? "Global"}'),
-                                    value: isSelected,
-                                    onChanged: (bool? checked) {
-                                      setState(() {
-                                        if (checked == true) {
-                                          _targets.add(assoc.id);
-                                        } else {
-                                          _targets.remove(assoc.id);
-                                        }
-                                      });
-                                    },
+                                  final territory = assoc.scope.toLowerCase() != 'global'
+                                      ? (assoc.areaName ?? assoc.country)
+                                      : null;
+                                  final showTerritory = territory != null && territory.isNotEmpty;
+                                  final scopeLabel = assoc.scope.isEmpty ? '' : assoc.scope[0].toUpperCase() + assoc.scope.substring(1).toLowerCase();
+                                  final territoryLabel = territory != null && territory.isNotEmpty ? territory[0].toUpperCase() + territory.substring(1).toLowerCase() : '';
+
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                    child: CheckboxListTile(
+                                      activeColor: const Color(0xFFE94E1B),
+                                      title: Text(assoc.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      subtitle: Padding(
+                                        padding: const EdgeInsets.only(top: 4.0),
+                                        child: Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: [
+                                            if (showTerritory)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  territoryLabel,
+                                                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                                ),
+                                              ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                scopeLabel,
+                                                style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      value: isSelected,
+                                      onChanged: (bool? checked) {
+                                        setState(() {
+                                          if (checked == true) {
+                                            _targets.add(assoc.id);
+                                          } else {
+                                            _targets.remove(assoc.id);
+                                          }
+                                        });
+                                      },
+                                    ),
                                   );
                                 },
                               ),
@@ -151,30 +214,59 @@ class _ShareResourceDialogState extends State<ShareResourceDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('CANCEL'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop({
-                      'mode': _mode,
-                      'targets': _targets,
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE94E1B),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop({
+                            'mode': _mode,
+                            'targets': _targets,
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('SAVE'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('CANCEL'),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('CANCEL'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop({
+                            'mode': _mode,
+                            'targets': _targets,
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        child: const Text('SAVE'),
+                      ),
+                    ],
                   ),
-                  child: const Text('SAVE'),
-                ),
-              ],
-            ),
           ],
         ),
       ),

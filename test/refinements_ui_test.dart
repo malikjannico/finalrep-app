@@ -1186,6 +1186,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Verify logo CircleAvatar exists next to the title
+      expect(find.byType(CircleAvatar), findsOneWidget);
+
       // Find Network tab (the 5th tab)
       expect(find.text('Network'), findsOneWidget);
       await tester.tap(find.text('Network'));
@@ -1303,7 +1306,7 @@ void main() {
       expect(deleteBtnFinder, findsOneWidget);
 
       // Scroll the Metadata tab content to bring the delete button into view
-      await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0.0, -600.0));
+      await tester.ensureVisible(deleteBtnFinder);
       await tester.pumpAndSettle();
 
       await tester.tap(deleteBtnFinder);
@@ -1395,7 +1398,7 @@ void main() {
       await tester.tap(compGroupsTab);
       await tester.pumpAndSettle();
 
-      expect(state.tabController.index, 2);
+      expect(state.tabController.index, 4);
       expect(goRouter.state!.matchedLocation, '/management/associations/test-route-id/compgroups');
 
       goRouter.go('/management/associations/test-route-id/members');
@@ -1619,9 +1622,9 @@ void main() {
       // Verify Parent Assoc is displayed in the parent association section
       expect(find.text('Parent Assoc'), findsOneWidget);
 
-      // Verify chips inside the _buildAssociationRow: GERMANY is displayed before NATIONAL
-      final germanyFinder = find.text('GERMANY');
-      final nationalFinder = find.text('NATIONAL');
+      // Verify chips inside the _buildAssociationRow: Germany is displayed before National
+      final germanyFinder = find.text('Germany');
+      final nationalFinder = find.text('National');
       expect(germanyFinder, findsOneWidget);
       expect(nationalFinder, findsOneWidget);
 
@@ -1965,10 +1968,8 @@ void main() {
       // Verify the custom title PRESIDENT is displayed on the Chip instead of OWNER
       final cardFinder = find.ancestor(of: find.text('President Name'), matching: find.byType(ListTile));
       expect(cardFinder, findsOneWidget);
-      final chipFinder = find.descendant(of: cardFinder, matching: find.byType(Chip));
-      expect(chipFinder, findsOneWidget);
-      final chip = tester.widget<Chip>(chipFinder);
-      expect((chip.label as Text).data, 'PRESIDENT');
+      final badgeFinder = find.descendant(of: cardFinder, matching: find.text('President'));
+      expect(badgeFinder, findsOneWidget);
 
       // Verify that member2 (Regular User) without custom title does NOT display a Chip
       final regularCardFinder = find.ancestor(of: find.text('Regular User'), matching: find.byType(ListTile));
@@ -2070,11 +2071,8 @@ void main() {
 
       // Verify custom title is updated to CEO on the card chip
       final cardFinder = find.ancestor(of: find.text('President Name'), matching: find.byType(ListTile));
-      expect(cardFinder, findsOneWidget);
-      final chipFinder = find.descendant(of: cardFinder, matching: find.byType(Chip));
-      expect(chipFinder, findsOneWidget);
-      final chip = tester.widget<Chip>(chipFinder);
-      expect((chip.label as Text).data, 'CEO');
+      final badgeFinder = find.descendant(of: cardFinder, matching: find.text('CEO'));
+      expect(badgeFinder, findsOneWidget);
     });
 
     testWidgets('AssociationManagementPage and tab views are responsive on mobile views', (tester) async {
@@ -2100,8 +2098,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 1. Verify leading back button is present on Mobile AppBar
+      // 1. Verify leading back button is present on Mobile AppBar and title is text-only without avatar
       expect(find.byKey(const Key('assoc_back_btn')), findsOneWidget);
+      final appBarFinder = find.byType(AppBar);
+      expect(appBarFinder, findsOneWidget);
+      expect(find.descendant(of: appBarFinder, matching: find.byType(CircleAvatar)), findsNothing);
+      expect(find.descendant(of: appBarFinder, matching: find.text('Test Association')), findsOneWidget);
 
       // 2. Verify TabBar has isScrollable = true on Mobile viewport
       final tabBarFinder = find.byType(TabBar);
@@ -2110,8 +2112,30 @@ void main() {
       expect(tabBar.isScrollable, isTrue);
       expect(tabBar.tabAlignment, TabAlignment.start);
 
-      // 3. Verify no FAB is shown on Metadata tab (index 0)
-      expect(find.byType(FloatingActionButton), findsNothing);
+      // 3. Verify Edit Metadata FAB is shown on Metadata tab (index 0)
+      expect(find.byKey(const Key('edit_metadata_fab')), findsOneWidget);
+      
+      // Tap Edit Metadata FAB
+      await tester.tap(find.byKey(const Key('edit_metadata_fab')));
+      await tester.pumpAndSettle();
+      
+      // Verify Save and Cancel Metadata FABs are now shown
+      expect(find.byKey(const Key('save_metadata_fab')), findsOneWidget);
+      expect(find.byKey(const Key('cancel_metadata_fab')), findsOneWidget);
+
+      // Tap Cancel Metadata FAB
+      await tester.tap(find.byKey(const Key('cancel_metadata_fab')));
+      await tester.pumpAndSettle();
+
+      // Verify it switches back to Edit Metadata FAB
+      expect(find.byKey(const Key('edit_metadata_fab')), findsOneWidget);
+      expect(find.byKey(const Key('save_metadata_fab')), findsNothing);
+      expect(find.byKey(const Key('cancel_metadata_fab')), findsNothing);
+
+      // Tap Edit Metadata FAB again to verify state for remaining tests
+      await tester.tap(find.byKey(const Key('edit_metadata_fab')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('save_metadata_fab')), findsOneWidget);
 
       // 4. Tap the Member tab, verify FAB is displayed and inline button is hidden
       await tester.tap(find.text('Member'));
@@ -2128,7 +2152,124 @@ void main() {
         ),
         findsOneWidget,
       );
+
+      // 5. Tap the Sports & Formats tab and verify its FAB is shown
+      await tester.tap(find.text('Sports & Formats'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('add_sport_format_fab')), findsOneWidget);
+    });
+
+    testWidgets('AssociationManagementPage rulebooks list removes sport chip, displays format chip', (tester) async {
+      final currentAssoc = Association(
+        id: 'assoc-rb-test',
+        name: 'RB Test Assoc',
+        scope: 'local',
+        supportedSports: ['Streetlifting'],
+        supportedFormats: ['Modern'],
+        rulebooks: {'Streetlifting': 'https://example.com/rulebook.pdf'},
+        socialChannels: {},
+        ownerId: 'user-admin',
+      );
+      assocRepo.customAssociations = [currentAssoc];
+
+      final userProfile = Profile(
+        id: 'user-admin',
+        username: 'admin',
+        fullName: 'Admin User',
+        email: 'admin@example.com',
+        isAdmin: true,
+      );
+      authProvider = MockAuthProvider(isAuthenticated: true, currentUserProfile: userProfile);
+      compProvider = CompetitionProvider(
+        compRepo,
+        MockProfileRepository(),
+        associationRepository: assocRepo,
+      );
+      compProvider.associations.add(currentAssoc);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<CompetitionProvider>.value(value: compProvider),
+            ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+          ],
+          child: const MaterialApp(
+            home: AssociationManagementPage(associationId: 'assoc-rb-test'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap on Rulebooks subpage
+      await tester.tap(find.text('Rulebooks'));
+      await tester.pumpAndSettle();
+
+      // Verify rulebook is listed by its URL
+      expect(find.text('https://example.com/rulebook.pdf'), findsOneWidget);
+
+      // Verify that "Modern" format chip is rendered inside the ListTile, but "Streetlifting" sport chip is NOT
+      final listTileFinder = find.widgetWithText(ListTile, 'https://example.com/rulebook.pdf');
+      expect(listTileFinder, findsOneWidget);
+      expect(find.descendant(of: listTileFinder, matching: find.text('Modern')), findsOneWidget);
+      expect(find.descendant(of: listTileFinder, matching: find.text('Streetlifting')), findsNothing);
+    });
+
+    testWidgets('Rulebooks and Sports subpages hide filter chips when empty', (tester) async {
+      final currentAssoc = Association(
+        id: 'assoc-empty-test',
+        name: 'Empty Assoc',
+        scope: 'local',
+        supportedSports: [],
+        supportedFormats: [],
+        rulebooks: {},
+        socialChannels: {},
+        ownerId: 'user-admin',
+      );
+      assocRepo.customAssociations = [currentAssoc];
+
+      final userProfile = Profile(
+        id: 'user-admin',
+        username: 'admin',
+        fullName: 'Admin User',
+        email: 'admin@example.com',
+        isAdmin: true,
+      );
+      authProvider = MockAuthProvider(isAuthenticated: true, currentUserProfile: userProfile);
+      compProvider = CompetitionProvider(
+        compRepo,
+        MockProfileRepository(),
+        associationRepository: assocRepo,
+      );
+      compProvider.associations.add(currentAssoc);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<CompetitionProvider>.value(value: compProvider),
+            ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+          ],
+          child: const MaterialApp(
+            home: AssociationManagementPage(associationId: 'assoc-empty-test'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap on Sports & Formats subpage
+      await tester.tap(find.text('Sports & Formats'));
+      await tester.pumpAndSettle();
+
+      // Verify Sport and Format filter chips are not visible
+      expect(find.text('Sport'), findsNothing);
+      expect(find.text('Format'), findsNothing);
+
+      // Tap on Rulebooks subpage
+      await tester.tap(find.text('Rulebooks'));
+      await tester.pumpAndSettle();
+
+      // Verify Sport and Format filter chips are not visible
+      expect(find.text('Sport'), findsNothing);
+      expect(find.text('Format'), findsNothing);
     });
   });
 }
-

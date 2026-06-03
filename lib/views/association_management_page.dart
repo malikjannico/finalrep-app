@@ -37,6 +37,8 @@ import 'association/dialogs/explore_shared_resources_dialog.dart';
 import 'association/dialogs/share_athlete_groups_selection_dialog.dart';
 import 'association/widgets/metadata_tab_view.dart';
 import 'association/widgets/members_tab_view.dart';
+import 'association/widgets/sports_and_formats_tab_view.dart';
+import 'association/widgets/rulebooks_tab_view.dart';
 import 'association/widgets/competition_groups_tab_view.dart';
 import 'association/widgets/athlete_groups_tab_view.dart';
 import 'association/widgets/hoverable_breadcrumb.dart';
@@ -197,18 +199,30 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   final Set<String> agSelectedFormats = {};
   final Set<String> agSelectedGenders = {};
 
+  // Search & Filter state for Sports & Formats and Rulebooks
+  String sfSearchQuery = '';
+  final Set<String> sfSelectedSports = {};
+  final Set<String> sfSelectedFormats = {};
+  String rbSearchQuery = '';
+  final Set<String> rbSelectedSports = {};
+  final Set<String> rbSelectedFormats = {};
+
   int _getTabIndexFromTabName(String? name) {
     switch (name) {
       case 'metadata':
         return 0;
       case 'members':
         return 1;
-      case 'compgroups':
+      case 'sportsandformats':
         return 2;
-      case 'athletegroups':
+      case 'rulebooks':
         return 3;
-      case 'network':
+      case 'compgroups':
         return 4;
+      case 'athletegroups':
+        return 5;
+      case 'network':
+        return 6;
       default:
         return 0;
     }
@@ -221,10 +235,14 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
       case 1:
         return 'members';
       case 2:
-        return 'compgroups';
+        return 'sportsandformats';
       case 3:
-        return 'athletegroups';
+        return 'rulebooks';
       case 4:
+        return 'compgroups';
+      case 5:
+        return 'athletegroups';
+      case 6:
         return 'network';
       default:
         return 'metadata';
@@ -316,7 +334,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     _activatedIndices.add(initialIndex);
     _lastActiveTabIndex = initialIndex;
 
-    _tabController = TabController(length: 5, vsync: this, initialIndex: initialIndex);
+    _tabController = TabController(length: 7, vsync: this, initialIndex: initialIndex);
     _tabController.addListener(_onTabChanged);
     _nameController = TextEditingController();
     _descController = TextEditingController();
@@ -460,6 +478,12 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   void showSportConfigurationModal({String? editSportType}) => _showSportConfigurationModal(editSportType: editSportType);
   void configureRulebookSharing(String sport) => _configureRulebookSharing(sport);
   void removeAppliedRulebook(String sport, String format) => _removeAppliedRulebook(sport, format);
+  void showRulebookConfigModal({String? editSportType}) => _showRulebookConfigModal(editSportType: editSportType);
+  void showAddRulebookModal() => _showRulebookConfigModal();
+  void deleteRulebook(String sport) => _deleteRulebook(sport);
+  void shareRulebooksMulti() => _shareRulebooksMulti();
+  List<FlatListItem> buildSportsAndFormatsFlatList(ThemeData theme, SportConfig? sportConfig) => _buildSportsAndFormatsFlatList(theme, sportConfig);
+  List<FlatListItem> buildRulebooksFlatList(ThemeData theme) => _buildRulebooksFlatList(theme);
   void showDeleteAssociationConfirmation() => _showDeleteAssociationConfirmation();
   List<FlatListItem> buildMembersFlatList() => _buildMembersFlatList();
   void showAddMemberModal() => _showAddMemberModal();
@@ -694,6 +718,9 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   }
 
   void _resetMetadataFields() {
+    setState(() {
+      _isEditingMetadata = false;
+    });
     _loadData();
   }
 
@@ -1163,6 +1190,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   }
 
   void _showSportConfigurationModal({String? editSportType}) {
+    if (_association == null) return;
     final provider = Provider.of<CompetitionProvider>(context, listen: false);
     final sportConfig = provider.sportConfig;
     final sports = sportConfig?.sports.map((s) => s.name).toList() ?? ['Streetlifting'];
@@ -1175,19 +1203,438 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
         sportConfig: sportConfig,
         selectedSportsFormats: _selectedSportsFormats,
         rulebookControllers: _rulebookControllers,
-        activeSportType: _activeSportType,
-        appliedSharedResources: _association?.appliedSharedResources ?? const {},
+        activeSportType: editSportType ?? _activeSportType,
+        appliedSharedResources: _association!.appliedSharedResources,
+        hideRulebook: true,
       ),
-    ).then((result) {
+    ).then((result) async {
       if (result != null && mounted) {
-        setState(() {
+        setState(() => _isLoading = true);
+
+        if (result.formats.isEmpty) {
+          _selectedSportsFormats.remove(result.sport);
+        } else {
           _selectedSportsFormats[result.sport] = result.formats;
-          final oldController = _rulebookControllers[result.sport];
-          _rulebookControllers[result.sport] = TextEditingController(text: result.rulebookUrl);
-          oldController?.dispose();
-        });
+        }
+
+        final List<String> unionSports = [];
+        final List<String> unionFormats = [];
+        _getUnionSportsAndFormats(_selectedSportsFormats, _association!.appliedSharedResources, unionSports, unionFormats);
+
+        final updatedAssoc = _association!.copyWith(
+          supportedSports: unionSports,
+          supportedFormats: unionFormats,
+        );
+
+        final res = await provider.updateAssociation(updatedAssoc);
+        if (res != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sports and formats configured successfully.')),
+          );
+        }
+        _loadData();
       }
     });
+  }
+
+  void _getUnionSportsAndFormats(
+    Map<String, List<String>> localSportsFormats,
+    Map<String, dynamic> appliedSharedResources,
+    List<String> outSports,
+    List<String> outFormats,
+  ) {
+    final Set<String> sports = {};
+    final Set<String> formats = {};
+
+    localSportsFormats.forEach((sport, fmts) {
+      if (fmts.isNotEmpty) {
+        sports.add(sport);
+        formats.addAll(fmts);
+      }
+    });
+
+    final appliedRulebooks = appliedSharedResources['rulebooks'] as Map? ?? {};
+    appliedRulebooks.keys.forEach((key) {
+      final parts = (key as String).split(':');
+      if (parts.length == 2) {
+        sports.add(parts[0]);
+        formats.add(parts[1]);
+      }
+    });
+
+    outSports.clear();
+    outSports.addAll(sports);
+    outFormats.clear();
+    outFormats.addAll(formats);
+  }
+
+  void _showRulebookConfigModal({String? editSportType}) {
+    if (_association == null) return;
+    final provider = Provider.of<CompetitionProvider>(context, listen: false);
+    final sportConfig = provider.sportConfig;
+    
+    final sports = _association!.supportedSports;
+    if (sports.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one sport and format in the Sports & Formats tab first.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showDialog<SportConfigResult>(
+      context: context,
+      builder: (context) => SportConfigDialog(
+        editSportType: editSportType,
+        sports: sports,
+        sportConfig: sportConfig,
+        selectedSportsFormats: _selectedSportsFormats,
+        rulebookControllers: _rulebookControllers,
+        activeSportType: editSportType ?? sports.first,
+        appliedSharedResources: _association!.appliedSharedResources,
+        limitToConfiguredFormats: true,
+        isRulebookOnly: true,
+      ),
+    ).then((result) async {
+      if (result != null && mounted) {
+        setState(() => _isLoading = true);
+
+        final Map<String, String> updatedRulebooks = Map<String, String>.from(_association!.rulebooks);
+        if (result.rulebookUrl.isNotEmpty) {
+          updatedRulebooks[result.sport] = result.rulebookUrl;
+        } else {
+          updatedRulebooks.remove(result.sport);
+        }
+
+        final List<String> unionSports = [];
+        final List<String> unionFormats = [];
+        _getUnionSportsAndFormats(_selectedSportsFormats, _association!.appliedSharedResources, unionSports, unionFormats);
+
+        final updatedAssoc = _association!.copyWith(
+          rulebooks: updatedRulebooks,
+          supportedSports: unionSports,
+          supportedFormats: unionFormats,
+        );
+
+        final res = await provider.updateAssociation(updatedAssoc);
+        if (res != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Rulebook configured successfully.')),
+          );
+        }
+        _loadData();
+      }
+    });
+  }
+
+  void _deleteRulebook(String sport) async {
+    if (_association == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Rulebook'),
+        content: Text('Are you sure you want to delete the rulebook for $sport? This will remove it from owned rulebooks.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      setState(() => _isLoading = true);
+      final provider = Provider.of<CompetitionProvider>(context, listen: false);
+
+      _selectedSportsFormats.remove(sport);
+      final controller = _rulebookControllers.remove(sport);
+      controller?.dispose();
+
+      final Map<String, String> updatedRulebooks = Map<String, String>.from(_association!.rulebooks);
+      updatedRulebooks.remove(sport);
+
+      final List<String> unionSports = [];
+      final List<String> unionFormats = [];
+      _getUnionSportsAndFormats(_selectedSportsFormats, _association!.appliedSharedResources, unionSports, unionFormats);
+
+      final updatedAssoc = _association!.copyWith(
+        rulebooks: updatedRulebooks,
+        supportedSports: unionSports,
+        supportedFormats: unionFormats,
+      );
+
+      final res = await provider.updateAssociation(updatedAssoc);
+      if (res != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rulebook deleted successfully.')),
+        );
+      }
+      _loadData();
+    }
+  }
+
+  void _shareRulebooksMulti() async {
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    if (_association == null) return;
+
+    final List<RulebookItemForSharing> ownRulebooks = [];
+    _association!.rulebooks.forEach((sport, url) {
+      if (url.isNotEmpty) {
+        ownRulebooks.add(RulebookItemForSharing(sport: sport, url: url));
+      }
+    });
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => ShareResourceMultiDialog<RulebookItemForSharing>(
+        title: 'Share Rulebooks',
+        ownItems: ownRulebooks,
+        itemHeadline: (r) => r.url,
+        itemSubtitles: (r) {
+          final fmts = _selectedSportsFormats[r.sport] ?? [];
+          return [r.sport, ...fmts];
+        },
+        itemSport: (r) => r.sport,
+        itemFormats: (r) => _selectedSportsFormats[r.sport] ?? [],
+        itemIsShared: (r) => _association!.rulebooksSharing[r.sport]?['mode'] != null && _association!.rulebooksSharing[r.sport]?['mode'] != 'private',
+        filterSports: compProvider.sportConfig?.sports.map((s) => s.name).toList() ?? ['Streetlifting'],
+        filterFormats: compProvider.sportConfig?.formats.map((f) => f.name).toSet().toList() ?? ['Modern', 'Classic'],
+        currentAssociation: _association!,
+        allAssociations: compProvider.associations,
+      ),
+    );
+
+    if (result != null) {
+      final selectedItems = result['items'] as List<dynamic>;
+      final sharingConfig = result['sharing'] as Map<String, dynamic>;
+
+      if (selectedItems.isNotEmpty) {
+        setState(() => _isLoading = true);
+        final updatedSharing = Map<String, dynamic>.from(_association!.rulebooksSharing);
+        for (var item in selectedItems) {
+          if (item is RulebookItemForSharing) {
+            updatedSharing[item.sport] = sharingConfig;
+          }
+        }
+        final updatedAssoc = _association!.copyWith(rulebooksSharing: updatedSharing);
+        final res = await compProvider.updateAssociation(updatedAssoc);
+        if (res != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Successfully shared ${selectedItems.length} rulebooks.')),
+          );
+          _loadData();
+        } else {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
+  }
+
+  List<FlatListItem> _buildSportsAndFormatsFlatList(ThemeData theme, SportConfig? sportConfig) {
+    final List<FlatListItem> items = [];
+    if (_association == null) return items;
+
+    final Map<String, Set<String>> sportFormats = {};
+    final Map<String, bool> formatIsAppliedShared = {};
+    final Map<String, String> formatOwnerName = {};
+
+    _selectedSportsFormats.forEach((sport, fmts) {
+      for (var fmt in fmts) {
+        sportFormats.putIfAbsent(sport, () => {}).add(fmt);
+        formatIsAppliedShared['$sport:$fmt'] = false;
+      }
+    });
+
+    final appliedRulebooks = _association!.appliedSharedResources['rulebooks'] as Map? ?? {};
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    appliedRulebooks.forEach((key, val) {
+      final parts = (key as String).split(':');
+      if (parts.length == 2) {
+        final sport = parts[0];
+        final fmt = parts[1];
+        sportFormats.putIfAbsent(sport, () => {}).add(fmt);
+        formatIsAppliedShared[key] = true;
+        if (val is Map) {
+          final ownerId = val['owning_association_id'] as String?;
+          final ownerAssoc = compProvider.associations.cast<Association?>().firstWhere(
+            (a) => a?.id == ownerId,
+            orElse: () => null,
+          );
+          formatOwnerName[key] = ownerAssoc?.name ?? 'Other';
+        }
+      }
+    });
+
+    final Map<String, List<FlatSportFormatItem>> filteredGrouped = {};
+
+    sportFormats.forEach((sport, fmts) {
+      for (var fmt in fmts) {
+        if (sfSearchQuery.isNotEmpty) {
+          final query = sfSearchQuery.toLowerCase();
+          if (!sport.toLowerCase().contains(query) && !fmt.toLowerCase().contains(query)) {
+            continue;
+          }
+        }
+        if (sfSelectedSports.isNotEmpty && !sfSelectedSports.contains(sport)) {
+          continue;
+        }
+        if (sfSelectedFormats.isNotEmpty && !sfSelectedFormats.contains(fmt)) {
+          continue;
+        }
+
+        final linked = sportConfig?.links
+                .where((link) => link.sportName == sport && link.formatName == fmt)
+                .map((link) => link.disciplineName)
+                .toList() ??
+            [];
+        final discs = linked.isNotEmpty
+            ? linked
+            : (sport == 'Streetlifting'
+                ? (fmt == 'Classic'
+                    ? ['Pull-up', 'Dip']
+                    : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
+                : <String>[]);
+
+        final isShared = formatIsAppliedShared['$sport:$fmt'] ?? false;
+        final ownerName = formatOwnerName['$sport:$fmt'];
+
+        filteredGrouped.putIfAbsent(sport, () => []).add(FlatSportFormatItem(
+          sport: sport,
+          format: fmt,
+          disciplines: discs,
+          isAppliedShared: isShared,
+          owningAssociationName: ownerName,
+        ));
+      }
+    });
+
+    final sortedSports = filteredGrouped.keys.toList()..sort();
+    for (var sport in sortedSports) {
+      final list = filteredGrouped[sport]!;
+      final sportKey = 'sf/sport/$sport';
+
+      items.add(FlatHeaderItem(
+        key: sportKey,
+        title: sport,
+        level: 0,
+        countText: '${list.length}',
+      ));
+
+      if (!_userCollapsedKeys.contains(sportKey)) {
+        items.addAll(list);
+      }
+    }
+
+    return items;
+  }
+
+  List<FlatListItem> _buildRulebooksFlatList(ThemeData theme) {
+    final List<FlatListItem> items = [];
+    if (_association == null) return items;
+
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final Map<String, List<FlatRulebookItem>> grouped = {};
+
+    _association!.rulebooks.forEach((sport, url) {
+      if (url.isNotEmpty) {
+        if (rbSearchQuery.isNotEmpty) {
+          final query = rbSearchQuery.toLowerCase();
+          if (!sport.toLowerCase().contains(query) && !url.toLowerCase().contains(query)) {
+            return;
+          }
+        }
+        if (rbSelectedSports.isNotEmpty && !rbSelectedSports.contains(sport)) {
+          return;
+        }
+        if (rbSelectedFormats.isNotEmpty) {
+          final fmts = _selectedSportsFormats[sport] ?? [];
+          if (!fmts.any((f) => rbSelectedFormats.contains(f))) {
+            return;
+          }
+        }
+
+        final appliedRulebooks = _association!.appliedSharedResources['rulebooks'] as Map? ?? {};
+        final hasAppliedShared = appliedRulebooks.keys.any((k) => (k as String).startsWith('$sport:'));
+
+        grouped.putIfAbsent(sport, () => []).add(FlatRulebookItem(
+          sport: sport,
+          rulebookUrl: url,
+          isAppliedShared: false,
+          hasAppliedShared: hasAppliedShared,
+        ));
+      }
+    });
+
+    final appliedRulebooks = _association!.appliedSharedResources['rulebooks'] as Map? ?? {};
+    appliedRulebooks.forEach((key, val) {
+      final parts = (key as String).split(':');
+      if (parts.length == 2) {
+        final sport = parts[0];
+        final fmt = parts[1];
+        final url = val is Map ? (val['rulebook_url'] as String? ?? '') : '';
+        final ownerId = val is Map ? (val['owning_association_id'] as String?) : null;
+
+        if (url.isNotEmpty) {
+          if (rbSearchQuery.isNotEmpty) {
+            final query = rbSearchQuery.toLowerCase();
+            if (!sport.toLowerCase().contains(query) && !fmt.toLowerCase().contains(query) && !url.toLowerCase().contains(query)) {
+              return;
+            }
+          }
+          if (rbSelectedSports.isNotEmpty && !rbSelectedSports.contains(sport)) {
+            return;
+          }
+          if (rbSelectedFormats.isNotEmpty && !rbSelectedFormats.contains(fmt)) {
+            return;
+          }
+
+          final ownerAssoc = compProvider.associations.cast<Association?>().firstWhere(
+            (a) => a?.id == ownerId,
+            orElse: () => null,
+          );
+          final ownerName = ownerAssoc?.name ?? 'Other';
+
+          grouped.putIfAbsent(sport, () => []).add(FlatRulebookItem(
+            sport: sport,
+            format: fmt,
+            rulebookUrl: url,
+            isAppliedShared: true,
+            owningAssociationName: ownerName,
+            owningAssociationId: ownerId,
+          ));
+        }
+      }
+    });
+
+    final sortedSports = grouped.keys.toList()..sort();
+    for (var sport in sortedSports) {
+      final list = grouped[sport]!;
+      final sportKey = 'rb/sport/$sport';
+
+      items.add(FlatHeaderItem(
+        key: sportKey,
+        title: sport,
+        level: 0,
+        countText: '${list.length}',
+      ));
+
+      if (!_userCollapsedKeys.contains(sportKey)) {
+        items.addAll(list);
+      }
+    }
+
+    return items;
   }
 
   Future<void> _addMember() async {
@@ -1699,10 +2146,34 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     }
   }
 
+  Widget _buildAssociationLogoAvatar(BuildContext context, Association assoc, double size) {
+    final theme = Theme.of(context);
+    final avatarUrl = assoc.profilePictureUrl;
+    return CircleAvatar(
+      radius: size / 2,
+      backgroundColor: theme.colorScheme.primaryContainer,
+      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+          ? NetworkImage(ImageUrlResolver.resolve(context, avatarUrl))
+          : null,
+      child: avatarUrl == null || avatarUrl.isEmpty
+          ? Text(
+              (assoc.name.isNotEmpty ? assoc.name[0] : 'A').toUpperCase(),
+              style: TextStyle(
+                color: theme.colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.bold,
+                fontSize: size * 0.45,
+              ),
+            )
+          : null,
+    );
+  }
+
   Widget _buildDesktopView(BuildContext context, Association assoc, ThemeData theme) {
     final navItems = [
       {'label': 'Metadata', 'icon': Icons.settings},
       {'label': 'Member', 'icon': Icons.people},
+      {'label': 'Sports & Formats', 'icon': Icons.sports_score},
+      {'label': 'Rulebooks', 'icon': Icons.menu_book},
       {'label': 'Competition Groups', 'icon': Icons.list_alt},
       {'label': 'Athlete Groups', 'icon': Icons.fitness_center},
       {'label': 'Network', 'icon': Icons.hub},
@@ -1750,12 +2221,21 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
               ),
               const SizedBox(height: 12),
               // Association Name Title
-              Text(
-                assoc.name,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
+              Row(
+                children: [
+                  _buildAssociationLogoAvatar(context, assoc, 40),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      assoc.name,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1856,9 +2336,11 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
                   children: [
                     _activatedIndices.contains(0) ? MetadataTabView(state: this) : const SizedBox.shrink(),
                     _activatedIndices.contains(1) ? MembersTabView(state: this) : const SizedBox.shrink(),
-                    _activatedIndices.contains(2) ? CompetitionGroupsTabView(state: this) : const SizedBox.shrink(),
-                    _activatedIndices.contains(3) ? AthleteGroupsTabView(state: this) : const SizedBox.shrink(),
-                    _activatedIndices.contains(4) ? _buildNetworkTab(theme) : const SizedBox.shrink(),
+                    _activatedIndices.contains(2) ? SportsAndFormatsTabView(state: this) : const SizedBox.shrink(),
+                    _activatedIndices.contains(3) ? RulebooksTabView(state: this) : const SizedBox.shrink(),
+                    _activatedIndices.contains(4) ? CompetitionGroupsTabView(state: this) : const SizedBox.shrink(),
+                    _activatedIndices.contains(5) ? AthleteGroupsTabView(state: this) : const SizedBox.shrink(),
+                    _activatedIndices.contains(6) ? _buildNetworkTab(theme) : const SizedBox.shrink(),
                   ],
                 ),
               ),
@@ -1885,6 +2367,8 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     final navItems = [
       {'label': 'Metadata', 'icon': Icons.settings},
       {'label': 'Member', 'icon': Icons.people},
+      {'label': 'Sports & Formats', 'icon': Icons.sports_score},
+      {'label': 'Rulebooks', 'icon': Icons.menu_book},
       {'label': 'Competition Groups', 'icon': Icons.list_alt},
       {'label': 'Athlete Groups', 'icon': Icons.fitness_center},
       {'label': 'Network', 'icon': Icons.hub},
@@ -1909,6 +2393,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           );
 
@@ -1940,9 +2425,11 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
               children: [
                 _activatedIndices.contains(0) ? MetadataTabView(state: this) : const SizedBox.shrink(),
                 _activatedIndices.contains(1) ? MembersTabView(state: this) : const SizedBox.shrink(),
-                _activatedIndices.contains(2) ? CompetitionGroupsTabView(state: this) : const SizedBox.shrink(),
-                _activatedIndices.contains(3) ? AthleteGroupsTabView(state: this) : const SizedBox.shrink(),
-                _activatedIndices.contains(4) ? _buildNetworkTab(theme) : const SizedBox.shrink(),
+                _activatedIndices.contains(2) ? SportsAndFormatsTabView(state: this) : const SizedBox.shrink(),
+                _activatedIndices.contains(3) ? RulebooksTabView(state: this) : const SizedBox.shrink(),
+                _activatedIndices.contains(4) ? CompetitionGroupsTabView(state: this) : const SizedBox.shrink(),
+                _activatedIndices.contains(5) ? AthleteGroupsTabView(state: this) : const SizedBox.shrink(),
+                _activatedIndices.contains(6) ? _buildNetworkTab(theme) : const SizedBox.shrink(),
               ],
             ),
           ),
@@ -1952,7 +2439,41 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
 
     Widget? mobileFab;
     if (hasManagePermission) {
-      if (_currentIndex == 1) {
+      if (_currentIndex == 0) {
+        if (!_isEditingMetadata) {
+          mobileFab = FloatingActionButton.extended(
+            key: const Key('edit_metadata_fab'),
+            onPressed: () => setState(() => _isEditingMetadata = true),
+            backgroundColor: const Color(0xFFE94E1B),
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit Fields'),
+          );
+        } else {
+          mobileFab = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.extended(
+                key: const Key('cancel_metadata_fab'),
+                onPressed: resetMetadataFields,
+                backgroundColor: theme.colorScheme.surface,
+                foregroundColor: theme.colorScheme.primary,
+                icon: const Icon(Icons.close),
+                label: const Text('Cancel'),
+              ),
+              const SizedBox(width: 12),
+              FloatingActionButton.extended(
+                key: const Key('save_metadata_fab'),
+                onPressed: saveMetadata,
+                backgroundColor: const Color(0xFFE94E1B),
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Save Fields'),
+              ),
+            ],
+          );
+        }
+      } else if (_currentIndex == 1) {
         mobileFab = FloatingActionButton.extended(
           key: const Key('add_member_fab'),
           onPressed: showAddMemberModal,
@@ -1963,6 +2484,24 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
         );
       } else if (_currentIndex == 2) {
         mobileFab = FloatingActionButton.extended(
+          key: const Key('add_sport_format_fab'),
+          onPressed: showSportConfigurationModal,
+          backgroundColor: const Color(0xFFE94E1B),
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Sport & Format'),
+        );
+      } else if (_currentIndex == 3) {
+        mobileFab = FloatingActionButton.extended(
+          key: const Key('add_rulebook_fab'),
+          onPressed: showAddRulebookModal,
+          backgroundColor: const Color(0xFFE94E1B),
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Rulebook'),
+        );
+      } else if (_currentIndex == 4) {
+        mobileFab = FloatingActionButton.extended(
           key: const Key('add_comp_group_fab'),
           onPressed: showAddCompGroupModal,
           backgroundColor: const Color(0xFFE94E1B),
@@ -1970,7 +2509,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
           icon: const Icon(Icons.add),
           label: const Text('Add Group'),
         );
-      } else if (_currentIndex == 3 && !_isReorderingAthleteGroups) {
+      } else if (_currentIndex == 5 && !_isReorderingAthleteGroups) {
         mobileFab = FloatingActionButton.extended(
           key: const Key('add_athlete_group_fab'),
           onPressed: showAddAthleteGroupModal,
@@ -1979,7 +2518,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
           icon: const Icon(Icons.add),
           label: const Text('Add Group'),
         );
-      } else if (_currentIndex == 4 && _isOwner) {
+      } else if (_currentIndex == 6 && _isOwner) {
         mobileFab = FloatingActionButton.extended(
           key: const Key('add_sub_assoc_fab'),
           onPressed: _showAddSubAssociationModal,
@@ -2218,6 +2757,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
         itemHeadline: (g) => g.name,
         itemSubtitles: (g) => [g.sport, g.format],
         itemSport: (g) => g.sport,
+        itemIsShared: (g) => g.sharingConfig['mode'] != null && g.sharingConfig['mode'] != 'private',
         filterSports: compProvider.sportConfig?.sports.map((s) => s.name).toList() ?? ['Streetlifting'],
         filterFormats: compProvider.sportConfig?.formats.map((f) => f.name).toSet().toList() ?? ['Modern', 'Classic'],
         currentAssociation: _association!,
@@ -2257,9 +2797,14 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
         title: 'Share Athlete Groups',
         ownItems: _athleteGroups,
         itemHeadline: (g) => g.name,
-        itemSubtitles: (g) => [g.sport, g.format, g.gender],
+        itemSubtitles: (g) => [
+          g.sport,
+          g.format,
+          g.gender.isEmpty ? '' : g.gender[0].toUpperCase() + g.gender.substring(1),
+        ],
         itemSport: (g) => g.sport,
         itemGenders: (g) => [g.gender],
+        itemIsShared: (g) => g.sharingConfig['mode'] != null && g.sharingConfig['mode'] != 'private',
         filterSports: compProvider.sportConfig?.sports.map((s) => s.name).toList() ?? ['Streetlifting'],
         filterFormats: compProvider.sportConfig?.formats.map((f) => f.name).toSet().toList() ?? ['Modern', 'Classic'],
         filterGenders: const ['men', 'women', 'mixed'],
@@ -2938,33 +3483,15 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     final logoUrl = ImageUrlResolver.resolve(context, assoc.profilePictureUrl);
     final initials = assoc.name.isNotEmpty ? assoc.name[0].toUpperCase() : 'A';
 
-    Color scopeBg;
-    Color scopeText;
-    switch (assoc.scope.toLowerCase()) {
-      case 'global':
-        scopeBg = const Color(0xFFFFB300).withOpacity(0.2);
-        scopeText = const Color(0xFFFF8F00);
-        break;
-      case 'continental':
-      case 'area':
-        scopeBg = Colors.blue.withOpacity(0.2);
-        scopeText = Colors.blue.shade700;
-        break;
-      case 'national':
-        scopeBg = Colors.green.withOpacity(0.2);
-        scopeText = Colors.green.shade700;
-        break;
-      case 'local':
-      default:
-        scopeBg = Colors.purple.withOpacity(0.2);
-        scopeText = Colors.purple.shade700;
-        break;
-    }
+
 
     final territory = assoc.scope.toLowerCase() != 'global'
         ? (assoc.areaName ?? assoc.country)
         : null;
     final showTerritory = territory != null && territory.isNotEmpty;
+
+    final scopeLabel = assoc.scope.isEmpty ? '' : assoc.scope[0].toUpperCase() + assoc.scope.substring(1).toLowerCase();
+    final territoryLabel = territory != null && territory.isNotEmpty ? territory[0].toUpperCase() + territory.substring(1).toLowerCase() : '';
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -3001,17 +3528,12 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow,
+                  color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                  ),
                 ),
                 child: Text(
-                  territory.toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
+                  territoryLabel,
+                  style: theme.textTheme.bodySmall?.copyWith(
                     fontSize: 10,
                   ),
                 ),
@@ -3019,14 +3541,12 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: scopeBg,
+                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                assoc.scope.toUpperCase(),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scopeText,
-                  fontWeight: FontWeight.bold,
+                scopeLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
                   fontSize: 10,
                 ),
               ),
@@ -3671,3 +4191,10 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     );
   }
 }
+
+class RulebookItemForSharing {
+  final String sport;
+  final String url;
+  RulebookItemForSharing({required this.sport, required this.url});
+}
+

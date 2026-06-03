@@ -92,8 +92,8 @@ void main() {
         expect(find.text('Squat'), findsOneWidget);
         expect(find.text('Muscle Up'), findsOneWidget);
 
-        // 3. Verify applied shared format shows SHARED badge
-        expect(find.text('SHARED'), findsOneWidget);
+        // 3. Verify applied shared format shows Shared badge
+        expect(find.text('Shared'), findsOneWidget);
 
         // 4. Test format search filter
         await tester.enterText(find.widgetWithText(TextField, 'Search Formats'), 'Classic');
@@ -171,26 +171,55 @@ void main() {
         );
         await tester.pumpAndSettle();
  
-        // Expand the Sports & Rulebooks collapsible section
-        await tester.tap(find.text('Sports & Rulebooks'));
+        // Tap on Sports & Formats tab
+        await tester.tap(find.text('Sports & Formats'));
         await tester.pumpAndSettle();
 
-        // 1. Verify "Configured Sports" renders formats as cards with their disciplines
-        expect(find.text('Streetlifting'), findsOneWidget);
+        // 1. Verify "Configured Sports" (now Sports & Formats tab) renders formats and their disciplines
+        expect(find.text('Streetlifting'), findsWidgets);
         expect(find.text('Classic'), findsOneWidget);
         expect(find.text('Modern'), findsOneWidget);
-        expect(find.byIcon(Icons.link_off), findsOneWidget); // Remove applied button on the Modern format card
 
-        // 2. Verify rulebooks display inside format cards when they are different, and the share button is hidden
-        expect(find.text('http://local-rulebook.pdf'), findsNWidgets(2)); // Once in format card, once under Rulebooks section
-        expect(find.text('http://shared-rulebook.pdf'), findsOneWidget); // Inside Modern format card
-        expect(find.byIcon(Icons.share), findsNothing); // Share button should be hidden since rulebook was applied
-
-        // 3. Since there is an applied shared rulebook in the sport card, the delete button must be hidden
-        await tester.tap(find.text('EDIT'));
+        // Tap on Rulebooks tab
+        await tester.tap(find.text('Rulebooks'));
         await tester.pumpAndSettle();
-        
+
+        // 2. Verify rulebooks display inside formats/rulebooks list, and the share button is hidden on applied shared
+        expect(find.text('http://local-rulebook.pdf'), findsOneWidget);
+        expect(find.text('http://shared-rulebook.pdf'), findsOneWidget);
+        expect(find.byIcon(Icons.link_off), findsOneWidget); // Remove applied button on the Modern format card
+        expect(find.byIcon(Icons.share), findsNothing); // Only owned rulebook has share button, but it was removed from list items
+
+        // 3. Since there is an applied shared rulebook in the sport, the delete button of the owned rulebook must be hidden
         expect(find.byIcon(Icons.delete_outline), findsNothing); // Should be hidden
+
+        // 4. Verify "Add Sport & Format" button and dialog fields
+        await tester.tap(find.text('Sports & Formats'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Add Sport & Format'), findsOneWidget);
+        await tester.tap(find.text('Add Sport & Format'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Add Sport and Format'), findsOneWidget);
+        expect(find.text('Rulebook URL'), findsNothing);
+
+        await tester.tap(find.text('CANCEL'));
+        await tester.pumpAndSettle();
+
+        // 5. Verify "Add Rulebook" dialog fields
+        await tester.tap(find.text('Rulebooks'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Add Rulebook'), findsWidgets);
+        await tester.tap(find.text('Add Rulebook').last);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Add Rulebook'), findsWidgets);
+        expect(find.text('Rulebook URL'), findsOneWidget);
+
+        await tester.tap(find.text('CANCEL'));
+        await tester.pumpAndSettle();
 
         harness.dispose();
       },
@@ -291,8 +320,8 @@ void main() {
 
         // 1. Verify "Streetlifting:Classic" is NOT visible (since it is already in currentAssoc's applied rulebooks)
         // Only Streetlifting:Modern should show.
-        expect(find.text('Streetlifting - Classic'), findsNothing);
-        expect(find.text('Streetlifting - Modern'), findsOneWidget);
+        expect(find.text('http://shared-classic.pdf'), findsNothing);
+        expect(find.text('http://shared-streetlifting.pdf'), findsOneWidget);
 
         // 2. Verify custom chip text is "Shared by Global Governing Body"
         expect(find.text('Shared by Global Governing Body'), findsOneWidget);
@@ -315,7 +344,7 @@ void main() {
         expect(tester.widget<Checkbox>(selectAllCheckbox).value, isTrue);
 
         final modernRow = find.ancestor(
-          of: find.text('Streetlifting - Modern'),
+          of: find.text('http://shared-streetlifting.pdf'),
           matching: find.byType(CheckboxListTile),
         );
         expect(tester.widget<CheckboxListTile>(modernRow).value, isTrue);
@@ -330,11 +359,11 @@ void main() {
         final searchField = find.byType(TextField);
         await tester.enterText(searchField, 'notfound');
         await tester.pumpAndSettle();
-        expect(find.text('Streetlifting - Modern'), findsNothing);
+        expect(find.text('http://shared-streetlifting.pdf'), findsNothing);
 
         await tester.enterText(searchField, '');
         await tester.pumpAndSettle();
-        expect(find.text('Streetlifting - Modern'), findsOneWidget);
+        expect(find.text('http://shared-streetlifting.pdf'), findsOneWidget);
 
         harness.dispose();
       },
