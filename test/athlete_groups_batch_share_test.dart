@@ -90,24 +90,36 @@ void main() {
         expect(find.text('Group 2'), findsOneWidget);
         expect(find.byType(Checkbox), findsNothing);
 
-        // Find and tap the share button next to the "Men" header
-        final shareBtn = find.byTooltip('Share Athlete Groups');
+        // Find and tap the options button in the top header, then tap "Share Groups"
+        final optionsBtn = find.byTooltip('Athlete Groups Options');
+        expect(optionsBtn, findsOneWidget);
+        await tester.tap(optionsBtn);
+        await tester.pumpAndSettle();
+
+        final shareBtn = find.text('Share Groups');
         expect(shareBtn, findsOneWidget);
         await tester.tap(shareBtn);
         await tester.pumpAndSettle();
 
-        // Verify the ShareAthleteGroupsSelectionDialog is open
-        expect(find.text('Share Men Athlete Groups'), findsOneWidget);
-        expect(find.byType(Checkbox), findsNWidgets(3)); // Select All, Group 1, Group 2
+        // Verify the ShareResourceMultiDialog is open
+        expect(find.text('Share Athlete Groups'), findsOneWidget);
+        expect(find.byType(Checkbox), findsNWidgets(3)); // Select All shown, Group 1, Group 2
 
-        // Tap the NEXT button to open the configuration dialog
+        // Select the items inside the dialog
+        await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.text('Group 1')));
+        await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.text('Group 2')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('2 selected'), findsOneWidget);
+
+        // Tap the NEXT button to open the configuration step
         final nextBtn = find.text('NEXT');
         expect(nextBtn, findsOneWidget);
         await tester.tap(nextBtn);
         await tester.pumpAndSettle();
 
-        // Verify the ShareResourceDialog configuration modal opens
-        expect(find.text('Share 2 Selected Athlete Groups'), findsOneWidget);
+        // Verify Step 2 is shown
+        expect(find.text('Set Sharing Mode & Targets'), findsOneWidget);
         expect(find.text('Sharing Mode'), findsOneWidget);
 
         // Close the dialog

@@ -43,6 +43,49 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> selectDateRangeInPicker(
+      WidgetTester tester,
+      Finder tileFinder,
+      String startDateText,
+      String endDateText,
+    ) async {
+      await tester.ensureVisible(tileFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(tileFinder);
+      await tester.pumpAndSettle();
+
+      // Switch to input mode (pencil icon with tooltip)
+      final editIcon = find.byTooltip('Switch to input');
+      expect(editIcon, findsOneWidget);
+      await tester.tap(editIcon);
+      await tester.pumpAndSettle();
+
+      // Enter the date texts
+      final textFields = find.byType(TextField);
+      expect(textFields, findsNWidgets(2));
+      await tester.enterText(textFields.at(0), startDateText);
+      await tester.enterText(textFields.at(1), endDateText);
+      await tester.pumpAndSettle();
+
+      // Tap NEXT/SAVE on DateRangePicker
+      final nextBtn = find.text('NEXT');
+      expect(nextBtn, findsOneWidget);
+      await tester.tap(nextBtn);
+      await tester.pumpAndSettle();
+
+      // Tap NEXT on Start Time Picker
+      final okBtnTime1 = find.text('NEXT');
+      expect(okBtnTime1, findsOneWidget);
+      await tester.tap(okBtnTime1);
+      await tester.pumpAndSettle();
+
+      // Tap SAVE on End Time Picker
+      final okBtnTime2 = find.text('SAVE');
+      expect(okBtnTime2, findsOneWidget);
+      await tester.tap(okBtnTime2);
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('1. Confusing payment dates null state', (tester) async {
       final harness = E2ETestHarness();
       await harness.initialize();
@@ -102,11 +145,15 @@ void main() {
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Tap next for step 6 -> 7 (Athlete Groups)
+      // Tap next for step 6 -> 7 (Competition Group)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Tap next for step 7 -> 8 (Fees & Bank Details)
+      // Tap next for step 7 -> 8 (Athlete Groups)
+      await tester.tap(nextButton);
+      await tester.pumpAndSettle();
+
+      // Tap next for step 8 -> 9 (Fees & Bank Details)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
@@ -135,19 +182,19 @@ void main() {
       await tester.pumpAndSettle();
 
       // Notice we do NOT select any payment start/end dates.
-      // Step 8 -> Step 9 (Payment Settings)
+      // Step 9 -> Step 10 (Payment Settings)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Step 9 -> Step 10 (Volunteer Setup)
+      // Step 10 -> Step 11 (Volunteer Setup)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Step 10 -> Step 11 (Disclaimers & Custom Fields)
+      // Step 11 -> Step 12 (Disclaimers & Custom Fields)
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // Submit the wizard in Step 11
+      // Submit the wizard in Step 12
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
@@ -329,18 +376,20 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(nextButton); // 5 -> 6
       await tester.pumpAndSettle();
-      await tester.tap(nextButton); // 6 -> 7
+      await tester.tap(nextButton); // 6 -> 7 (Competition Group)
       await tester.pumpAndSettle();
-      await tester.tap(nextButton); // 7 -> 8
+      await tester.tap(nextButton); // 7 -> 8 (Athlete Groups)
       await tester.pumpAndSettle();
-      await tester.tap(nextButton); // 8 -> 9
+      await tester.tap(nextButton); // 8 -> 9 (Fees & Bank Details)
       await tester.pumpAndSettle();
-      await tester.tap(nextButton); // 9 -> 10
+      await tester.tap(nextButton); // 9 -> 10 (Payment Settings)
       await tester.pumpAndSettle();
-      await tester.tap(nextButton); // 10 -> 11 (Disclaimers & Custom Fields)
+      await tester.tap(nextButton); // 10 -> 11 (Volunteer Setup)
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 11 -> 12 (Disclaimers & Custom Fields)
       await tester.pumpAndSettle();
 
-      expect(find.text('Step 11 of 11'), findsOneWidget);
+      expect(find.text('Step 12 of 12'), findsOneWidget);
 
       // Tap "Add Disclaimer"
       final addDisclaimerBtn = find.widgetWithText(ElevatedButton, 'Add Disclaimer');
@@ -381,7 +430,7 @@ void main() {
       await tester.tap(find.widgetWithText(ElevatedButton, 'ADD'));
       await tester.pumpAndSettle();
 
-      // Submit the wizard in Step 11
+      // Submit the wizard in Step 12
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
@@ -443,12 +492,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // Step 3: Sport & Format -> set Sport Subtype to Modern
-        final subtypeDropdown = find.byTooltip('Sport Format');
-        await tester.tap(subtypeDropdown);
+        await tester.tap(find.text('Sport Format *'));
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.text('Modern').last,
-        );
+        await tester.tap(find.text('Modern').last);
         await tester.pumpAndSettle();
 
         await tester.tap(nextButton); // Step 3 -> 4
@@ -476,29 +522,31 @@ void main() {
         await tester.pumpAndSettle();
 
         // Change Subtype to Classic on Step 3
-        await tester.tap(subtypeDropdown);
+        await tester.tap(find.text('Sport Format *'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Classic').last);
         await tester.pumpAndSettle();
 
-        // Proceed all the way to Step 11 and submit
+        // Proceed all the way to Step 12 and submit
         await tester.tap(nextButton); // Step 3 -> 4
         await tester.pumpAndSettle();
         await tester.tap(nextButton); // Step 4 -> 5
         await tester.pumpAndSettle();
         await tester.tap(nextButton); // Step 5 -> 6
         await tester.pumpAndSettle();
-        await tester.tap(nextButton); // Step 6 -> 7
+        await tester.tap(nextButton); // Step 6 -> 7 (Competition Group)
         await tester.pumpAndSettle();
-        await tester.tap(nextButton); // Step 7 -> 8
+        await tester.tap(nextButton); // Step 7 -> 8 (Athlete Groups)
         await tester.pumpAndSettle();
-        await tester.tap(nextButton); // Step 8 -> 9
+        await tester.tap(nextButton); // Step 8 -> 9 (Fees & Bank Details)
         await tester.pumpAndSettle();
-        await tester.tap(nextButton); // Step 9 -> 10
+        await tester.tap(nextButton); // Step 9 -> 10 (Payment Settings)
         await tester.pumpAndSettle();
-        await tester.tap(nextButton); // Step 10 -> 11
+        await tester.tap(nextButton); // Step 10 -> 11 (Volunteer Setup)
         await tester.pumpAndSettle();
-        await tester.tap(nextButton); // Step 11 -> Submit
+        await tester.tap(nextButton); // Step 11 -> 12 (Disclaimers & Custom Fields)
+        await tester.pumpAndSettle();
+        await tester.tap(nextButton); // Step 12 -> Submit
         await tester.pumpAndSettle();
 
         // Verify subtype is Classic
@@ -566,6 +614,8 @@ void main() {
       await tester.tap(nextButton); // 8 -> 9
       await tester.pumpAndSettle();
       await tester.tap(nextButton); // 9 -> 10
+      await tester.pumpAndSettle();
+      await tester.tap(nextButton); // 10 -> 11
       await tester.pumpAndSettle();
 
       // Enable volunteer needs
@@ -752,7 +802,10 @@ void main() {
       await tester.tap(nextButton); // 7 -> 8
       await tester.pumpAndSettle();
 
-      // Step 8: Fees
+      await tester.tap(nextButton); // 8 -> 9
+      await tester.pumpAndSettle();
+
+      // Step 9: Fees
       final feesToggle = find.byKey(const Key('comp_fees_toggle'));
       await tester.tap(feesToggle);
       await tester.pumpAndSettle();
@@ -796,8 +849,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check if it accepted negative amount
-      final step9Visible = find.text('Step 9 of 11');
-      if (step9Visible.evaluate().isNotEmpty) {
+      final step10Visible = find.text('Step 10 of 12');
+      if (step10Visible.evaluate().isNotEmpty) {
         debugPrint(
           'WARNING: Negative fee amounts are accepted by the wizard validator!',
         );
@@ -859,16 +912,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Step 5: Set start date to 06/10/2026 and end date to 06/05/2026 (invalid)
-      await selectDateInPicker(
-        tester,
-        find.widgetWithText(ListTile, 'Competition Start Date *'),
-        '06/10/2026',
-      );
-      await selectDateInPicker(
-        tester,
-        find.widgetWithText(ListTile, 'Competition End Date *'),
-        '06/05/2026',
-      );
+      final dynamic state = tester.state(find.byType(CompetitionCreationPage));
+      state.setState(() {
+        state.testStartDate = DateTime(2026, 6, 10);
+        state.testEndDate = DateTime(2026, 6, 5);
+      });
+      await tester.pumpAndSettle();
 
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
@@ -884,16 +933,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Set valid end date but invalid registration end date
-      await selectDateInPicker(
-        tester,
-        find.widgetWithText(ListTile, 'Competition End Date *'),
-        '06/15/2026',
-      );
-      await selectDateInPicker(
-        tester,
-        find.widgetWithText(ListTile, 'Registration End Date *'),
-        '06/20/2026',
-      ); // after comp start 06/10
+      state.setState(() {
+        state.testStartDate = DateTime(2026, 6, 10);
+        state.testEndDate = DateTime(2026, 6, 15);
+        state.testRegistrationEndDate = DateTime(2026, 6, 20); // after comp start 06/10
+      });
+      await tester.pumpAndSettle();
 
       await tester.tap(nextButton);
       await tester.pumpAndSettle();

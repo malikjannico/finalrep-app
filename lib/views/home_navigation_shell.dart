@@ -1358,7 +1358,7 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
           if (details.primaryVelocity != null &&
               details.primaryVelocity! < -200) {
             if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-              Navigator.of(context).pop();
+              _scaffoldKey.currentState?.closeDrawer();
             }
           }
         },
@@ -1370,7 +1370,7 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                 GestureDetector(
                   onTap: () {
                     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-                      Navigator.of(context).pop();
+                      _scaffoldKey.currentState?.closeDrawer();
                     }
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -1502,7 +1502,12 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                           : theme.colorScheme.onSurface,
                     ),
                   ),
-                  onTap: () => _handleTabNavigation(index, item.label),
+                  onTap: () {
+                    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                      _scaffoldKey.currentState?.closeDrawer();
+                    }
+                    _handleTabNavigation(index, item.label);
+                  },
                 );
               }),
               if (_currentTabCollection == 'All' &&
@@ -1518,7 +1523,7 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                   ),
                   onTap: () {
                     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
-                      Navigator.of(context).pop();
+                      _scaffoldKey.currentState?.closeDrawer();
                     }
                     _provider.setQuery('');
                     try {
@@ -1573,6 +1578,9 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                     );
 
                     if (confirm == true) {
+                      if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+                        _scaffoldKey.currentState?.closeDrawer();
+                      }
                       await authProvider.logout();
                       if (context.mounted) {
                         _provider.setQuery('');
@@ -1600,7 +1608,7 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                           onPressed: () {
                             if (_scaffoldKey.currentState?.isDrawerOpen ==
                                 true) {
-                              Navigator.of(context).pop();
+                              _scaffoldKey.currentState?.closeDrawer();
                             }
                             try {
                               GoRouter.of(context);
@@ -1631,7 +1639,7 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                           onPressed: () {
                             if (_scaffoldKey.currentState?.isDrawerOpen ==
                                 true) {
-                              Navigator.of(context).pop();
+                              _scaffoldKey.currentState?.closeDrawer();
                             }
                             try {
                               GoRouter.of(context);
@@ -1778,6 +1786,9 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
             _provider.setSearchScopeAndQuery(SearchScope.competitions, '');
           }
           _syncUrlToCurrentTab();
+          if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+            _scaffoldKey.currentState?.closeDrawer();
+          }
         }
       },
       itemBuilder: (BuildContext context) => [

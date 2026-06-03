@@ -31,6 +31,7 @@ import 'association/dialogs/sport_config_dialog.dart';
 import 'association/dialogs/add_sub_association_dialog.dart';
 import 'association/dialogs/athlete_groups_reorder_dialog.dart';
 import 'association/dialogs/share_resource_dialog.dart';
+import 'association/dialogs/share_resource_multi_dialog.dart';
 import 'association/dialogs/explore_shared_resources_dialog.dart';
 import 'association/dialogs/share_athlete_groups_selection_dialog.dart';
 import 'association/widgets/metadata_tab_view.dart';
@@ -66,7 +67,19 @@ class AssociationManagementPage extends StatefulWidget {
 
 class AssociationManagementPageState extends State<AssociationManagementPage>
     with SingleTickerProviderStateMixin {
+  // Static cache to prevent reloading data and flashing when GoRouter rebuilds the page on mobile tab changes
+  static String? _cachedAssociationId;
+  static Association? _cachedAssociation;
+  static List<AssociationMember> _cachedMembers = [];
+  static Map<String, Profile> _cachedMemberProfiles = {};
+  static List<CompetitionGroup> _cachedCompGroups = [];
+  static List<AthleteGroup> _cachedAthleteGroups = [];
+  static List<CompetitionGroup> _cachedAppliedCompGroups = [];
+  static List<AthleteGroup> _cachedAppliedAthleteGroups = [];
+
   late TabController _tabController;
+  TabController get tabController => _tabController;
+  int _currentIndex = 0;
   Association? _association;
   List<AssociationMember> _members = [];
   final Map<String, Profile> _memberProfiles = {};
@@ -136,6 +149,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   String? _bannerFileName;
 
   late ProfileRepository _profileRepository;
+  bool _forceExpandSportsAndRulebooks = false;
 
   // Mock suggestions dictionary
   final Map<String, List<String>> _mockSuggestions = {
@@ -166,6 +180,15 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   String _athleteGroupSport = 'Streetlifting';
   String _athleteGroupFormat = 'Modern';
   String _athleteGroupGender = 'men';
+
+  // Search & Filter state for Competition and Athlete Groups
+  String cgSearchQuery = '';
+  final Set<String> cgSelectedSports = {};
+  final Set<String> cgSelectedFormats = {};
+  String agSearchQuery = '';
+  final Set<String> agSelectedSports = {};
+  final Set<String> agSelectedFormats = {};
+  final Set<String> agSelectedGenders = {};
 
   int _getTabIndexFromTabName(String? name) {
     switch (name) {
@@ -202,6 +225,11 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   }
 
   void _onTabChanged() {
+    if (_tabController.index != _currentIndex) {
+      setState(() {
+        _currentIndex = _tabController.index;
+      });
+    }
     if (!_tabController.indexIsChanging) {
       final tabName = _getTabNameFromIndex(_tabController.index);
       final id = widget.associationId;
@@ -216,10 +244,64 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     }
   }
 
+  void _populateMetadataControllers(Association assoc, CompetitionProvider compProvider) {
+    _nameController.text = assoc.name;
+    _descController.text = assoc.description;
+    _scope = assoc.scope;
+    _isLocationVerified = true; // existing association has verified location
+    
+    _countryController.text = assoc.country ?? '';
+    _areaNameController.text = '';
+    _cityController.text = '';
+    _zipController.text = '';
+    
+    if (assoc.scope == 'continental') {
+      _areaNameController.text = assoc.areaName ?? '';
+    } else if (assoc.scope == 'local') {
+      if (assoc.areaName != null && assoc.areaName!.contains(' ')) {
+        final parts = assoc.areaName!.split(' ');
+        if (parts.isNotEmpty) {
+          _zipController.text = parts[0];
+          _cityController.text = parts.sublist(1).join(' ');
+        }
+      } else {
+        _cityController.text = assoc.areaName ?? '';
+      }
+    } else if (assoc.scope == 'national') {
+      _countryController.text = assoc.country ?? '';
+    }
+
+    _websiteController.text = assoc.website ?? '';
+    _profilePictureUrlController.text = assoc.profilePictureUrl ?? '';
+    _bannerUrlController.text = assoc.bannerUrl ?? '';
+    
+    _socialControllers.forEach((platform, controller) {
+      controller.text = assoc.socialChannels[platform] ?? '';
+    });
+
+    _selectedSportsFormats.clear();
+    for (var controller in _rulebookControllers.values) {
+      controller.dispose();
+    }
+    _rulebookControllers.clear();
+
+    for (var sport in assoc.supportedSports) {
+      final validFormats = compProvider.sportConfig?.formats
+          .where((f) => f.sportName == sport)
+          .map((f) => f.name)
+          .toList() ?? ['Modern', 'Classic'];
+      final formatsForSport = assoc.supportedFormats.where((f) => validFormats.contains(f)).toList();
+      _selectedSportsFormats[sport] = formatsForSport;
+      _rulebookControllers[sport] = TextEditingController(text: assoc.rulebooks[sport] ?? '');
+    }
+    _isEditingMetadata = false;
+  }
+
   @override
   void initState() {
     super.initState();
     final initialIndex = _getTabIndexFromTabName(widget.initialTab);
+    _currentIndex = initialIndex;
     _tabController = TabController(length: 5, vsync: this, initialIndex: initialIndex);
     _tabController.addListener(_onTabChanged);
     _nameController = TextEditingController();
@@ -231,6 +313,22 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     _cityController = TextEditingController();
     _zipController = TextEditingController();
     _websiteController = TextEditingController();
+
+    // Check static cache
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    if (widget.associationId != null && widget.associationId == _cachedAssociationId && _cachedAssociation != null) {
+      _association = _cachedAssociation;
+      _members = _cachedMembers;
+      _memberProfiles.addAll(_cachedMemberProfiles);
+      _compGroups = _cachedCompGroups;
+      _athleteGroups = _cachedAthleteGroups;
+      _appliedCompGroups = _cachedAppliedCompGroups;
+      _appliedAthleteGroups = _cachedAppliedAthleteGroups;
+      _populateMetadataControllers(_association!, compProvider);
+      _isLoading = false;
+    } else {
+      _isLoading = widget.associationId != null;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -246,6 +344,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
       final newIndex = _getTabIndexFromTabName(widget.initialTab);
       if (_tabController.index != newIndex) {
         _tabController.animateTo(newIndex);
+        _currentIndex = newIndex;
       }
     }
   }
@@ -326,6 +425,8 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
   List<CompetitionGroup> get appliedCompGroups => _appliedCompGroups;
   List<AthleteGroup> get appliedAthleteGroups => _appliedAthleteGroups;
   ProfileRepository get profileRepository => _profileRepository;
+  bool get forceExpandSportsAndRulebooks => _forceExpandSportsAndRulebooks;
+  set forceExpandSportsAndRulebooks(bool val) => _forceExpandSportsAndRulebooks = val;
 
   void resetMetadataFields() => _resetMetadataFields();
   void saveMetadata() => _saveMetadata();
@@ -367,9 +468,16 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
 
   Future<void> _loadData() async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
+    
+    final isCacheHit = widget.associationId != null &&
+        widget.associationId == _cachedAssociationId &&
+        _cachedAssociation != null;
+
+    if (!isCacheHit) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     final compProvider = Provider.of<CompetitionProvider>(
       context,
@@ -413,12 +521,18 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
       );
       if (!mounted) return;
       if (assoc != null) {
-        await compProvider.fetchAssociations();
+        // Fetch all remaining core details concurrently
+        final results = await Future.wait([
+          compProvider.fetchAssociations(),
+          compProvider.getAssociationMembers(widget.associationId!),
+          compProvider.getCompetitionGroups(widget.associationId!),
+          compProvider.getAthleteGroups(widget.associationId!),
+        ]);
         if (!mounted) return;
-        var membersList = await compProvider.getAssociationMembers(
-          widget.associationId!,
-        );
-        if (!mounted) return;
+
+        var membersList = results[1] as List<AssociationMember>;
+        final compGroupsList = results[2] as List<CompetitionGroup>;
+        final athleteGroupsList = results[3] as List<AthleteGroup>;
         
         // Auto-heal owner membership: check if owner is in the member list
         if (!membersList.any((m) => m.userId == assoc.ownerId)) {
@@ -434,16 +548,8 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
           }
         }
         if (!mounted) return;
-        final compGroupsList = await compProvider.getCompetitionGroups(
-          widget.associationId!,
-        );
-        if (!mounted) return;
-        final athleteGroupsList = await compProvider.getAthleteGroups(
-          widget.associationId!,
-        );
-        if (!mounted) return;
 
-        // Resolve applied shared resources
+        // Resolve applied shared resources concurrently
         final List<CompetitionGroup> resolvedCompGroups = [];
         final List<AthleteGroup> resolvedAthleteGroups = [];
         final appliedResources = assoc.appliedSharedResources;
@@ -456,13 +562,6 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
             compGroupOwners.putIfAbsent(ownerId, () => []).add(id);
           }
         }
-        for (var ownerId in compGroupOwners.keys) {
-          try {
-            final groups = await compProvider.getCompetitionGroups(ownerId);
-            final targetIds = compGroupOwners[ownerId]!;
-            resolvedCompGroups.addAll(groups.where((g) => targetIds.contains(g.id)));
-          } catch (_) {}
-        }
 
         final Map<String, List<String>> athleteGroupOwners = {};
         for (var item in appliedResources['athlete_groups'] as List? ?? []) {
@@ -472,25 +571,48 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
             athleteGroupOwners.putIfAbsent(ownerId, () => []).add(id);
           }
         }
-        for (var ownerId in athleteGroupOwners.keys) {
-          try {
-            final groups = await compProvider.getAthleteGroups(ownerId);
-            final targetIds = athleteGroupOwners[ownerId]!;
-            resolvedAthleteGroups.addAll(groups.where((g) => targetIds.contains(g.id)));
-          } catch (_) {}
+
+        final List<Future<void>> sharedFetchFutures = [];
+
+        for (var ownerId in compGroupOwners.keys) {
+          sharedFetchFutures.add(() async {
+            try {
+              final groups = await compProvider.getCompetitionGroups(ownerId);
+              final targetIds = compGroupOwners[ownerId]!;
+              resolvedCompGroups.addAll(groups.where((g) => targetIds.contains(g.id)));
+            } catch (_) {}
+          }());
         }
 
-        final Map<String, Profile> memberProfiles = {};
-        for (var member in membersList) {
-          try {
-            final prof = await compProvider.profileRepository.getProfile(member.userId);
-            if (prof != null) {
-              memberProfiles[member.userId] = prof;
-            }
-          } catch (e) {
-            debugPrint('Error fetching profile for member ${member.userId}: $e');
-          }
+        for (var ownerId in athleteGroupOwners.keys) {
+          sharedFetchFutures.add(() async {
+            try {
+              final groups = await compProvider.getAthleteGroups(ownerId);
+              final targetIds = athleteGroupOwners[ownerId]!;
+              resolvedAthleteGroups.addAll(groups.where((g) => targetIds.contains(g.id)));
+            } catch (_) {}
+          }());
         }
+
+        await Future.wait(sharedFetchFutures);
+        if (!mounted) return;
+
+        // Fetch profiles of all members concurrently
+        final Map<String, Profile> memberProfiles = {};
+        final List<Future<void>> profileFutures = [];
+        for (var member in membersList) {
+          profileFutures.add(() async {
+            try {
+              final prof = await compProvider.profileRepository.getProfile(member.userId);
+              if (prof != null) {
+                memberProfiles[member.userId] = prof;
+              }
+            } catch (e) {
+              debugPrint('Error fetching profile for member ${member.userId}: $e');
+            }
+          }());
+        }
+        await Future.wait(profileFutures);
         if (!mounted) return;
 
         setState(() {
@@ -507,56 +629,19 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
           });
           _athleteGroups = athleteGroupsList;
           _appliedAthleteGroups = resolvedAthleteGroups;
-          _nameController.text = assoc.name;
-          _descController.text = assoc.description;
-          _scope = assoc.scope;
-          _isLocationVerified = true; // existing association has verified location
           
-          _countryController.text = assoc.country ?? '';
-          _areaNameController.text = '';
-          _cityController.text = '';
-          _zipController.text = '';
-          
-          if (assoc.scope == 'continental') {
-            _areaNameController.text = assoc.areaName ?? '';
-          } else if (assoc.scope == 'local') {
-            if (assoc.areaName != null && assoc.areaName!.contains(' ')) {
-              final parts = assoc.areaName!.split(' ');
-              if (parts.isNotEmpty) {
-                _zipController.text = parts[0];
-                _cityController.text = parts.sublist(1).join(' ');
-              }
-            } else {
-              _cityController.text = assoc.areaName ?? '';
-            }
-          } else if (assoc.scope == 'national') {
-            _countryController.text = assoc.country ?? '';
-          }
-
-          _websiteController.text = assoc.website ?? '';
-          _profilePictureUrlController.text = assoc.profilePictureUrl ?? '';
-          _bannerUrlController.text = assoc.bannerUrl ?? '';
-          
-          _socialControllers.forEach((platform, controller) {
-            controller.text = assoc.socialChannels[platform] ?? '';
-          });
-
-          _selectedSportsFormats.clear();
-          for (var controller in _rulebookControllers.values) {
-            controller.dispose();
-          }
-          _rulebookControllers.clear();
-          for (var sport in assoc.supportedSports) {
-            final validFormats = compProvider.sportConfig?.formats
-                .where((f) => f.sportName == sport)
-                .map((f) => f.name)
-                .toList() ?? ['Modern', 'Classic'];
-            final formatsForSport = assoc.supportedFormats.where((f) => validFormats.contains(f)).toList();
-            _selectedSportsFormats[sport] = formatsForSport;
-            _rulebookControllers[sport] = TextEditingController(text: assoc.rulebooks[sport] ?? '');
-          }
-          _isEditingMetadata = false;
+          _populateMetadataControllers(assoc, compProvider);
         });
+
+        // Update static cache
+        _cachedAssociationId = widget.associationId;
+        _cachedAssociation = assoc;
+        _cachedMembers = membersList;
+        _cachedMemberProfiles = memberProfiles;
+        _cachedCompGroups = compGroupsList;
+        _cachedAthleteGroups = athleteGroupsList;
+        _cachedAppliedCompGroups = resolvedCompGroups;
+        _cachedAppliedAthleteGroups = resolvedAthleteGroups;
       }
     } catch (_) {}
 
@@ -1269,13 +1354,26 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     final theme = Theme.of(context);
     final authProvider = Provider.of<AuthProvider>(context);
     final compProvider = Provider.of<CompetitionProvider>(context);
+    final isMobileWidth = MediaQuery.of(context).size.width < 600;
 
     if (_isLoading) {
       if (widget.isInline) {
         return const Center(child: CircularProgressIndicator());
       }
       return Scaffold(
-        appBar: AppBar(title: const Text('Manage Association')),
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/management/associations');
+              }
+            },
+          ),
+          title: const Text('Manage Association'),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -1460,10 +1558,6 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
                           _showMobileFilters(context);
                         },
                       ),
-                      if (authProvider.isAssociationCreator || authProvider.isAdmin) ...[
-                        const SizedBox(width: 8),
-                        createButton,
-                      ],
                     ],
                   ),
                 ),
@@ -1504,58 +1598,128 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
         return const Center(child: Text('Error loading association details.'));
       }
       return Scaffold(
-        appBar: AppBar(title: const Text('Management')),
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/management/associations');
+              }
+            },
+          ),
+          title: const Text('Management'),
+        ),
         body: const Center(child: Text('Error loading association details.')),
       );
     }
 
     final assoc = _association!;
 
-    if (widget.isInline) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-            child: Row(
-              children: [
-                HoverableBreadcrumb(
-                  label: 'My Associations',
-                  onTap: () => context.go('/management/associations'),
-                ),
-                Text(
-                  '  /  ',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                Text(
-                  assoc.name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width >= 900;
+
+    if (isDesktop) {
+      return _buildDesktopView(context, assoc, theme);
+    } else {
+      return _buildMobileView(context, assoc, theme);
+    }
+  }
+
+  Widget _buildDesktopView(BuildContext context, Association assoc, ThemeData theme) {
+    final navItems = [
+      {'label': 'Metadata', 'icon': Icons.settings},
+      {'label': 'Member', 'icon': Icons.people},
+      {'label': 'Competition Groups', 'icon': Icons.list_alt},
+      {'label': 'Athlete Groups', 'icon': Icons.fitness_center},
+      {'label': 'Network', 'icon': Icons.hub},
+    ];
+
+    final desktopBody = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Full width header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                width: 1,
+              ),
             ),
           ),
-          TabBar(
-            controller: _tabController,
-            indicatorColor: theme.colorScheme.primary,
-            tabs: [
-              const Tab(icon: Icon(Icons.settings), text: 'Metadata'),
-              const Tab(icon: Icon(Icons.people), text: 'Members'),
-              const Tab(icon: Icon(Icons.list_alt), text: 'Comp Groups'),
-              const Tab(icon: Icon(Icons.fitness_center), text: 'Athlete Groups'),
-              const Tab(icon: Icon(Icons.hub), text: 'Network'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Breadcrumbs
+              Row(
+                children: [
+                  HoverableBreadcrumb(
+                    label: 'My Associations',
+                    onTap: () => context.go('/management/associations'),
+                  ),
+                  Text(
+                    '  /  ',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Text(
+                    assoc.name,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Association Name Title
+              Text(
+                assoc.name,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
             ],
           ),
-          Expanded(
-            child: AnimatedBuilder(
-              animation: _tabController,
-              builder: (context, child) {
-                return IndexedStack(
-                  index: _tabController.index,
+        ),
+        // Master-detail split view
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Navigation Drawer Left Side
+              NavigationDrawer(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (idx) {
+                  setState(() {
+                    _tabController.animateTo(idx);
+                  });
+                },
+                children: [
+                  const SizedBox(height: 16),
+                  ...navItems.map((item) {
+                    return NavigationDrawerDestination(
+                      icon: Icon(item['icon'] as IconData),
+                      label: Flexible(
+                        child: Text(
+                          item['label'] as String,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+              // Content page right side
+              Expanded(
+                child: IndexedStack(
+                  index: _currentIndex,
                   children: [
                     MetadataTabView(state: this),
                     MembersTabView(state: this),
@@ -1563,34 +1727,83 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
                     AthleteGroupsTabView(state: this),
                     _buildNetworkTab(theme),
                   ],
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
+      ],
+    );
+
+    if (widget.isInline) {
+      return Material(
+        color: Colors.transparent,
+        child: desktopBody,
       );
     } else {
       return Scaffold(
         key: _assocScaffoldKey,
-        appBar: AppBar(
-          title: Text('Manage: ${assoc.name}'),
-          bottom: TabBar(
+        body: desktopBody,
+      );
+    }
+  }
+
+  Widget _buildMobileView(BuildContext context, Association assoc, ThemeData theme) {
+    final navItems = [
+      {'label': 'Metadata', 'icon': Icons.settings},
+      {'label': 'Member', 'icon': Icons.people},
+      {'label': 'Competition Groups', 'icon': Icons.list_alt},
+      {'label': 'Athlete Groups', 'icon': Icons.fitness_center},
+      {'label': 'Network', 'icon': Icons.hub},
+    ];
+
+    final mobileAppBar = widget.isInline
+        ? null
+        : AppBar(
+            leading: IconButton(
+              key: const Key('assoc_back_btn'),
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  context.go('/management/associations');
+                }
+              },
+            ),
+            title: Text(
+              assoc.name,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          );
+
+    final mobileBody = SafeArea(
+      child: Column(
+        children: [
+          // Horizontally scrollable primary navigation bar (scrollable TabBar)
+          TabBar(
             controller: _tabController,
-            indicatorColor: theme.colorScheme.primary,
-            tabs: [
-              const Tab(icon: Icon(Icons.settings), text: 'Metadata'),
-              const Tab(icon: Icon(Icons.people), text: 'Members'),
-              const Tab(icon: Icon(Icons.list_alt), text: 'Comp Groups'),
-              const Tab(icon: Icon(Icons.fitness_center), text: 'Athlete Groups'),
-              const Tab(icon: Icon(Icons.hub), text: 'Network'),
-            ],
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: navItems.map((item) {
+              return Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(item['icon'] as IconData, size: 16),
+                    const SizedBox(width: 8),
+                    Text(item['label'] as String),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
-        ),
-        body: AnimatedBuilder(
-          animation: _tabController,
-          builder: (context, child) {
-            return IndexedStack(
-              index: _tabController.index,
+          // Page content below
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
               children: [
                 MetadataTabView(state: this),
                 MembersTabView(state: this),
@@ -1598,9 +1811,64 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
                 AthleteGroupsTabView(state: this),
                 _buildNetworkTab(theme),
               ],
-            );
-          },
-        ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Widget? mobileFab;
+    if (hasManagePermission) {
+      if (_currentIndex == 1) {
+        mobileFab = FloatingActionButton.extended(
+          key: const Key('add_member_fab'),
+          onPressed: showAddMemberModal,
+          backgroundColor: const Color(0xFFE94E1B),
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Member'),
+        );
+      } else if (_currentIndex == 2) {
+        mobileFab = FloatingActionButton.extended(
+          key: const Key('add_comp_group_fab'),
+          onPressed: showAddCompGroupModal,
+          backgroundColor: const Color(0xFFE94E1B),
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Group'),
+        );
+      } else if (_currentIndex == 3 && !_isReorderingAthleteGroups) {
+        mobileFab = FloatingActionButton.extended(
+          key: const Key('add_athlete_group_fab'),
+          onPressed: showAddAthleteGroupModal,
+          backgroundColor: const Color(0xFFE94E1B),
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Group'),
+        );
+      } else if (_currentIndex == 4 && _isOwner) {
+        mobileFab = FloatingActionButton.extended(
+          key: const Key('add_sub_assoc_fab'),
+          onPressed: _showAddSubAssociationModal,
+          backgroundColor: const Color(0xFFE94E1B),
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Sub-Association'),
+        );
+      }
+    }
+
+    if (widget.isInline) {
+      return Material(
+        color: Colors.transparent,
+        child: mobileBody,
+      );
+    } else {
+      return Scaffold(
+        key: _assocScaffoldKey,
+        appBar: mobileAppBar,
+        body: mobileBody,
+        floatingActionButton: mobileFab,
       );
     }
   }
@@ -1717,6 +1985,7 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
     );
     final res = await compProvider.updateAssociation(updatedAssoc);
     if (res != null) {
+      _forceExpandSportsAndRulebooks = true;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Applied rulebook removed successfully.')),
       );
@@ -1802,6 +2071,90 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
         _loadData();
       } else {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void shareCompetitionGroupsMulti() async {
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => ShareResourceMultiDialog<CompetitionGroup>(
+        title: 'Share Competition Groups',
+        ownItems: _compGroups,
+        itemHeadline: (g) => g.name,
+        itemSubtitles: (g) => [g.sport, g.format],
+        itemSport: (g) => g.sport,
+        filterSports: compProvider.sportConfig?.sports.map((s) => s.name).toList() ?? ['Streetlifting'],
+        filterFormats: compProvider.sportConfig?.formats.map((f) => f.name).toSet().toList() ?? ['Modern', 'Classic'],
+        currentAssociation: _association!,
+        allAssociations: compProvider.associations,
+      ),
+    );
+
+    if (result != null) {
+      final selectedItems = result['items'] as List<dynamic>;
+      final sharingConfig = result['sharing'] as Map<String, dynamic>;
+
+      if (selectedItems.isNotEmpty) {
+        setState(() => _isLoading = true);
+        int successCount = 0;
+        for (var item in selectedItems) {
+          if (item is CompetitionGroup) {
+            final updatedGroup = item.copyWith(sharingConfig: sharingConfig);
+            final res = await compProvider.updateCompetitionGroup(updatedGroup);
+            if (res != null) {
+              successCount++;
+            }
+          }
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Successfully shared $successCount of ${selectedItems.length} Competition Groups.')),
+        );
+        _loadData();
+      }
+    }
+  }
+
+  void shareAthleteGroupsMulti() async {
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => ShareResourceMultiDialog<AthleteGroup>(
+        title: 'Share Athlete Groups',
+        ownItems: _athleteGroups,
+        itemHeadline: (g) => g.name,
+        itemSubtitles: (g) => [g.sport, g.format, g.gender],
+        itemSport: (g) => g.sport,
+        itemGenders: (g) => [g.gender],
+        filterSports: compProvider.sportConfig?.sports.map((s) => s.name).toList() ?? ['Streetlifting'],
+        filterFormats: compProvider.sportConfig?.formats.map((f) => f.name).toSet().toList() ?? ['Modern', 'Classic'],
+        filterGenders: const ['men', 'women', 'mixed'],
+        currentAssociation: _association!,
+        allAssociations: compProvider.associations,
+      ),
+    );
+
+    if (result != null) {
+      final selectedItems = result['items'] as List<dynamic>;
+      final sharingConfig = result['sharing'] as Map<String, dynamic>;
+
+      if (selectedItems.isNotEmpty) {
+        setState(() => _isLoading = true);
+        int successCount = 0;
+        for (var item in selectedItems) {
+          if (item is AthleteGroup) {
+            final updatedGroup = item.copyWith(sharingConfig: sharingConfig);
+            final res = await compProvider.updateAthleteGroup(updatedGroup);
+            if (res != null) {
+              successCount++;
+            }
+          }
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Successfully shared $successCount of ${selectedItems.length} Athlete Groups.')),
+        );
+        _loadData();
       }
     }
   }
@@ -1921,6 +2274,9 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
       );
       final res = await compProvider.updateAssociation(updatedAssoc);
       if (res != null) {
+        if (resourceType == 'rulebooks') {
+          _forceExpandSportsAndRulebooks = true;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Applied shared resources updated successfully.')),
         );
@@ -2133,50 +2489,43 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
 
   List<FlatListItem> _buildCompGroupsFlatList(ThemeData theme) {
     final List<FlatListItem> items = [];
-    final Map<String, Map<String, List<CompetitionGroup>>> grouped = {};
+    final Map<String, List<CompetitionGroup>> grouped = {};
     final combinedGroups = [..._compGroups, ..._appliedCompGroups];
-    for (var group in combinedGroups) {
-      grouped.putIfAbsent(group.sport, () => {})
-             .putIfAbsent(group.format, () => [])
-             .add(group);
+
+    final filtered = combinedGroups.where((g) {
+      if (cgSearchQuery.isNotEmpty) {
+        if (!g.name.toLowerCase().contains(cgSearchQuery.toLowerCase())) {
+          return false;
+        }
+      }
+      if (cgSelectedSports.isNotEmpty && !cgSelectedSports.contains(g.sport)) {
+        return false;
+      }
+      if (cgSelectedFormats.isNotEmpty && !cgSelectedFormats.contains(g.format)) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    for (var group in filtered) {
+      grouped.putIfAbsent(group.sport, () => []).add(group);
     }
 
-    for (var sportEntry in grouped.entries) {
-      final sport = sportEntry.key;
-      final formatsMap = sportEntry.value;
+    for (var entry in grouped.entries) {
+      final sport = entry.key;
+      final groups = entry.value;
       final sportKey = 'cg/sport/$sport';
-
-      int sportCount = 0;
-      for (var list in formatsMap.values) {
-        sportCount += list.length;
-      }
 
       items.add(FlatHeaderItem(
         key: sportKey,
         title: sport,
         level: 0,
-        countText: _cgCountText(sportCount),
+        countText: '${groups.length}',
       ));
 
       if (!_userCollapsedKeys.contains(sportKey)) {
-        for (var formatEntry in formatsMap.entries) {
-          final format = formatEntry.key;
-          final groups = formatEntry.value;
-          final formatKey = '$sportKey/format/$format';
-          final formatCount = groups.length;
-
-          items.add(FlatHeaderItem(
-            key: formatKey,
-            title: format,
-            level: 1,
-            countText: _cgCountText(formatCount),
-          ));
-
-          if (!_userCollapsedKeys.contains(formatKey)) {
-            for (var group in groups) {
-              items.add(FlatCompGroupCardItem(compGroup: group));
-            }
-          }
+        for (var group in groups) {
+          items.add(FlatCompGroupCardItem(compGroup: group));
         }
       }
     }
@@ -2270,83 +2619,54 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
 
   List<FlatListItem> _buildAthleteGroupsFlatList(ThemeData theme) {
     final List<FlatListItem> items = [];
-    final Map<String, Map<String, Map<String, List<AthleteGroup>>>> grouped = {};
+    final Map<String, List<AthleteGroup>> grouped = {};
 
     final sourceList = _isReorderingAthleteGroups ? _tempAthleteGroups : [..._athleteGroups, ..._appliedAthleteGroups];
 
-    for (var group in sourceList) {
-      grouped.putIfAbsent(group.sport, () => {})
-             .putIfAbsent(group.format, () => {})
-             .putIfAbsent(group.gender, () => [])
-             .add(group);
-    }
-
-    for (var sportEntry in grouped.entries) {
-      final sport = sportEntry.key;
-      final formatsMap = sportEntry.value;
-      final sportKey = 'ag/sport/$sport';
-
-      int sportCount = 0;
-      for (var fMap in formatsMap.values) {
-        for (var list in fMap.values) {
-          sportCount += list.length;
+    final filtered = sourceList.where((g) {
+      if (agSearchQuery.isNotEmpty) {
+        if (!g.name.toLowerCase().contains(agSearchQuery.toLowerCase())) {
+          return false;
         }
       }
+      if (agSelectedSports.isNotEmpty && !agSelectedSports.contains(g.sport)) {
+        return false;
+      }
+      if (agSelectedFormats.isNotEmpty && !agSelectedFormats.contains(g.format)) {
+        return false;
+      }
+      if (agSelectedGenders.isNotEmpty && !agSelectedGenders.contains(g.gender)) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    for (var group in filtered) {
+      grouped.putIfAbsent(group.sport, () => []).add(group);
+    }
+
+    for (var entry in grouped.entries) {
+      final sport = entry.key;
+      final groups = entry.value;
+      final sportKey = 'ag/sport/$sport';
 
       items.add(FlatHeaderItem(
         key: sportKey,
         title: sport,
         level: 0,
-        countText: _agCountText(sportCount),
+        countText: '${groups.length}',
+        athleteGroups: groups,
       ));
 
       if (!_userCollapsedKeys.contains(sportKey)) {
-        for (var formatEntry in formatsMap.entries) {
-          final format = formatEntry.key;
-          final gendersMap = formatEntry.value;
-          final formatKey = '$sportKey/format/$format';
-
-          int formatCount = 0;
-          for (var list in gendersMap.values) {
-            formatCount += list.length;
-          }
-
-          items.add(FlatHeaderItem(
-            key: formatKey,
-            title: format,
-            level: 1,
-            countText: _agCountText(formatCount),
+        if (_isReorderingAthleteGroups) {
+          items.add(FlatReorderableGroupItem(
+            genderKey: sportKey,
+            athleteGroups: groups,
           ));
-
-          if (!_userCollapsedKeys.contains(formatKey)) {
-            for (var genderEntry in gendersMap.entries) {
-              final gender = genderEntry.key;
-              final classes = genderEntry.value;
-              final genderKey = '$formatKey/gender/$gender';
-              final genderCount = classes.length;
-
-              final displayGender = gender == 'women' ? 'Women' : (gender.isEmpty ? '' : gender[0].toUpperCase() + gender.substring(1));
-              items.add(FlatHeaderItem(
-                key: genderKey,
-                title: displayGender,
-                level: 2,
-                countText: _agCountText(genderCount),
-                athleteGroups: classes,
-              ));
-
-              if (!_userCollapsedKeys.contains(genderKey)) {
-                if (_isReorderingAthleteGroups) {
-                  items.add(FlatReorderableGroupItem(
-                    genderKey: genderKey,
-                    athleteGroups: classes,
-                  ));
-                } else {
-                  for (var ag in classes) {
-                    items.add(FlatAthleteGroupCardItem(athleteGroup: ag));
-                  }
-                }
-              }
-            }
+        } else {
+          for (var ag in groups) {
+            items.add(FlatAthleteGroupCardItem(athleteGroup: ag));
           }
         }
       }
@@ -2513,112 +2833,88 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
         : null;
     final showTerritory = territory != null && territory.isNotEmpty;
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      color: theme.colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.3),
-        ),
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: CircleAvatar(
+        radius: 24,
+        backgroundColor: theme.colorScheme.primaryContainer,
+        backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+        child: logoUrl.isEmpty
+            ? Text(
+                initials,
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            : null,
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          context.push('/associations/${assoc.id}');
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: theme.colorScheme.primaryContainer,
-                backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
-                child: logoUrl.isEmpty
-                    ? Text(
-                        initials,
-                        style: TextStyle(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      assoc.name,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (showTerritory) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                    ),
-                  ),
-                  child: Text(
-                    territory.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
+      title: Text(
+        assoc.name,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 6.0),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            if (showTerritory)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: scopeBg,
+                  color: theme.colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                  ),
                 ),
                 child: Text(
-                  assoc.scope.toUpperCase(),
+                  territory.toUpperCase(),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: scopeText,
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
                 ),
               ),
-              if (showRemove && onRemove != null) ...[
-                const SizedBox(width: 16),
-                IconButton(
-                  icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                  tooltip: 'Remove Sub-Association',
-                  onPressed: onRemove,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: scopeBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                assoc.scope.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scopeText,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
                 ),
-              ] else ...[
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.chevron_right,
-                  size: 16,
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-                ),
-              ],
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
+      trailing: showRemove && onRemove != null
+          ? IconButton(
+              icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+              tooltip: 'Remove Sub-Association',
+              onPressed: onRemove,
+            )
+          : Icon(
+              Icons.chevron_right,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+            ),
+      onTap: () {
+        context.push('/associations/${assoc.id}');
+      },
     );
   }
 
@@ -2634,16 +2930,22 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
 
     final subAssociations = allAssociations.where((a) => a.parentAssociationId == _association!.id).toList();
 
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width >= 900;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Parent Association',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          // Parent Association Header
+          _buildNetworkHeader(
+            key: 'network/parent',
+            title: 'Parent Association',
+            countText: null, // No count for parent association
+            theme: theme,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           if (parent == null)
             Card(
               elevation: 0,
@@ -2680,17 +2982,23 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
 
           const SizedBox(height: 32),
 
+          // Sub-Associations Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${subAssociations.length} Sub-Associations',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              Expanded(
+                child: _buildNetworkHeader(
+                  key: 'network/subs',
+                  title: 'Sub-Associations',
+                  countText: '${subAssociations.length}',
+                  theme: theme,
+                ),
               ),
-              if (_isOwner)
+              if (_isOwner && isDesktop) ...[
+                const SizedBox(width: 16),
                 ElevatedButton.icon(
                   onPressed: _showAddSubAssociationModal,
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add Sub-Association'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE94E1B),
@@ -2698,9 +3006,10 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   ),
                 ),
+              ],
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           if (subAssociations.isEmpty)
             Card(
               elevation: 0,
@@ -2738,6 +3047,49 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
                   showRemove: _isOwner,
                   onRemove: () => _showRemoveSubAssociationConfirmation(sub),
                 )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkHeader({
+    required String key,
+    required String title,
+    required String? countText,
+    required ThemeData theme,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      margin: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
+      child: Row(
+        children: [
+          if (countText != null) ...[
+            Text(
+              countText,
+              key: Key('$key/count'),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
         ],
       ),
     );

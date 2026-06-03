@@ -19,6 +19,12 @@ class MetadataTabView extends StatelessWidget {
     final provider = Provider.of<CompetitionProvider>(context);
     final sportConfig = provider.sportConfig;
 
+    if (state.forceExpandSportsAndRulebooks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        state.forceExpandSportsAndRulebooks = false;
+      });
+    }
+
     // Collect disciplines
     final Map<String, List<String>> disciplinesBySportAndFormat = {};
     state.selectedSportsFormats.forEach((sport, formatsList) {
@@ -102,7 +108,7 @@ class MetadataTabView extends StatelessWidget {
             // Section 1: General Info
             CollapsibleSection(
               title: Text('General Information', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-              initiallyExpanded: true,
+              initiallyExpanded: false,
               children: [
                 Center(
                   child: Container(
@@ -457,6 +463,7 @@ class MetadataTabView extends StatelessWidget {
 
             CollapsibleSection(
               title: Text('Sports & Rulebooks', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+              initiallyExpanded: state.forceExpandSportsAndRulebooks,
               children: [
                 Center(
                   child: Container(
@@ -523,6 +530,17 @@ class MetadataTabView extends StatelessWidget {
                                 });
                               }
 
+                              final Map<String, String> rulebookUrlByFormat = {};
+                              for (var fmt in fmts) {
+                                if (appliedRulebooks.containsKey(fmt)) {
+                                  rulebookUrlByFormat[fmt] = appliedRulebooks[fmt]!['rulebook_url'] as String? ?? '';
+                                } else {
+                                  rulebookUrlByFormat[fmt] = rulebookUrl;
+                                }
+                              }
+                              final uniqueUrls = rulebookUrlByFormat.values.where((url) => url.isNotEmpty).toSet();
+                              final bool rulebooksAreDifferent = uniqueUrls.length > 1;
+
                               final hasAppliedShared = appliedRulebooks.isNotEmpty;
                               final allFormatsAppliedShared = fmts.every((f) => appliedRulebooks.containsKey(f));
 
@@ -586,6 +604,7 @@ class MetadataTabView extends StatelessWidget {
                                           final isFormatAppliedShared = appliedRulebooks.containsKey(fmt);
                                           final key = '$sport - $fmt';
                                           final discs = disciplinesBySportAndFormat[key] ?? <String>[];
+                                          final formatRulebookUrl = rulebookUrlByFormat[fmt] ?? '';
 
                                           return Card(
                                             elevation: 0,
@@ -602,29 +621,20 @@ class MetadataTabView extends StatelessWidget {
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                     children: [
                                                       Text(
                                                         fmt,
                                                         style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                                                       ),
-                                                      if (isFormatAppliedShared) ...[
-                                                        const SizedBox(width: 8),
-                                                        Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.orange.withOpacity(0.15),
-                                                            borderRadius: BorderRadius.circular(4),
-                                                          ),
-                                                          child: Text(
-                                                            'Applied Shared',
-                                                            style: theme.textTheme.bodySmall?.copyWith(
-                                                              color: Colors.orange[800],
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 9,
-                                                            ),
-                                                          ),
+                                                      if (isFormatAppliedShared && state.hasManagePermission)
+                                                        IconButton(
+                                                          icon: const Icon(Icons.link_off, color: Colors.orange, size: 18),
+                                                          tooltip: 'Remove Applied Rulebook',
+                                                          constraints: const BoxConstraints(),
+                                                          padding: const EdgeInsets.all(4),
+                                                          onPressed: () => state.removeAppliedRulebook(sport, fmt),
                                                         ),
-                                                      ],
                                                     ],
                                                   ),
                                                   if (discs.isNotEmpty) ...[
@@ -637,6 +647,13 @@ class MetadataTabView extends StatelessWidget {
                                                         backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.25),
                                                         visualDensity: VisualDensity.compact,
                                                       )).toList(),
+                                                    ),
+                                                  ],
+                                                  if (rulebooksAreDifferent && formatRulebookUrl.isNotEmpty) ...[
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      formatRulebookUrl,
+                                                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
                                                     ),
                                                   ],
                                                 ],
@@ -665,7 +682,7 @@ class MetadataTabView extends StatelessWidget {
                                                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
                                               ),
                                             ),
-                                            if (state.hasManagePermission)
+                                            if (state.hasManagePermission && !hasAppliedShared)
                                               IconButton(
                                                 icon: const Icon(Icons.share, size: 20),
                                                 tooltip: 'Share Rulebook',
@@ -673,57 +690,27 @@ class MetadataTabView extends StatelessWidget {
                                               ),
                                           ],
                                         ),
-                                      ] else if (appliedRulebooks.isEmpty) ...[
+                                      ],
+                                      if (!rulebooksAreDifferent && uniqueUrls.isNotEmpty && appliedRulebooks.isNotEmpty) ...[
+                                        if (uniqueUrls.first != rulebookUrl) ...[
+                                          if (rulebookUrl.isNotEmpty) const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  uniqueUrls.first,
+                                                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ],
+                                      if (rulebookUrl.isEmpty && appliedRulebooks.isEmpty) ...[
                                         Text(
                                           'No rulebook set.',
                                           style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
                                         ),
-                                      ],
-                                      if (appliedRulebooks.isNotEmpty) ...[
-                                        if (rulebookUrl.isNotEmpty) const SizedBox(height: 8),
-                                        ...appliedRulebooks.entries.map((entry) {
-                                          final format = entry.key;
-                                          final info = entry.value;
-                                          final url = info['rulebook_url'] as String? ?? '';
-                                          final ownerId = info['owning_association_id'] as String? ?? '';
-                                          final ownerAssoc = provider.associations.cast<Association?>().firstWhere(
-                                            (a) => a?.id == ownerId,
-                                            orElse: () => null,
-                                          );
-                                          final ownerName = ownerAssoc?.name ?? 'Other';
-                                          return Padding(
-                                            padding: const EdgeInsets.only(bottom: 6.0),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                              decoration: BoxDecoration(
-                                                color: Colors.orange.withOpacity(0.05),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: Colors.orange.withOpacity(0.15)),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      '$format (Shared): $url\n(Shared by $ownerName)',
-                                                      style: theme.textTheme.bodySmall?.copyWith(
-                                                        color: theme.colorScheme.onSurfaceVariant,
-                                                        height: 1.3,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  if (state.hasManagePermission)
-                                                    IconButton(
-                                                      icon: const Icon(Icons.link_off, color: Colors.orange, size: 18),
-                                                      tooltip: 'Remove Applied Rulebook',
-                                                      constraints: const BoxConstraints(),
-                                                      padding: const EdgeInsets.all(4),
-                                                      onPressed: () => state.removeAppliedRulebook(sport, format),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        }).toList(),
                                       ],
                                     ],
                                   ),

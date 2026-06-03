@@ -230,14 +230,18 @@ void main() {
       await tester.pumpAndSettle();
 
       // Step 6: Registration Settings
-      await tester.tap(nextButton); // 6 -> 7
+      await tester.tap(nextButton); // 6 -> 7 (Competition Group)
       await tester.pumpAndSettle();
 
-      // Step 7: Athlete Groups
-      await tester.tap(nextButton); // 7 -> 8
+      // Step 7: Competition Group
+      await tester.tap(nextButton); // 7 -> 8 (Athlete Groups)
       await tester.pumpAndSettle();
 
-      // Step 8: Fees
+      // Step 8: Athlete Groups
+      await tester.tap(nextButton); // 8 -> 9 (Fees)
+      await tester.pumpAndSettle();
+
+      // Step 9: Fees
       // Toggle fees ON
       final feesToggle = find.byKey(const Key('comp_fees_toggle'));
       await tester.tap(feesToggle);
@@ -264,10 +268,10 @@ void main() {
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // If the wizard allows moving to Step 9, it means negative fee was accepted!
-      final step9Visible = find.text('Step 9: Payment Settings');
+      // If the wizard allows moving to Step 10, it means negative fee was accepted!
+      final step10Visible = find.text('Step 10 of 12');
       expect(
-        step9Visible,
+        step10Visible,
         findsNothing,
         reason: 'Negative fee amount must be blocked by validation',
       );
@@ -339,7 +343,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // A waitlist makes no sense without a capacity limit! Validation should block this.
-        final step7Visible = find.text('Step 7 of 11');
+        final step7Visible = find.text('Step 7 of 12');
         expect(
           step7Visible,
           findsNothing,
@@ -416,7 +420,7 @@ void main() {
           await tester.pumpAndSettle();
 
           // Negative capacity must be blocked by validation
-          final step7Visible = find.text('Step 7 of 11');
+          final step7Visible = find.text('Step 7 of 12');
           expect(
             step7Visible,
             findsNothing,

@@ -46,8 +46,8 @@ class _ShareAthleteGroupsSelectionDialogState extends State<ShareAthleteGroupsSe
             const SizedBox(height: 16),
             CheckboxListTile(
               title: const Text('Select All', style: TextStyle(fontWeight: FontWeight.bold)),
-              value: allSelected,
-              tristate: anySelected && !allSelected,
+              value: allSelected ? true : (anySelected ? null : false),
+              tristate: true,
               onChanged: (bool? val) {
                 setState(() {
                   if (val == true) {

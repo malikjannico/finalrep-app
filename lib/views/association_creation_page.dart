@@ -705,10 +705,10 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
               children: [
                 _buildStepperProgress(theme),
                 Expanded(
-                  child: Center(
-                    child: Container(
-                      constraints: BoxConstraints(maxWidth: isDesktop ? 800 : double.infinity),
-                      child: SingleChildScrollView(
+                  child: SingleChildScrollView(
+                    child: Center(
+                      child: Container(
+                        constraints: BoxConstraints(maxWidth: isDesktop ? 800 : double.infinity),
                         padding: const EdgeInsets.all(24.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -864,6 +864,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   }
 
   Widget _buildStep2ScopeLocation(ThemeData theme) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Form(
       key: _formKey2,
       child: Column(
@@ -939,52 +940,93 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
             if (_activeLocationField == 'country' && _locationSuggestions.isNotEmpty)
               _buildSuggestionsList(_countryController),
             const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(
+            isMobile
+                ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextFormField(
-                        controller: _zipController,
-                        decoration: const InputDecoration(
-                          labelText: 'ZIP Code *',
-                          hintText: 'e.g. 22529',
-                          prefixIcon: Icon(Icons.pin_drop_outlined),
-                        ),
-                        onChanged: (val) => _updateLocationSuggestions('zip', val),
-                        validator: (val) => _scope == 'local' && (val == null || val.trim().isEmpty) ? 'ZIP Code is required' : null,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _zipController,
+                            decoration: const InputDecoration(
+                              labelText: 'ZIP Code *',
+                              hintText: 'e.g. 22529',
+                              prefixIcon: Icon(Icons.pin_drop_outlined),
+                            ),
+                            onChanged: (val) => _updateLocationSuggestions('zip', val),
+                            validator: (val) => _scope == 'local' && (val == null || val.trim().isEmpty) ? 'ZIP Code is required' : null,
+                          ),
+                          if (_activeLocationField == 'zip' && _locationSuggestions.isNotEmpty)
+                            _buildSuggestionsList(_zipController),
+                        ],
                       ),
-                      if (_activeLocationField == 'zip' && _locationSuggestions.isNotEmpty)
-                        _buildSuggestionsList(_zipController),
+                      const SizedBox(height: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _cityController,
+                            decoration: const InputDecoration(
+                              labelText: 'City *',
+                              hintText: 'e.g. Hamburg',
+                              prefixIcon: Icon(Icons.location_city),
+                            ),
+                            onChanged: (val) => _updateLocationSuggestions('city', val),
+                            validator: (val) => _scope == 'local' && (val == null || val.trim().isEmpty) ? 'City is required' : null,
+                          ),
+                          if (_activeLocationField == 'city' && _locationSuggestions.isNotEmpty)
+                            _buildSuggestionsList(_cityController),
+                        ],
+                      ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 5,
-                  child: Column(
+                  )
+                : Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextFormField(
-                        controller: _cityController,
-                        decoration: const InputDecoration(
-                          labelText: 'City *',
-                          hintText: 'e.g. Hamburg',
-                          prefixIcon: Icon(Icons.location_city),
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _zipController,
+                              decoration: const InputDecoration(
+                                labelText: 'ZIP Code *',
+                                hintText: 'e.g. 22529',
+                                prefixIcon: Icon(Icons.pin_drop_outlined),
+                              ),
+                              onChanged: (val) => _updateLocationSuggestions('zip', val),
+                              validator: (val) => _scope == 'local' && (val == null || val.trim().isEmpty) ? 'ZIP Code is required' : null,
+                            ),
+                            if (_activeLocationField == 'zip' && _locationSuggestions.isNotEmpty)
+                              _buildSuggestionsList(_zipController),
+                          ],
                         ),
-                        onChanged: (val) => _updateLocationSuggestions('city', val),
-                        validator: (val) => _scope == 'local' && (val == null || val.trim().isEmpty) ? 'City is required' : null,
                       ),
-                      if (_activeLocationField == 'city' && _locationSuggestions.isNotEmpty)
-                        _buildSuggestionsList(_cityController),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _cityController,
+                              decoration: const InputDecoration(
+                                labelText: 'City *',
+                                hintText: 'e.g. Hamburg',
+                                prefixIcon: Icon(Icons.location_city),
+                              ),
+                              onChanged: (val) => _updateLocationSuggestions('city', val),
+                              validator: (val) => _scope == 'local' && (val == null || val.trim().isEmpty) ? 'City is required' : null,
+                            ),
+                            if (_activeLocationField == 'city' && _locationSuggestions.isNotEmpty)
+                              _buildSuggestionsList(_cityController),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
-              ],
-            ),
           ],
 
           const SizedBox(height: 16),
@@ -1019,6 +1061,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   }
 
   Widget _buildStep3MediaAssets(ThemeData theme) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Form(
       key: _formKey3,
       child: Column(
@@ -1057,53 +1100,106 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _isUploadingLogo ? null : _pickLogoImage,
-                      icon: _isUploadingLogo
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                isMobile
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _isUploadingLogo ? null : _pickLogoImage,
+                            icon: _isUploadingLogo
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.cloud_upload_outlined, size: 18),
+                            label: const Text(
+                              'Upload Logo',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE94E1B),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            )
-                          : const Icon(Icons.cloud_upload_outlined, size: 18),
-                      label: const Text(
-                        'Upload Logo',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                _logoFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
+                                size: 18,
+                                color: _logoFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _logoFileName ?? 'No image selected',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: _logoFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: _logoFileName != null ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _isUploadingLogo ? null : _pickLogoImage,
+                            icon: _isUploadingLogo
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.cloud_upload_outlined, size: 18),
+                            label: const Text(
+                              'Upload Logo',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE94E1B),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(
+                            _logoFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
+                            size: 18,
+                            color: _logoFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _logoFileName ?? 'No image selected',
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: _logoFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: _logoFileName != null ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE94E1B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Icon(
-                      _logoFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
-                      size: 18,
-                      color: _logoFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _logoFileName ?? 'No image selected',
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _logoFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
-                          fontWeight: _logoFileName != null ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
                 if (_logoBytes != null) ...[
                   const SizedBox(height: 16),
                   ClipRRect(
@@ -1151,53 +1247,106 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _isUploadingBanner ? null : _pickBannerImage,
-                      icon: _isUploadingBanner
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                isMobile
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _isUploadingBanner ? null : _pickBannerImage,
+                            icon: _isUploadingBanner
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.cloud_upload_outlined, size: 18),
+                            label: const Text(
+                              'Upload Banner',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE94E1B),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            )
-                          : const Icon(Icons.cloud_upload_outlined, size: 18),
-                      label: const Text(
-                        'Upload Banner',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                _bannerFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
+                                size: 18,
+                                color: _bannerFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _bannerFileName ?? 'No image selected',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: _bannerFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: _bannerFileName != null ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _isUploadingBanner ? null : _pickBannerImage,
+                            icon: _isUploadingBanner
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.cloud_upload_outlined, size: 18),
+                            label: const Text(
+                              'Upload Banner',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE94E1B),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(
+                            _bannerFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
+                            size: 18,
+                            color: _bannerFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _bannerFileName ?? 'No image selected',
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: _bannerFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: _bannerFileName != null ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE94E1B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Icon(
-                      _bannerFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
-                      size: 18,
-                      color: _bannerFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _bannerFileName ?? 'No image selected',
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _bannerFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
-                          fontWeight: _bannerFileName != null ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
                 if (_bannerBytes != null) ...[
                   const SizedBox(height: 16),
                   ClipRRect(
@@ -1268,6 +1417,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   Widget _buildStep4SportsRules(ThemeData theme) {
     final provider = Provider.of<CompetitionProvider>(context);
     final sportConfig = provider.sportConfig;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     // Collect all disciplines for configured sports and formats grouped
     final Map<String, List<String>> disciplinesBySportAndFormat = {};
@@ -1296,22 +1446,40 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Sports & Rulebooks', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              ElevatedButton.icon(
-                onPressed: () => _showSportConfigurationModal(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Sport'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE94E1B),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Sports & Rulebooks', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _showSportConfigurationModal(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Sport'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE94E1B),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Sports & Rulebooks', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    ElevatedButton.icon(
+                      onPressed: () => _showSportConfigurationModal(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Sport'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE94E1B),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
           if (_selectedParentAssociationId != null) ...[
             const SizedBox(height: 12),
             Builder(
@@ -1322,15 +1490,30 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                         (a) => a.id == _selectedParentAssociationId,
                         orElse: () => _eligibleAssociations.first,
                       ).name;
-                return OutlinedButton.icon(
-                  onPressed: _applyParentAssociationSportsAndRulebooks,
-                  icon: const Icon(Icons.copy_all),
-                  label: Text('Apply Sports & Rulebook of $parentName'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFE94E1B),
-                    side: const BorderSide(color: Color(0xFFE94E1B), width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                return SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _applyParentAssociationSportsAndRulebooks,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFE94E1B),
+                      side: const BorderSide(color: Color(0xFFE94E1B), width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.copy_all),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Apply Sports & Rulebook of $parentName',
+                            style: const TextStyle(fontSize: 13),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }

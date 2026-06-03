@@ -196,9 +196,9 @@ class CompetitionCreationPage extends StatefulWidget {
 
 class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
   int _currentStep = 0;
-  final int _totalSteps = 11;
+  final int _totalSteps = 12;
 
-  final List<GlobalKey<FormState>> _formKeys = List.generate(11, (index) => GlobalKey<FormState>());
+  final List<GlobalKey<FormState>> _formKeys = List.generate(12, (index) => GlobalKey<FormState>());
 
   // Step 1: General Info
   final TextEditingController _titleController = TextEditingController();
@@ -241,6 +241,10 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
   DateTime _endDate = DateTime.now().add(const Duration(days: 8));
   DateTime _registrationStartDate = DateTime.now();
   DateTime _registrationEndDate = DateTime.now().add(const Duration(days: 6));
+
+  set testStartDate(DateTime val) => _startDate = val;
+  set testEndDate(DateTime val) => _endDate = val;
+  set testRegistrationEndDate(DateTime val) => _registrationEndDate = val;
 
   // Step 6: Registration Settings
   String _registrationMode = 'fcfs'; // 'fcfs' or 'approval'
@@ -590,6 +594,109 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
         );
       }
     }
+  }
+
+  void _showFormatSelectorDialog(ThemeData theme) {
+    final provider = Provider.of<CompetitionProvider>(context, listen: false);
+    final sportConfig = provider.sportConfig;
+    final formats = sportConfig?.formats
+            .where((f) => f.sportName == _sportType)
+            .map((f) => f.name)
+            .toList() ??
+        ['Modern', 'Classic'];
+
+    String searchQuery = '';
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final query = searchQuery.trim().toLowerCase();
+            final filtered = formats.where((f) => f.toLowerCase().contains(query)).toList();
+
+            return AlertDialog(
+              title: const Text('Select Sport Format'),
+              content: SizedBox(
+                width: 400,
+                height: 500,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Search Formats',
+                        hintText: 'Type format name...',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (val) {
+                        setModalState(() {
+                          searchQuery = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, idx) {
+                          final fmt = filtered[idx];
+                          final isSelected = _sportSubtype == fmt;
+                          final List<String> linked = sportConfig?.links
+                                  .where((link) => link.sportName == _sportType && link.formatName == fmt)
+                                  .map((link) => link.disciplineName)
+                                  .toList() ??
+                              <String>[];
+                          final List<String> discs = linked.isNotEmpty
+                              ? linked
+                              : (_sportType == 'Streetlifting'
+                                  ? (fmt == 'Classic'
+                                      ? ['Pull-up', 'Dip']
+                                      : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
+                                  : <String>[]);
+
+                          return ListTile(
+                            title: Text(
+                              fmt,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            subtitle: discs.isNotEmpty
+                                ? Text(
+                                    'Disciplines: ${discs.join(', ')}',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : null,
+                            trailing: isSelected
+                                ? Icon(Icons.check, color: theme.colorScheme.primary)
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _sportSubtype = fmt;
+                              });
+                              _onParentOrSportChanged();
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('CANCEL'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showCurrencySelectorDialog(ThemeData theme) {
@@ -1591,18 +1698,21 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
         stepTitle = 'Registration Settings';
         break;
       case 6:
-        stepTitle = 'Athlete Groups';
+        stepTitle = 'Competition Group';
         break;
       case 7:
-        stepTitle = 'Fees & Bank Details';
+        stepTitle = 'Athlete Groups';
         break;
       case 8:
-        stepTitle = 'Payment Settings';
+        stepTitle = 'Fees & Bank Details';
         break;
       case 9:
-        stepTitle = 'Volunteer Setup';
+        stepTitle = 'Payment Settings';
         break;
       case 10:
+        stepTitle = 'Volunteer Setup';
+        break;
+      case 11:
         stepTitle = 'Disclaimers & Custom Fields';
         break;
     }
@@ -1665,15 +1775,17 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
       case 5:
         return _buildStep6RegSettings(theme);
       case 6:
-        return _buildStep7AthleteGroups(theme);
+        return _buildStep7CompGroup(theme);
       case 7:
-        return _buildStep8FeesBank(theme);
+        return _buildStep8AthleteGroups(theme);
       case 8:
-        return _buildStep9PaymentSettings(theme);
+        return _buildStep9FeesBank(theme);
       case 9:
-        return _buildStep10Volunteers(theme);
+        return _buildStep10PaymentSettings(theme);
       case 10:
-        return _buildStep11DisclaimersCustomFields(theme);
+        return _buildStep11Volunteers(theme);
+      case 11:
+        return _buildStep12DisclaimersCustomFields(theme);
       default:
         return Container();
     }
@@ -1811,9 +1923,6 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
             .toList() ??
         ['Modern', 'Classic'];
 
-    final query = _formatSearchQuery.trim().toLowerCase();
-    final filteredFormats = formats.where((f) => f.toLowerCase().contains(query)).toList();
-
     return Form(
       key: _formKeys[2],
       child: Column(
@@ -1845,109 +1954,32 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
             },
           ),
           const SizedBox(height: 20),
-          TextField(
-            decoration: const InputDecoration(
-              labelText: 'Search Formats',
-              hintText: 'Type format name...',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: (val) {
-              setState(() {
-                _formatSearchQuery = val;
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 300),
-            child: ListView(
-              shrinkWrap: true,
-              children: filteredFormats.map((fmt) {
-                final isSelected = _sportSubtype == fmt;
-                final List<String> linked = sportConfig?.links
-                        .where((link) => link.sportName == _sportType && link.formatName == fmt)
-                        .map((link) => link.disciplineName)
-                        .toList() ??
-                    <String>[];
-                final List<String> discs = linked.isNotEmpty
-                    ? linked
-                    : (_sportType == 'Streetlifting'
-                        ? (fmt == 'Classic'
-                            ? ['Pull-up', 'Dip']
-                            : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
-                        : <String>[]);
-
-                return Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  color: isSelected
-                      ? theme.colorScheme.primaryContainer.withOpacity(0.15)
-                      : theme.colorScheme.surface,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      setState(() {
-                        _sportSubtype = fmt;
-                      });
-                      _onParentOrSportChanged();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Radio<String>(
-                            value: fmt,
-                            groupValue: _sportSubtype,
-                            onChanged: (String? val) {
-                              if (val != null) {
-                                setState(() {
-                                  _sportSubtype = val;
-                                });
-                                _onParentOrSportChanged();
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  fmt,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                                if (discs.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    children: discs.map((d) => Chip(
-                                      label: Text(d, style: const TextStyle(fontSize: 10)),
-                                      backgroundColor: theme.colorScheme.secondaryContainer.withOpacity(0.4),
-                                      visualDensity: VisualDensity.compact,
-                                    )).toList(),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
+          InkWell(
+            onTap: () => _showFormatSelectorDialog(theme),
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Sport Format *',
+                prefixIcon: Icon(Icons.format_list_bulleted_outlined),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _sportSubtype,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                );
-              }).toList(),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -2052,53 +2084,106 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _isUploadingBanner ? null : _pickBannerImage,
-                      icon: _isUploadingBanner
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                MediaQuery.of(context).size.width < 600
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _isUploadingBanner ? null : _pickBannerImage,
+                            icon: _isUploadingBanner
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.cloud_upload_outlined, size: 18),
+                            label: const Text(
+                              'Upload Banner',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE94E1B),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            )
-                          : const Icon(Icons.cloud_upload_outlined, size: 18),
-                      label: const Text(
-                        'Upload Banner',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                _bannerFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
+                                size: 18,
+                                color: _bannerFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _bannerFileName ?? 'No image selected',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: _bannerFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: _bannerFileName != null ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _isUploadingBanner ? null : _pickBannerImage,
+                            icon: _isUploadingBanner
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.cloud_upload_outlined, size: 18),
+                            label: const Text(
+                              'Upload Banner',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE94E1B),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(
+                            _bannerFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
+                            size: 18,
+                            color: _bannerFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _bannerFileName ?? 'No image selected',
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: _bannerFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: _bannerFileName != null ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE94E1B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Icon(
-                      _bannerFileName != null ? Icons.check_circle : Icons.insert_drive_file_outlined,
-                      size: 18,
-                      color: _bannerFileName != null ? Colors.green : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _bannerFileName ?? 'No image selected',
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _bannerFileName != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
-                          fontWeight: _bannerFileName != null ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
                 if (_bannerBytes != null) ...[
                   const SizedBox(height: 16),
                   ClipRRect(
@@ -2457,13 +2542,19 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     );
   }
 
-  Widget _buildStep7AthleteGroups(ThemeData theme) {
-    final provider = Provider.of<CompetitionProvider>(context);
+  Widget _buildStep7CompGroup(ThemeData theme) {
     return Form(
       key: _formKeys[6],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('Competition Group', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(
+            'Select a competition group to associate with this competition, or select None for an individual competition.',
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 20),
           if (_selectedAssociationId != null) ...[
             _buildCustomDropdownField<String?>(
               labelText: 'Competition Group',
@@ -2486,47 +2577,111 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                 });
               },
             ),
-            const SizedBox(height: 16),
+          ] else ...[
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  'No parent association selected. Competition groups can only be selected when a parent association is configured in step 1.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
           ],
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text('Athlete Groups', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-              ),
-              const SizedBox(width: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  OutlinedButton.icon(
-                    key: const Key('apply_parent_groups_btn'),
-                    onPressed: _selectedAssociationId == null || _isLoadingParentGroups
-                        ? null
-                        : _applyParentAssociationGroups,
-                    icon: _isLoadingParentGroups
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.download_rounded, size: 18),
-                    label: const Text('Apply Parent Groups'),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAthleteGroupModal(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Group'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.onPrimary,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep8AthleteGroups(ThemeData theme) {
+    final provider = Provider.of<CompetitionProvider>(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    return Form(
+      key: _formKeys[7],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Athlete Groups',
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.start,
+                      children: [
+                        OutlinedButton.icon(
+                          key: const Key('apply_parent_groups_btn'),
+                          onPressed: _selectedAssociationId == null || _isLoadingParentGroups
+                              ? null
+                              : _applyParentAssociationGroups,
+                          icon: _isLoadingParentGroups
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.download_rounded, size: 18),
+                          label: const Text('Apply Parent Groups'),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAthleteGroupModal(),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Group'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text('Athlete Groups', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
+                          key: const Key('apply_parent_groups_btn'),
+                          onPressed: _selectedAssociationId == null || _isLoadingParentGroups
+                              ? null
+                              : _applyParentAssociationGroups,
+                          icon: _isLoadingParentGroups
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.download_rounded, size: 18),
+                          label: const Text('Apply Parent Groups'),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAthleteGroupModal(),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Group'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
           const SizedBox(height: 16),
           if (_athleteGroups.isEmpty)
             Center(
@@ -2602,7 +2757,11 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                           final idx = entry.key;
                           final group = entry.value;
                           return Padding(
-                            padding: const EdgeInsets.only(left: 24.0, top: 4.0, bottom: 4.0),
+                            padding: EdgeInsets.only(
+                              left: isMobile ? 0.0 : 24.0,
+                              top: 4.0,
+                              bottom: 4.0,
+                            ),
                             child: Card(
                               margin: EdgeInsets.zero,
                               elevation: 0,
@@ -2642,9 +2801,10 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     );
   }
 
-  Widget _buildStep8FeesBank(ThemeData theme) {
+  Widget _buildStep9FeesBank(ThemeData theme) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Form(
-      key: _formKeys[7],
+      key: _formKeys[8],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2667,64 +2827,117 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
           ),
           if (_requiresFees) ...[
             const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextFormField(
-                    controller: _feeAmountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Fee Amount *',
-                      hintText: 'e.g. 25.00',
-                      prefixIcon: Icon(Icons.monetization_on_outlined),
-                    ),
-                    validator: (value) {
-                      if (_requiresFees) {
-                        final parsed = value != null ? double.tryParse(value) : null;
-                        if (parsed == null || parsed < 0) {
-                          return 'Fee amount is required and cannot be negative';
-                        }
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: InkWell(
-                    onTap: () => _showCurrencySelectorDialog(theme),
-                    borderRadius: BorderRadius.circular(8),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Currency *',
-                        prefixIcon: Icon(Icons.monetization_on_outlined),
+            isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _feeAmountController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Fee Amount *',
+                          hintText: 'e.g. 25.00',
+                          prefixIcon: Icon(Icons.monetization_on_outlined),
+                        ),
+                        validator: (value) {
+                          if (_requiresFees) {
+                            final parsed = value != null ? double.tryParse(value) : null;
+                            if (parsed == null || parsed < 0) {
+                              return 'Fee amount is required and cannot be negative';
+                            }
+                          }
+                          return null;
+                        },
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '$_feeCurrency (${_allCurrencies.firstWhere((c) => c['code'] == _feeCurrency)['symbol']})',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface,
+                      const SizedBox(height: 16),
+                      InkWell(
+                        onTap: () => _showCurrencySelectorDialog(theme),
+                        borderRadius: BorderRadius.circular(8),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Currency *',
+                            prefixIcon: Icon(Icons.monetization_on_outlined),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '$_feeCurrency (${_allCurrencies.firstWhere((c) => c['code'] == _feeCurrency)['symbol']})',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              Icon(
+                                Icons.arrow_drop_down,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          controller: _feeAmountController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Fee Amount *',
+                            hintText: 'e.g. 25.00',
+                            prefixIcon: Icon(Icons.monetization_on_outlined),
+                          ),
+                          validator: (value) {
+                            if (_requiresFees) {
+                              final parsed = value != null ? double.tryParse(value) : null;
+                              if (parsed == null || parsed < 0) {
+                                return 'Fee amount is required and cannot be negative';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: InkWell(
+                          onTap: () => _showCurrencySelectorDialog(theme),
+                          borderRadius: BorderRadius.circular(8),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Currency *',
+                              prefixIcon: Icon(Icons.monetization_on_outlined),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '$_feeCurrency (${_allCurrencies.firstWhere((c) => c['code'] == _feeCurrency)['symbol']})',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ],
                             ),
                           ),
-                          Icon(
-                            Icons.arrow_drop_down,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
-            ),
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 12),
@@ -2765,9 +2978,9 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     );
   }
 
-  Widget _buildStep9PaymentSettings(ThemeData theme) {
+  Widget _buildStep10PaymentSettings(ThemeData theme) {
     return Form(
-      key: _formKeys[8],
+      key: _formKeys[9],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2851,9 +3064,9 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     );
   }
 
-  Widget _buildStep10Volunteers(ThemeData theme) {
+  Widget _buildStep11Volunteers(ThemeData theme) {
     return Form(
-      key: _formKeys[9],
+      key: _formKeys[10],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2949,9 +3162,9 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     );
   }
 
-  Widget _buildStep11DisclaimersCustomFields(ThemeData theme) {
+  Widget _buildStep12DisclaimersCustomFields(ThemeData theme) {
     return Form(
-      key: _formKeys[10],
+      key: _formKeys[11],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

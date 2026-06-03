@@ -338,6 +338,8 @@ class AssociationCompactRow extends StatelessWidget {
         : null;
     final showTerritory = territory != null && territory.isNotEmpty;
 
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
@@ -383,51 +385,97 @@ class AssociationCompactRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (!isDesktop) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          // Territory Badge (size matching UserCompactRow chips, if not global)
+                          if (showTerritory) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                                ),
+                              ),
+                              child: Text(
+                                territory.toUpperCase(),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+
+                          // Scope Badge (size matching UserCompactRow chips)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: scopeBg,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              association.scope.toUpperCase(),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scopeText,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              if (isDesktop) ...[
+                const SizedBox(width: 16),
+                // Territory Badge
+                if (showTerritory) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                      ),
+                    ),
+                    child: Text(
+                      territory.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
 
-              // Territory Badge (size matching UserCompactRow chips, if not global)
-              if (showTerritory) ...[
+                // Scope Badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
+                    color: scopeBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                    ),
                   ),
                   child: Text(
-                    territory.toUpperCase(),
+                    association.scope.toUpperCase(),
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface,
+                      color: scopeText,
                       fontWeight: FontWeight.bold,
                       fontSize: 10,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
               ],
-
-              // Scope Badge (size matching UserCompactRow chips)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: scopeBg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  association.scope.toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scopeText,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-
               const SizedBox(width: 12),
               Icon(
                 Icons.chevron_right,

@@ -143,18 +143,22 @@ void main() {
         await tester.pumpAndSettle();
 
         // Step 6: Registration Settings
-        // Step 6 -> Step 7
+        // Step 6 -> Step 7 (Competition Group)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
-        // We are at Step 7: Athlete Groups. Verify "Apply Parent Groups" button is disabled (onPressed is null)
+        // Step 7 -> Step 8 (Athlete Groups)
+        await tester.tap(nextButton);
+        await tester.pumpAndSettle();
+
+        // We are at Step 8: Athlete Groups. Verify "Apply Parent Groups" button is disabled (onPressed is null)
         final applyBtnFinder = find.byKey(const Key('apply_parent_groups_btn'));
         expect(applyBtnFinder, findsOneWidget);
         OutlinedButton applyBtn = tester.widget<OutlinedButton>(applyBtnFinder);
         expect(applyBtn.onPressed, isNull);
 
         // Go back to Step 1 to select the Parent Association
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 7; i++) {
           await tester.tap(find.widgetWithText(OutlinedButton, 'BACK'));
           await tester.pumpAndSettle();
         }
@@ -165,7 +169,7 @@ void main() {
         await tester.tap(find.text('Olympic Federation'));
         await tester.pumpAndSettle();
 
-        // Go forward to Step 7 again
+        // Go forward to Step 8 again
         // Step 1 -> Step 2
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
@@ -182,6 +186,9 @@ void main() {
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
         // Step 6 -> Step 7
+        await tester.tap(nextButton);
+        await tester.pumpAndSettle();
+        // Step 7 -> Step 8
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 

@@ -27,7 +27,7 @@ class MembersTabView extends StatelessWidget {
                 '${state.members.length} Members',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
-              if (state.hasManagePermission)
+              if (state.hasManagePermission && MediaQuery.of(context).size.width >= 900)
                 ElevatedButton.icon(
                   onPressed: state.showAddMemberModal,
                   icon: const Icon(Icons.add),
@@ -133,104 +133,107 @@ class MembersTabView extends StatelessWidget {
                   final displayUsername = profile != null ? '@${profile.username}' : '';
                   final avatarUrl = profile?.profilePictureUrl;
 
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
-                    child: Card(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
-                        borderRadius: BorderRadius.circular(12),
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                          width: 1,
+                        ),
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        leading: CircleAvatar(
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                              ? NetworkImage(ImageUrlResolver.resolve(context, avatarUrl))
-                              : null,
-                          child: avatarUrl == null || avatarUrl.isEmpty
-                              ? Text(
-                                  (profile?.username.isNotEmpty == true 
-                                      ? profile!.username[0] 
-                                      : (profile?.fullName.isNotEmpty == true 
-                                          ? profile!.fullName[0] 
-                                          : 'U')).toUpperCase(),
-                                  style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
-                                )
-                              : null,
-                        ),
-                        title: Text(
-                          displayName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: displayUsername.isNotEmpty
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                            ? NetworkImage(ImageUrlResolver.resolve(context, avatarUrl))
+                            : null,
+                        child: avatarUrl == null || avatarUrl.isEmpty
                             ? Text(
-                                displayUsername,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
+                                (profile?.username.isNotEmpty == true 
+                                    ? profile!.username[0] 
+                                    : (profile?.fullName.isNotEmpty == true 
+                                        ? profile!.fullName[0] 
+                                        : 'U')).toUpperCase(),
+                                style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
                               )
                             : null,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (member.customTitle != null && member.customTitle!.isNotEmpty) ...[
-                              Chip(
-                                label: Text(member.customTitle!.toUpperCase()),
-                                labelStyle: TextStyle(
+                      ),
+                      title: Text(
+                        displayName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (displayUsername.isNotEmpty) ...[
+                            Text(
+                              displayUsername,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          if (member.customTitle != null && member.customTitle!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Chip(
+                              label: Text(
+                                member.customTitle!.toUpperCase(),
+                                style: TextStyle(
                                   color: theme.colorScheme.onSurfaceVariant,
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
-                                backgroundColor: theme.colorScheme.outlineVariant.withOpacity(0.3),
-                                side: BorderSide.none,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
                               ),
-                              if (state.hasManagePermission) const SizedBox(width: 16),
-                            ],
-                            if (state.hasManagePermission) ...[
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: isOwner
-                                    ? [
-                                        IconButton(
-                                          icon: const Icon(Icons.edit_outlined),
-                                          tooltip: 'Update Member Title',
-                                          color: theme.colorScheme.primary,
-                                          onPressed: () => state.showUpdateMemberModal(member, profile),
-                                        ),
-                                      ]
-                                    : [
-                                        IconButton(
-                                          icon: const Icon(Icons.swap_horiz_outlined),
-                                          tooltip: 'Transfer Ownership',
-                                          color: const Color(0xFFE94E1B),
-                                          onPressed: () => state.transferOwnership(member.userId),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit_outlined),
-                                          tooltip: 'Update Member',
-                                          color: theme.colorScheme.primary,
-                                          onPressed: () => state.showUpdateMemberModal(member, profile),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                                          tooltip: 'Remove Member',
-                                          onPressed: () => state.showRemoveMemberConfirmation(member, profile),
-                                        ),
-                                      ],
+                              padding: EdgeInsets.zero,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                              backgroundColor: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                              side: BorderSide.none,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ],
+                            ),
                           ],
-                        ),
+                        ],
                       ),
+                      trailing: state.hasManagePermission
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: isOwner
+                                  ? [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_outlined),
+                                        tooltip: 'Update Member Title',
+                                        color: theme.colorScheme.primary,
+                                        onPressed: () => state.showUpdateMemberModal(member, profile),
+                                      ),
+                                    ]
+                                  : [
+                                      IconButton(
+                                        icon: const Icon(Icons.swap_horiz_outlined),
+                                        tooltip: 'Transfer Ownership',
+                                        color: const Color(0xFFE94E1B),
+                                        onPressed: () => state.transferOwnership(member.userId),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_outlined),
+                                        tooltip: 'Update Member',
+                                        color: theme.colorScheme.primary,
+                                        onPressed: () => state.showUpdateMemberModal(member, profile),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                                        tooltip: 'Remove Member',
+                                        onPressed: () => state.showRemoveMemberConfirmation(member, profile),
+                                      ),
+                                    ],
+                            )
+                          : null,
                     ),
                   );
                 }

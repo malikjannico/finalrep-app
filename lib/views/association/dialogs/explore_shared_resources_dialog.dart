@@ -47,6 +47,12 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
   List<Map<String, dynamic>> _selectedCompGroups = [];
   List<Map<String, dynamic>> _selectedAthleteGroups = [];
 
+  // Filter states
+  String _searchQuery = '';
+  final Set<String> _selectedSports = {};
+  final Set<String> _selectedFormats = {};
+  final Set<String> _selectedGenders = {};
+
   @override
   void initState() {
     super.initState();
@@ -61,11 +67,6 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
     );
 
     _loadSharedResources();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   Future<void> _loadSharedResources() async {
@@ -90,6 +91,7 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
 
     for (var neighbor in neighbors) {
       if (widget.resourceType == 'rulebooks') {
+        final appliedRulebooksMap = widget.currentAssociation.appliedSharedResources['rulebooks'] as Map? ?? {};
         neighbor.rulebooks.forEach((sport, url) {
           final sharing = neighbor.rulebooksSharing[sport] as Map<String, dynamic>? ?? {'mode': 'private', 'targets': []};
           if (isResourceSharedWith(
@@ -99,12 +101,15 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
             allAssociations: widget.allAssociations,
           )) {
             for (var format in neighbor.supportedFormats) {
-              rulebooks.add(_SharedRulebookItem(
-                sport: sport,
-                format: format,
-                url: url,
-                owningAssociation: neighbor,
-              ));
+              final key = '$sport:$format';
+              if (!appliedRulebooksMap.containsKey(key)) {
+                rulebooks.add(_SharedRulebookItem(
+                  sport: sport,
+                  format: format,
+                  url: url,
+                  owningAssociation: neighbor,
+                ));
+              }
             }
           }
         });
@@ -113,6 +118,7 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
       if (widget.resourceType == 'competition_groups') {
         try {
           final groups = await compProvider.getCompetitionGroups(neighbor.id);
+          final appliedCompGroupsList = widget.currentAssociation.appliedSharedResources['competition_groups'] as List? ?? [];
           for (var g in groups) {
             if (isResourceSharedWith(
               resourceOwnerId: neighbor.id,
@@ -120,7 +126,10 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
               targetAssociationId: widget.currentAssociation.id,
               allAssociations: widget.allAssociations,
             )) {
-              compGroups.add(g);
+              final alreadyApplied = appliedCompGroupsList.any((item) => item is Map && item['id'] == g.id);
+              if (!alreadyApplied) {
+                compGroups.add(g);
+              }
             }
           }
         } catch (e) {
@@ -131,6 +140,7 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
       if (widget.resourceType == 'athlete_groups') {
         try {
           final groups = await compProvider.getAthleteGroups(neighbor.id);
+          final appliedAthleteGroupsList = widget.currentAssociation.appliedSharedResources['athlete_groups'] as List? ?? [];
           for (var g in groups) {
             if (isResourceSharedWith(
               resourceOwnerId: neighbor.id,
@@ -138,7 +148,10 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
               targetAssociationId: widget.currentAssociation.id,
               allAssociations: widget.allAssociations,
             )) {
-              athleteGroups.add(g);
+              final alreadyApplied = appliedAthleteGroupsList.any((item) => item is Map && item['id'] == g.id);
+              if (!alreadyApplied) {
+                athleteGroups.add(g);
+              }
             }
           }
         } catch (e) {
@@ -157,17 +170,68 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
     }
   }
 
+  // Helper filters
+  List<_SharedRulebookItem> get _filteredRulebooks {
+    final query = _searchQuery.trim().toLowerCase();
+    return _eligibleRulebooks.where((item) {
+      final matchesQuery = query.isEmpty ||
+          item.sport.toLowerCase().contains(query) ||
+          item.format.toLowerCase().contains(query) ||
+          item.owningAssociation.name.toLowerCase().contains(query);
+      final matchesSport = _selectedSports.isEmpty || _selectedSports.contains(item.sport);
+      final matchesFormat = _selectedFormats.isEmpty || _selectedFormats.contains(item.format);
+      return matchesQuery && matchesSport && matchesFormat;
+    }).toList();
+  }
+
+  List<CompetitionGroup> get _filteredCompGroups {
+    final query = _searchQuery.trim().toLowerCase();
+    return _eligibleCompGroups.where((g) {
+      final owner = widget.allAssociations.firstWhere((a) => a.id == g.associationId, orElse: () => widget.currentAssociation);
+      final matchesQuery = query.isEmpty ||
+          g.name.toLowerCase().contains(query) ||
+          owner.name.toLowerCase().contains(query);
+      final matchesSport = _selectedSports.isEmpty || _selectedSports.contains(g.sport);
+      final matchesFormat = _selectedFormats.isEmpty || _selectedFormats.contains(g.format);
+      return matchesQuery && matchesSport && matchesFormat;
+    }).toList();
+  }
+
+  List<AthleteGroup> get _filteredAthleteGroups {
+    final query = _searchQuery.trim().toLowerCase();
+    return _eligibleAthleteGroups.where((g) {
+      final owner = widget.allAssociations.firstWhere((a) => a.id == g.associationId, orElse: () => widget.currentAssociation);
+      final matchesQuery = query.isEmpty ||
+          g.name.toLowerCase().contains(query) ||
+          owner.name.toLowerCase().contains(query);
+      final matchesSport = _selectedSports.isEmpty || _selectedSports.contains(g.sport);
+      final matchesFormat = _selectedFormats.isEmpty || _selectedFormats.contains(g.format);
+      final matchesGender = _selectedGenders.isEmpty || _selectedGenders.contains(g.gender);
+      return matchesQuery && matchesSport && matchesFormat && matchesGender;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final compProvider = Provider.of<CompetitionProvider>(context);
+
     final String titleText;
+    int selectedCount = 0;
     if (widget.resourceType == 'rulebooks') {
       titleText = 'Explore Shared Rulebooks';
+      selectedCount = _selectedRulebooks.length;
     } else if (widget.resourceType == 'competition_groups') {
       titleText = 'Explore Shared Competition Groups';
+      selectedCount = _selectedCompGroups.length;
     } else {
       titleText = 'Explore Shared Athlete Groups';
+      selectedCount = _selectedAthleteGroups.length;
     }
+
+    final sportsList = compProvider.sportConfig?.sports.map((s) => s.name).toList() ?? ['Streetlifting'];
+    final formatsList = compProvider.sportConfig?.formats.map((f) => f.name).toSet().toList() ?? ['Modern', 'Classic'];
+    final gendersList = const ['men', 'women', 'mixed'];
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -190,14 +254,101 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
               ],
             ),
             const SizedBox(height: 16),
+            if (!_loading) ...[
+              // Search input
+              TextField(
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search shared resources by name or owner...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                  contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                ),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              // Filter chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    ...sportsList.map((sport) {
+                      final isSelected = _selectedSports.contains(sport);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterChip(
+                          label: Text(sport),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedSports.add(sport);
+                              } else {
+                                _selectedSports.remove(sport);
+                              }
+                            });
+                          },
+                        ),
+                      );
+                    }),
+                    ...formatsList.map((format) {
+                      final isSelected = _selectedFormats.contains(format);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterChip(
+                          label: Text(format),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedFormats.add(format);
+                              } else {
+                                _selectedFormats.remove(format);
+                              }
+                            });
+                          },
+                        ),
+                      );
+                    }),
+                    if (widget.resourceType == 'athlete_groups')
+                      ...gendersList.map((g) {
+                        final isSelected = _selectedGenders.contains(g);
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: FilterChip(
+                            label: Text(g == 'women' ? 'Women' : (g.isEmpty ? '' : g[0].toUpperCase() + g.substring(1))),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _selectedGenders.add(g);
+                                } else {
+                                  _selectedGenders.remove(g);
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      }),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Number Indicator and Select All Checkbox
+              _buildSelectAllBar(theme),
+              const Divider(),
+            ],
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : widget.resourceType == 'rulebooks'
-                      ? _buildRulebooksTab(theme)
+                      ? _buildRulebooksList(theme)
                       : widget.resourceType == 'competition_groups'
-                          ? _buildCompGroupsTab(theme)
-                          : _buildAthleteGroupsTab(theme),
+                          ? _buildCompGroupsList(theme)
+                          : _buildAthleteGroupsList(theme),
             ),
             const SizedBox(height: 16),
             Row(
@@ -231,137 +382,355 @@ class _ExploreSharedResourcesDialogState extends State<ExploreSharedResourcesDia
     );
   }
 
-  Widget _buildRulebooksTab(ThemeData theme) {
-    if (_eligibleRulebooks.isEmpty) {
-      return const Center(child: Text('No shared rulebooks available.'));
+  Widget _buildSelectAllBar(ThemeData theme) {
+    bool? allSelected;
+    bool? tristateValue;
+    int itemsCount = 0;
+    int selectedCount = 0;
+    VoidCallback? onSelectAllToggled;
+
+    if (widget.resourceType == 'rulebooks') {
+      final items = _filteredRulebooks;
+      itemsCount = items.length;
+      final selectedItems = items.where((item) {
+        final key = '${item.sport}:${item.format}';
+        return _selectedRulebooks[key]?['owning_association_id'] == item.owningAssociation.id;
+      }).toList();
+      selectedCount = selectedItems.length;
+
+      allSelected = itemsCount > 0 && selectedCount == itemsCount;
+      final anySelected = selectedCount > 0;
+      tristateValue = allSelected ? true : (anySelected ? null : false);
+
+      onSelectAllToggled = () {
+        setState(() {
+          if (allSelected == true) {
+            for (var item in items) {
+              final key = '${item.sport}:${item.format}';
+              _selectedRulebooks.remove(key);
+            }
+          } else {
+            for (var item in items) {
+              final key = '${item.sport}:${item.format}';
+              _selectedRulebooks[key] = {
+                'rulebook_url': item.url,
+                'owning_association_id': item.owningAssociation.id,
+              };
+            }
+          }
+        });
+      };
+    } else if (widget.resourceType == 'competition_groups') {
+      final items = _filteredCompGroups;
+      itemsCount = items.length;
+      final selectedItems = items.where((g) => _selectedCompGroups.any((item) => item['id'] == g.id)).toList();
+      selectedCount = selectedItems.length;
+
+      allSelected = itemsCount > 0 && selectedCount == itemsCount;
+      final anySelected = selectedCount > 0;
+      tristateValue = allSelected ? true : (anySelected ? null : false);
+
+      onSelectAllToggled = () {
+        setState(() {
+          if (allSelected == true) {
+            for (var g in items) {
+              _selectedCompGroups.removeWhere((item) => item['id'] == g.id);
+            }
+          } else {
+            for (var g in items) {
+              if (!_selectedCompGroups.any((item) => item['id'] == g.id)) {
+                _selectedCompGroups.add({
+                  'id': g.id,
+                  'owning_association_id': g.associationId,
+                });
+              }
+            }
+          }
+        });
+      };
+    } else {
+      final items = _filteredAthleteGroups;
+      itemsCount = items.length;
+      final selectedItems = items.where((g) => _selectedAthleteGroups.any((item) => item['id'] == g.id)).toList();
+      selectedCount = selectedItems.length;
+
+      allSelected = itemsCount > 0 && selectedCount == itemsCount;
+      final anySelected = selectedCount > 0;
+      tristateValue = allSelected ? true : (anySelected ? null : false);
+
+      onSelectAllToggled = () {
+        setState(() {
+          if (allSelected == true) {
+            for (var g in items) {
+              _selectedAthleteGroups.removeWhere((item) => item['id'] == g.id);
+            }
+          } else {
+            for (var g in items) {
+              if (!_selectedAthleteGroups.any((item) => item['id'] == g.id)) {
+                _selectedAthleteGroups.add({
+                  'id': g.id,
+                  'owning_association_id': g.associationId,
+                });
+              }
+            }
+          }
+        });
+      };
     }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '$selectedCount / $itemsCount selected',
+          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        Row(
+          children: [
+            const Text('Select All shown'),
+            Checkbox(
+              value: tristateValue,
+              tristate: true,
+              activeColor: const Color(0xFFE94E1B),
+              onChanged: (_) => onSelectAllToggled?.call(),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRulebooksList(ThemeData theme) {
+    final items = _filteredRulebooks;
+    if (items.isEmpty) {
+      return const Center(child: Text('No shared rulebooks available matching filters.'));
+    }
+
     return ListView.builder(
-      itemCount: _eligibleRulebooks.length,
+      itemCount: items.length,
       itemBuilder: (context, idx) {
-        final item = _eligibleRulebooks[idx];
+        final item = items[idx];
         final key = '${item.sport}:${item.format}';
         final isApplied = _selectedRulebooks[key]?['owning_association_id'] == item.owningAssociation.id;
 
-        return CheckboxListTile(
-          title: Text('${item.sport} (${item.format})'),
-          subtitle: Text('Shared by: ${item.owningAssociation.name}\nURL: ${item.url}'),
-          value: isApplied,
-          onChanged: (bool? checked) {
-            setState(() {
-              if (checked == true) {
-                _selectedRulebooks[key] = {
-                  'rulebook_url': item.url,
-                  'owning_association_id': item.owningAssociation.id,
-                };
-              } else {
-                _selectedRulebooks.remove(key);
-              }
-            });
-          },
+        return Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+          ),
+          child: CheckboxListTile(
+            activeColor: const Color(0xFFE94E1B),
+            title: Text('${item.sport} - ${item.format}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Shared by ${item.owningAssociation.name}',
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.secondary),
+                    ),
+                  ),
+                  Text(
+                    'Url: ${item.url}',
+                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.onSurfaceVariant),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            value: isApplied,
+            onChanged: (bool? checked) {
+              setState(() {
+                if (checked == true) {
+                  _selectedRulebooks[key] = {
+                    'rulebook_url': item.url,
+                    'owning_association_id': item.owningAssociation.id,
+                  };
+                } else {
+                  _selectedRulebooks.remove(key);
+                }
+              });
+            },
+          ),
         );
       },
     );
   }
 
-  Widget _buildCompGroupsTab(ThemeData theme) {
-    if (_eligibleCompGroups.isEmpty) {
-      return const Center(child: Text('No shared competition groups available.'));
+  Widget _buildCompGroupsList(ThemeData theme) {
+    final items = _filteredCompGroups;
+    if (items.isEmpty) {
+      return const Center(child: Text('No shared competition groups available matching filters.'));
     }
+
     return ListView.builder(
-      itemCount: _eligibleCompGroups.length,
+      itemCount: items.length,
       itemBuilder: (context, idx) {
-        final group = _eligibleCompGroups[idx];
+        final group = items[idx];
         final isApplied = _selectedCompGroups.any((item) => item['id'] == group.id);
         final ownerAssoc = widget.allAssociations.where((a) => a.id == group.associationId).firstOrNull;
         final ownerName = ownerAssoc?.name ?? 'Other';
 
-        return CheckboxListTile(
-          title: Text(group.name),
-          subtitle: Text('${group.sport} • ${group.format} (Shared by: $ownerName)'),
-          value: isApplied,
-          onChanged: (bool? checked) {
-            setState(() {
-              if (checked == true) {
-                _selectedCompGroups.add({
-                  'id': group.id,
-                  'owning_association_id': group.associationId,
-                });
-              } else {
-                _selectedCompGroups.removeWhere((item) => item['id'] == group.id);
-              }
-            });
-          },
+        return Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+          ),
+          child: CheckboxListTile(
+            activeColor: const Color(0xFFE94E1B),
+            title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      group.format,
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.primary),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Shared by $ownerName',
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.secondary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            value: isApplied,
+            onChanged: (bool? checked) {
+              setState(() {
+                if (checked == true) {
+                  _selectedCompGroups.add({
+                    'id': group.id,
+                    'owning_association_id': group.associationId,
+                  });
+                } else {
+                  _selectedCompGroups.removeWhere((item) => item['id'] == group.id);
+                }
+              });
+            },
+          ),
         );
       },
     );
   }
 
-  Widget _buildAthleteGroupsTab(ThemeData theme) {
-    if (_eligibleAthleteGroups.isEmpty) {
-      return const Center(child: Text('No shared athlete groups available.'));
+  Widget _buildAthleteGroupsList(ThemeData theme) {
+    final items = _filteredAthleteGroups;
+    if (items.isEmpty) {
+      return const Center(child: Text('No shared athlete groups available matching filters.'));
     }
 
-    final allSelected = _eligibleAthleteGroups.every((g) =>
-        _selectedAthleteGroups.any((item) => item['id'] == g.id));
-    final anySelected = _eligibleAthleteGroups.any((g) =>
-        _selectedAthleteGroups.any((item) => item['id'] == g.id));
+    return ListView.builder(
+      itemCount: items.length,
+      itemBuilder: (context, idx) {
+        final group = items[idx];
+        final isApplied = _selectedAthleteGroups.any((item) => item['id'] == group.id);
+        final ownerAssoc = widget.allAssociations.where((a) => a.id == group.associationId).firstOrNull;
+        final ownerName = ownerAssoc?.name ?? 'Other';
+        final displayGender = group.gender == 'women' ? 'Women' : (group.gender.isEmpty ? '' : group.gender[0].toUpperCase() + group.gender.substring(1));
 
-    return Column(
-      children: [
-        CheckboxListTile(
-          title: const Text('Select All Shared Classes', style: TextStyle(fontWeight: FontWeight.bold)),
-          value: allSelected,
-          tristate: anySelected && !allSelected,
-          onChanged: (bool? checked) {
-            setState(() {
-              if (checked == true) {
-                for (var group in _eligibleAthleteGroups) {
-                  if (!_selectedAthleteGroups.any((item) => item['id'] == group.id)) {
-                    _selectedAthleteGroups.add({
-                      'id': group.id,
-                      'owning_association_id': group.associationId,
-                    });
-                  }
-                }
-              } else {
-                for (var group in _eligibleAthleteGroups) {
+        return Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+          ),
+          child: CheckboxListTile(
+            activeColor: const Color(0xFFE94E1B),
+            title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      group.format,
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.primary),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      displayGender,
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Shared by $ownerName',
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.secondary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            value: isApplied,
+            onChanged: (bool? checked) {
+              setState(() {
+                if (checked == true) {
+                  _selectedAthleteGroups.add({
+                    'id': group.id,
+                    'owning_association_id': group.associationId,
+                  });
+                } else {
                   _selectedAthleteGroups.removeWhere((item) => item['id'] == group.id);
                 }
-              }
-            });
-          },
-        ),
-        const Divider(),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _eligibleAthleteGroups.length,
-            itemBuilder: (context, idx) {
-              final group = _eligibleAthleteGroups[idx];
-              final isApplied = _selectedAthleteGroups.any((item) => item['id'] == group.id);
-              final ownerAssoc = widget.allAssociations.where((a) => a.id == group.associationId).firstOrNull;
-              final ownerName = ownerAssoc?.name ?? 'Other';
-
-              return CheckboxListTile(
-                title: Text(group.name),
-                subtitle: Text('${group.sport} • ${group.format} • ${group.gender.toUpperCase()} (Shared by: $ownerName)'),
-                value: isApplied,
-                onChanged: (bool? checked) {
-                  setState(() {
-                    if (checked == true) {
-                      _selectedAthleteGroups.add({
-                        'id': group.id,
-                        'owning_association_id': group.associationId,
-                      });
-                    } else {
-                      _selectedAthleteGroups.removeWhere((item) => item['id'] == group.id);
-                    }
-                  });
-                },
-              );
+              });
             },
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

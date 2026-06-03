@@ -1196,7 +1196,9 @@ void main() {
       expect(find.text('This association has no parent association. It is a root association in the network.'), findsOneWidget);
 
       // Sub-associations header should be visible
-      expect(find.text('0 Sub-Associations'), findsOneWidget);
+      expect(find.text('Sub-Associations'), findsOneWidget);
+      expect(find.byKey(const Key('network/subs/count')), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('network/subs/count'))).data, '0');
 
       // Tap on "Add Sub-Association"
       expect(find.text('Add Sub-Association'), findsOneWidget);
@@ -1216,7 +1218,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify sub-association was added
-      expect(find.text('1 Sub-Associations'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('network/subs/count'))).data, '1');
       expect(find.text('Other Association'), findsAtLeast(1));
 
       // Now tap "Remove" next to "Other Association"
@@ -1229,7 +1231,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify sub-association was removed
-      expect(find.text('0 Sub-Associations'), findsOneWidget);
+      expect(find.byKey(const Key('network/subs/count')), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('network/subs/count'))).data, '0');
     });
 
     testWidgets('AssociationManagementPage Delete Association flow requires typing confirmation word', (tester) async {
@@ -1384,24 +1387,21 @@ void main() {
       final stateFinder = find.byType(AssociationManagementPage);
       expect(stateFinder, findsOneWidget);
 
-      TabBar getTabBar() {
-        return tester.widget<TabBar>(find.byType(TabBar).first);
-      }
+      final state = tester.state<AssociationManagementPageState>(stateFinder);
+      expect(state.tabController.index, 1);
 
-      expect(getTabBar().controller!.index, 1);
-
-      final compGroupsTab = find.text('Comp Groups');
+      final compGroupsTab = find.text('Competition Groups');
       expect(compGroupsTab, findsOneWidget);
       await tester.tap(compGroupsTab);
       await tester.pumpAndSettle();
 
-      expect(getTabBar().controller!.index, 2);
+      expect(state.tabController.index, 2);
       expect(goRouter.state!.matchedLocation, '/management/associations/test-route-id/compgroups');
 
       goRouter.go('/management/associations/test-route-id/members');
       await tester.pumpAndSettle();
 
-      expect(getTabBar().controller!.index, 1);
+      expect(state.tabController.index, 1);
     });
 
     testWidgets('GoRouter handles asynchronous AuthProvider initialization correctly on deep-linked page', (tester) async {
@@ -1458,8 +1458,8 @@ void main() {
       final stateFinder = find.byType(AssociationManagementPage);
       expect(stateFinder, findsOneWidget);
 
-      final tabBar = tester.widget<TabBar>(find.byType(TabBar).first);
-      expect(tabBar.controller!.index, 1);
+      final state = tester.state<AssociationManagementPageState>(stateFinder);
+      expect(state.tabController.index, 1);
     });
 
     testWidgets('AssociationCard (Grid View) displays territory/location chip directly below scope chip', (tester) async {
@@ -1954,16 +1954,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tap on Members tab
-      expect(find.text('Members'), findsOneWidget);
-      await tester.tap(find.text('Members'));
+      // Tap on Member tab
+      expect(find.text('Member'), findsOneWidget);
+      await tester.tap(find.text('Member'));
       await tester.pumpAndSettle();
 
       // Verify the header is Owner (not Owners)
       expect(find.text('Owner'), findsOneWidget);
 
       // Verify the custom title PRESIDENT is displayed on the Chip instead of OWNER
-      final cardFinder = find.ancestor(of: find.text('President Name'), matching: find.byType(Card));
+      final cardFinder = find.ancestor(of: find.text('President Name'), matching: find.byType(ListTile));
       expect(cardFinder, findsOneWidget);
       final chipFinder = find.descendant(of: cardFinder, matching: find.byType(Chip));
       expect(chipFinder, findsOneWidget);
@@ -1971,7 +1971,7 @@ void main() {
       expect((chip.label as Text).data, 'PRESIDENT');
 
       // Verify that member2 (Regular User) without custom title does NOT display a Chip
-      final regularCardFinder = find.ancestor(of: find.text('Regular User'), matching: find.byType(Card));
+      final regularCardFinder = find.ancestor(of: find.text('Regular User'), matching: find.byType(ListTile));
       expect(regularCardFinder, findsOneWidget);
       final regularChipFinder = find.descendant(of: regularCardFinder, matching: find.byType(Chip));
       expect(regularChipFinder, findsNothing);
@@ -2043,8 +2043,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tap on Members tab
-      await tester.tap(find.text('Members'));
+      // Tap on Member tab
+      await tester.tap(find.text('Member'));
       await tester.pumpAndSettle();
 
       // Verify member is rendered
@@ -2069,12 +2069,65 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify custom title is updated to CEO on the card chip
-      final cardFinder = find.ancestor(of: find.text('President Name'), matching: find.byType(Card));
+      final cardFinder = find.ancestor(of: find.text('President Name'), matching: find.byType(ListTile));
       expect(cardFinder, findsOneWidget);
       final chipFinder = find.descendant(of: cardFinder, matching: find.byType(Chip));
       expect(chipFinder, findsOneWidget);
       final chip = tester.widget<Chip>(chipFinder);
       expect((chip.label as Text).data, 'CEO');
+    });
+
+    testWidgets('AssociationManagementPage and tab views are responsive on mobile views', (tester) async {
+      final userProfile = Profile(
+        id: 'user-admin',
+        username: 'admin',
+        fullName: 'Admin User',
+        email: 'admin@example.com',
+        isAdmin: true,
+      );
+      authProvider = MockAuthProvider(isAuthenticated: true, currentUserProfile: userProfile);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<CompetitionProvider>.value(value: compProvider),
+            ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+          ],
+          child: MaterialApp(
+            home: AssociationManagementPage(associationId: 'assoc-123', isInline: false),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 1. Verify leading back button is present on Mobile AppBar
+      expect(find.byKey(const Key('assoc_back_btn')), findsOneWidget);
+
+      // 2. Verify TabBar has isScrollable = true on Mobile viewport
+      final tabBarFinder = find.byType(TabBar);
+      expect(tabBarFinder, findsOneWidget);
+      final TabBar tabBar = tester.widget<TabBar>(tabBarFinder);
+      expect(tabBar.isScrollable, isTrue);
+      expect(tabBar.tabAlignment, TabAlignment.start);
+
+      // 3. Verify no FAB is shown on Metadata tab (index 0)
+      expect(find.byType(FloatingActionButton), findsNothing);
+
+      // 4. Tap the Member tab, verify FAB is displayed and inline button is hidden
+      await tester.tap(find.text('Member'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('add_member_fab')), findsOneWidget);
+      
+      // The only "Add Member" text should be within the FAB (proving inline is hidden)
+      final addMemberTextFinder = find.text('Add Member');
+      expect(addMemberTextFinder, findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('add_member_fab')),
+          matching: addMemberTextFinder,
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

@@ -1274,13 +1274,13 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     final isMobile = !isDesktop;
+    final showAppBar = !hideAppBar && !(isMobile && _isEditing);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      extendBodyBehindAppBar: !hideAppBar,
-      appBar: hideAppBar
-          ? null
-          : AppBar(
+      extendBodyBehindAppBar: showAppBar,
+      appBar: showAppBar
+          ? AppBar(
               automaticallyImplyLeading: false,
               backgroundColor: _showAppBarTitle || _isEditing
                   ? theme.colorScheme.surface
@@ -1329,7 +1329,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-            ),
+            )
+          : null,
       body: SingleChildScrollView(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
