@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../models/association.dart';
-import '../providers/auth_provider.dart';
-import '../providers/competition_provider.dart';
 import '../views/association_detail_page.dart';
-import '../views/association_management_page.dart';
 import '../utils/image_url_resolver.dart';
 
 class AssociationCard extends StatefulWidget {
@@ -87,7 +83,7 @@ class _AssociationCardState extends State<AssociationCard> {
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 80,
+                height: 120,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -104,7 +100,7 @@ class _AssociationCardState extends State<AssociationCard> {
               ),
               // Body Content (overlapping logo)
               Positioned(
-                top: 56, // 80 - 24 overlap
+                top: 96, // 120 - 24 overlap
                 left: 0,
                 right: 0,
                 bottom: 0,
@@ -146,7 +142,7 @@ class _AssociationCardState extends State<AssociationCard> {
                               widget.association.name,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                                fontSize: 15,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -173,7 +169,7 @@ class _AssociationCardState extends State<AssociationCard> {
                       const SizedBox(width: 16),
                       // Right Column: Scope & Location badges (Location under Scope)
                       Padding(
-                        padding: const EdgeInsets.only(top: 40.0), // Keep 16px below banner (80 - 56 + 16 = 40)
+                        padding: const EdgeInsets.only(top: 40.0), // Keep 16px below banner (120 - 96 + 16 = 40)
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -281,8 +277,6 @@ class AssociationCompactRow extends StatelessWidget {
         ? (association.areaName ?? association.country)
         : null;
     final showTerritory = territory != null && territory.isNotEmpty;
-
-    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     final chipsList = [
       if (showTerritory)

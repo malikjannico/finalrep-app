@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../mocks/supabase_dummies.dart';
 import 'package:finalrep_app/utils/streetlifting_rules_engine.dart';
 import 'package:finalrep_app/providers/auth_provider.dart';
 import 'package:finalrep_app/repositories/notification_repository.dart';
@@ -834,7 +834,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   void initState() {
     super.initState();
-    _repository = NotificationRepository(Supabase.instance.client);
+    _repository = NotificationRepository();
     _loadNotifications();
   }
 

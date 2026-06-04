@@ -3899,9 +3899,9 @@ class AssociationManagementPageState extends State<AssociationManagementPage>
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        mainAxisExtent: 270,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+        mainAxisExtent: 290,
       ),
       itemCount: associations.length,
       itemBuilder: (context, index) {

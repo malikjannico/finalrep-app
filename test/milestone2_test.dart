@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'mocks/shared_mocks.dart';
 import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/models/permission_application.dart';
 import 'package:finalrep_app/models/admin_config.dart';
@@ -16,27 +17,6 @@ import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
 
 // --- Mocks ---
-
-class MockSupabaseClient implements SupabaseClient {
-  @override
-  final MockGoTrueClient auth;
-
-  MockSupabaseClient({required this.auth});
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockGoTrueClient implements GoTrueClient {
-  final StreamController<AuthState> _authStateController;
-  MockGoTrueClient(this._authStateController);
-
-  @override
-  Stream<AuthState> get onAuthStateChange => _authStateController.stream;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
 
 class MockProfileRepository implements ProfileRepository {
   final Map<String, Profile> profiles = {};
@@ -80,24 +60,24 @@ void main() {
     late AdminRepository adminRepository;
     late MockProfileRepository profileRepository;
     late AuthProvider authProvider;
-    late StreamController<AuthState> authStateController;
+    late StreamController<fb.User?> firebaseAuthStateController;
+    late MockFirebaseAuth mockFirebaseAuth;
 
     setUp(() {
-      adminRepository = AdminRepository(null); // Force in-memory mock fallback
+      adminRepository = AdminRepository(); // Force in-memory mock fallback
       profileRepository = MockProfileRepository();
-      authStateController = StreamController<AuthState>.broadcast();
-      final mockAuth = MockGoTrueClient(authStateController);
-      final mockClient = MockSupabaseClient(auth: mockAuth);
+      firebaseAuthStateController = StreamController<fb.User?>.broadcast();
+      mockFirebaseAuth = MockFirebaseAuth(firebaseAuthStateController);
       authProvider = AuthProvider(
-        mockClient,
         profileRepository,
+        firebaseAuth: mockFirebaseAuth,
         adminRepository: adminRepository,
       );
     });
 
     tearDown(() {
       authProvider.dispose();
-      authStateController.close();
+      firebaseAuthStateController.close();
     });
 
     test(
@@ -216,9 +196,7 @@ void main() {
     late CompetitionProvider competitionProvider;
 
     setUp(() {
-      associationRepository = AssociationRepository(
-        null,
-      ); // Force in-memory fallback
+      associationRepository = AssociationRepository(); // Force in-memory fallback
       competitionProvider = CompetitionProvider(
         MockCompetitionRepository(),
         MockProfileRepository(),

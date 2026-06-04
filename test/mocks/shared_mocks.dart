@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/models/association.dart';
@@ -24,59 +23,9 @@ import 'package:finalrep_app/repositories/association_repository.dart';
 import 'package:finalrep_app/repositories/admin_repository.dart';
 import 'package:finalrep_app/repositories/notification_repository.dart';
 import 'package:finalrep_app/providers/auth_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 
-// === Supabase Mocks ===
-
-class MockSupabaseClient implements SupabaseClient {
-  final GoTrueClient? _auth;
-  MockSupabaseClient({GoTrueClient? auth}) : _auth = auth;
-
-  @override
-  GoTrueClient get auth => _auth ?? MockGoTrueClient();
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockUserResponse implements UserResponse {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockGoTrueClient implements GoTrueClient {
-  final StreamController<AuthState>? _authStateController;
-  MockGoTrueClient([this._authStateController]);
-
-  @override
-  Stream<AuthState> get onAuthStateChange =>
-      _authStateController?.stream ?? const Stream.empty();
-
-  @override
-  User? get currentUser => null;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockSupabaseStorageClient implements SupabaseStorageClient {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockStorageFileApi implements StorageFileApi {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockSupabaseQueryBuilder implements SupabaseQueryBuilder {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class MockPostgrestFilterBuilder<T> implements PostgrestFilterBuilder<T> {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
+// === File Picker Mock ===
 
 class MockFilePicker extends FilePicker {
   final FilePickerResult? customResult;
@@ -234,7 +183,7 @@ class MockProfileRepository implements ProfileRepository {
 
   @override
   Future<String?> uploadFile(List<int> bytes, String fileName) async {
-    return 'https://supabase.mock.storage/uploads/$fileName';
+    return 'https://mock.storage/uploads/$fileName';
   }
 
   @override
@@ -432,8 +381,6 @@ class MockCompetitionRepository implements CompetitionRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
-  @override
-  SupabaseClient get client => MockSupabaseClient();
 
   @override
   Future<Competition?> getCompetitionById(String id) async {
@@ -534,6 +481,15 @@ class MockCompetitionRepository implements CompetitionRepository {
 
   @override
   Future<List<Map<String, dynamic>>> getMeetResults() async => fakeMeetResults;
+
+  @override
+  Future<int> getVolunteerCount(String competitionId) async => 5;
+
+  @override
+  Future<bool> submitVolunteerApplication(Map<String, dynamic> payload) async => true;
+
+  @override
+  Future<bool> publishSchedule(String competitionId, {required bool isPublic}) async => true;
 }
 
 class MockAdminRepository implements AdminRepository {
@@ -793,10 +749,7 @@ class MockAuthProvider extends ChangeNotifier implements AuthProvider {
   Future<String> resolveEmailFromUsername(String username) async => '';
 
   @override
-  SupabaseClient get client => MockSupabaseClient();
-
-  @override
-  Session? get session => null;
+  dynamic get session => null;
 
   @override
   void clearPasswordRecovery() {}
@@ -843,5 +796,118 @@ class FakeCompetitionRepository extends MockCompetitionRepository {
       updatedAt: DateTime.now(),
     ),
   ]);
+}
+
+// === Firebase Auth Mock Classes ===
+
+class MockUser implements fb.User {
+  @override
+  final String uid;
+  @override
+  final String? email;
+
+  MockUser({required this.uid, this.email});
+
+  final List<String> updateEmailCalls = [];
+  final List<String> updatePasswordCalls = [];
+
+  @override
+  Future<void> verifyBeforeUpdateEmail(String newEmail, [fb.ActionCodeSettings? actionCodeSettings]) async {
+    updateEmailCalls.add(newEmail);
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    updatePasswordCalls.add(newPassword);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class MockUserCredential implements fb.UserCredential {
+  @override
+  final fb.User? user;
+
+  MockUserCredential({this.user});
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class MockFirebaseAuth implements fb.FirebaseAuth {
+  final StreamController<fb.User?> _authStateController;
+  final bool yieldImmediately;
+  MockUser? _currentUser;
+
+  MockFirebaseAuth(this._authStateController, {MockUser? currentUser, this.yieldImmediately = false})
+      : _currentUser = currentUser;
+
+  final List<Map<String, dynamic>> signUpCalls = [];
+  final List<Map<String, dynamic>> signInCalls = [];
+  final List<String> sendResetPasswordCalls = [];
+  int signOutCallCount = 0;
+
+  fb.UserCredential? signUpResult;
+  fb.UserCredential? signInResult;
+  Object? signUpError;
+  Object? signInError;
+
+  @override
+  MockUser? get currentUser => _currentUser;
+
+  void setCurrentUser(MockUser? user) {
+    _currentUser = user;
+    _authStateController.add(user);
+  }
+
+  @override
+  Stream<fb.User?> authStateChanges() async* {
+    if (yieldImmediately) {
+      yield _currentUser;
+    }
+    yield* _authStateController.stream;
+  }
+
+  @override
+  Future<fb.UserCredential> createUserWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    signUpCalls.add({'email': email, 'password': password});
+    if (signUpError != null) throw signUpError!;
+    final user = MockUser(uid: 'user-created', email: email);
+    setCurrentUser(user);
+    return signUpResult ?? MockUserCredential(user: user);
+  }
+
+  @override
+  Future<fb.UserCredential> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    signInCalls.add({'email': email, 'password': password});
+    if (signInError != null) throw signInError!;
+    final user = MockUser(uid: 'user-signedin', email: email);
+    setCurrentUser(user);
+    return signInResult ?? MockUserCredential(user: user);
+  }
+
+  @override
+  Future<void> signOut() async {
+    signOutCallCount++;
+    setCurrentUser(null);
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({
+    required String email,
+    fb.ActionCodeSettings? actionCodeSettings,
+  }) async {
+    sendResetPasswordCalls.add(email);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

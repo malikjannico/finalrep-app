@@ -1,94 +1,116 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/providers/auth_provider.dart';
 import 'package:finalrep_app/repositories/profile_repository.dart';
+import 'package:finalrep_app/utils/uuid_helper.dart';
 
 // --- Mocks ---
 
-class MockSupabaseClient implements SupabaseClient {
+class MockUser implements fb.User {
   @override
-  final MockGoTrueClient auth;
+  final String uid;
+  @override
+  final String? email;
 
-  MockSupabaseClient({required this.auth});
+  MockUser({required this.uid, this.email});
+
+  final List<String> updateEmailCalls = [];
+  final List<String> updatePasswordCalls = [];
+
+  @override
+  Future<void> verifyBeforeUpdateEmail(String newEmail, [fb.ActionCodeSettings? actionCodeSettings]) async {
+    updateEmailCalls.add(newEmail);
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    updatePasswordCalls.add(newPassword);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class MockUserResponse implements UserResponse {
+class MockUserCredential implements fb.UserCredential {
+  @override
+  final fb.User? user;
+
+  MockUserCredential({this.user});
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class MockGoTrueClient implements GoTrueClient {
-  final StreamController<AuthState> _authStateController;
+class MockFirebaseAuth implements fb.FirebaseAuth {
+  final StreamController<fb.User?> _authStateController;
+  MockUser? _currentUser;
 
-  MockGoTrueClient(this._authStateController);
+  MockFirebaseAuth(this._authStateController, {MockUser? currentUser})
+      : _currentUser = currentUser;
 
   final List<Map<String, dynamic>> signUpCalls = [];
   final List<Map<String, dynamic>> signInCalls = [];
-  final List<Map<String, dynamic>> updateUserCalls = [];
+  final List<String> sendResetPasswordCalls = [];
   int signOutCallCount = 0;
 
-  AuthResponse? signUpResult;
-  AuthResponse? signInResult;
-  UserResponse? updateUserResult;
+  fb.UserCredential? signUpResult;
+  fb.UserCredential? signInResult;
   Object? signUpError;
   Object? signInError;
-  Object? updateUserError;
 
   @override
-  Stream<AuthState> get onAuthStateChange => _authStateController.stream;
+  MockUser? get currentUser => _currentUser;
 
-  @override
-  dynamic noSuchMethod(Invocation invocation) {
-    final name = invocation.memberName;
-    if (name == #signUp) {
-      final namedArgs = invocation.namedArguments;
-      signUpCalls.add({
-        'email': namedArgs[#email],
-        'password': namedArgs[#password],
-        'data': namedArgs[#data],
-      });
-      if (signUpError != null) throw signUpError!;
-      return Future.value(
-        signUpResult ?? AuthResponse(session: null, user: null),
-      );
-    }
-    if (name == #signInWithPassword) {
-      final namedArgs = invocation.namedArguments;
-      signInCalls.add({
-        'email': namedArgs[#email],
-        'password': namedArgs[#password],
-      });
-      if (signInError != null) throw signInError!;
-      return Future.value(
-        signInResult ?? AuthResponse(session: null, user: null),
-      );
-    }
-    if (name == #signOut) {
-      signOutCallCount++;
-      return Future.value(null);
-    }
-    if (name == #updateUser) {
-      final positionalArgs = invocation.positionalArguments;
-      final attributes = positionalArgs.isNotEmpty
-          ? positionalArgs.first as UserAttributes
-          : null;
-      updateUserCalls.add({
-        'email': attributes?.email,
-        'password': attributes?.password,
-      });
-      if (updateUserError != null) throw updateUserError!;
-      return Future.value(updateUserResult ?? MockUserResponse());
-    }
-    if (name == #resetPasswordForEmail) {
-      return Future.value(null);
-    }
-    return super.noSuchMethod(invocation);
+  void setCurrentUser(MockUser? user) {
+    _currentUser = user;
+    _authStateController.add(user);
   }
+
+  @override
+  Stream<fb.User?> authStateChanges() => _authStateController.stream;
+
+  @override
+  Future<fb.UserCredential> createUserWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    signUpCalls.add({'email': email, 'password': password});
+    if (signUpError != null) throw signUpError!;
+    final user = MockUser(uid: 'user-created', email: email);
+    setCurrentUser(user);
+    return signUpResult ?? MockUserCredential(user: user);
+  }
+
+  @override
+  Future<fb.UserCredential> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    signInCalls.add({'email': email, 'password': password});
+    if (signInError != null) throw signInError!;
+    final user = MockUser(uid: 'user-signedin', email: email);
+    setCurrentUser(user);
+    return signInResult ?? MockUserCredential(user: user);
+  }
+
+  @override
+  Future<void> signOut() async {
+    signOutCallCount++;
+    setCurrentUser(null);
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({
+    required String email,
+    fb.ActionCodeSettings? actionCodeSettings,
+  }) async {
+    sendResetPasswordCalls.add(email);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class MockProfileRepository implements ProfileRepository {
@@ -143,36 +165,18 @@ class MockProfileRepository implements ProfileRepository {
   }
 }
 
-// Helper to create a fake User & Session
-User _createFakeUser(String id, String email) {
-  return User(
-    id: id,
-    appMetadata: const {},
-    userMetadata: const {},
-    aud: 'authenticated',
-    createdAt: DateTime.now().toIso8601String(),
-    email: email,
-  );
-}
-
-Session _createFakeSession(User user) {
-  return Session(accessToken: 'token-abc', tokenType: 'bearer', user: user);
-}
-
 void main() {
   group('AuthProvider Tests', () {
-    late StreamController<AuthState> authStateController;
-    late MockGoTrueClient mockAuth;
-    late MockSupabaseClient mockClient;
+    late StreamController<fb.User?> authStateController;
+    late MockFirebaseAuth mockAuth;
     late MockProfileRepository mockProfileRepository;
     late AuthProvider authProvider;
 
     setUp(() {
-      authStateController = StreamController<AuthState>.broadcast();
-      mockAuth = MockGoTrueClient(authStateController);
-      mockClient = MockSupabaseClient(auth: mockAuth);
+      authStateController = StreamController<fb.User?>.broadcast();
+      mockAuth = MockFirebaseAuth(authStateController);
       mockProfileRepository = MockProfileRepository();
-      authProvider = AuthProvider(mockClient, mockProfileRepository);
+      authProvider = AuthProvider(mockProfileRepository, firebaseAuth: mockAuth);
     });
 
     tearDown(() {
@@ -180,26 +184,26 @@ void main() {
       authStateController.close();
     });
 
-    test('Initial state is unauthenticated and loading', () {
+    test('Initial state is unauthenticated', () {
       expect(authProvider.status, AuthStatus.unauthenticated);
       expect(authProvider.currentUserProfile, isNull);
-      expect(authProvider.isLoading, true);
+      expect(authProvider.isLoading, false);
     });
 
     test('Auth state change to authenticated loads profile', () async {
-      final user = _createFakeUser('user-1', 'user1@example.com');
-      final session = _createFakeSession(user);
-
+      final user = MockUser(uid: 'user-1', email: 'user1@example.com');
       final profile = Profile(
         id: 'user-1',
         username: 'user1',
         fullName: 'User One',
         email: 'user1@example.com',
       );
-      mockProfileRepository.profiles['user-1'] = profile;
+      
+      final mappedUuid = UuidHelper.getDeterministicUuid('user-1');
+      mockProfileRepository.profiles[mappedUuid] = profile;
 
       // Trigger auth change
-      authStateController.add(AuthState(AuthChangeEvent.signedIn, session));
+      mockAuth.setCurrentUser(user);
 
       // Wait for auth provider to process
       await Future.delayed(const Duration(milliseconds: 100));
@@ -207,18 +211,16 @@ void main() {
       expect(authProvider.isLoading, false);
       expect(authProvider.status, AuthStatus.authenticated);
       expect(authProvider.currentUserProfile, profile);
-      expect(authProvider.session, session);
       expect(authProvider.errorMessage, isNull);
     });
 
     test(
       'Auth state change fails if profile details cannot be loaded',
       () async {
-        final user = _createFakeUser('user-1', 'user1@example.com');
-        final session = _createFakeSession(user);
+        final user = MockUser(uid: 'user-1', email: 'user1@example.com');
 
         // Trigger auth change (no profile in repository)
-        authStateController.add(AuthState(AuthChangeEvent.signedIn, session));
+        mockAuth.setCurrentUser(user);
 
         // Wait for 3 retries (500ms delay each) to complete
         await Future.delayed(const Duration(milliseconds: 1700));
@@ -235,19 +237,16 @@ void main() {
     );
 
     test('Auth state change to unauthenticated resets profile', () async {
-      // Trigger sign out event
-      authStateController.add(const AuthState(AuthChangeEvent.signedOut, null));
+      mockAuth.setCurrentUser(null);
 
       await Future.delayed(const Duration(milliseconds: 50));
 
       expect(authProvider.isLoading, false);
       expect(authProvider.status, AuthStatus.unauthenticated);
       expect(authProvider.currentUserProfile, isNull);
-      expect(authProvider.session, isNull);
     });
 
     test('registerWithEmailAndPassword checks username and signs up', () async {
-      // Should succeed when username is free
       await authProvider.registerWithEmailAndPassword(
         email: 'test@example.com',
         password: 'password123',
@@ -262,13 +261,6 @@ void main() {
       final call = mockAuth.signUpCalls.first;
       expect(call['email'], 'test@example.com');
       expect(call['password'], 'password123');
-      expect(call['data'], {
-        'username': 'testuser',
-        'full_name': 'Test User',
-        'sex': 'male',
-        'country': 'USA',
-        'profile_picture_url': 'https://example.com/pic.png',
-      });
     });
 
     test(
@@ -375,11 +367,13 @@ void main() {
           colorMode: 'system',
         );
 
-        // Simulate auth state as authenticated with user-4
-        mockProfileRepository.profiles['user-4'] = initialProfile;
-        final user = _createFakeUser('user-4', 'user4@example.com');
-        final session = _createFakeSession(user);
-        authStateController.add(AuthState(AuthChangeEvent.signedIn, session));
+        final mappedUuid = UuidHelper.getDeterministicUuid('user-4');
+        mockProfileRepository.profiles[mappedUuid] = initialProfile;
+
+        final user = MockUser(uid: 'user-4', email: 'user4@example.com');
+        mockAuth._currentUser = user;
+        
+        mockAuth.setCurrentUser(user);
         await Future.delayed(const Duration(milliseconds: 100));
 
         // Trigger update with new email and name
@@ -393,8 +387,8 @@ void main() {
         );
 
         // Email update triggered
-        expect(mockAuth.updateUserCalls.length, 1);
-        expect(mockAuth.updateUserCalls.first['email'], 'newemail@example.com');
+        expect(user.updateEmailCalls.length, 1);
+        expect(user.updateEmailCalls.first, 'newemail@example.com');
 
         // Profile repository update triggered
         expect(mockProfileRepository.updateCalls.length, 1);
@@ -409,10 +403,13 @@ void main() {
     );
 
     test('changePassword updates password attribute', () async {
+      final user = MockUser(uid: 'user-5', email: 'user5@example.com');
+      mockAuth._currentUser = user;
+
       await authProvider.changePassword('new-secure-password');
 
-      expect(mockAuth.updateUserCalls.length, 1);
-      expect(mockAuth.updateUserCalls.first['password'], 'new-secure-password');
+      expect(user.updatePasswordCalls.length, 1);
+      expect(user.updatePasswordCalls.first, 'new-secure-password');
     });
 
     test('resolveEmailFromUsername trims and lowercases username', () async {

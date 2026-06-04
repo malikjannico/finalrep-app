@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../mocks/supabase_dummies.dart';
 
 import 'e2e_test_harness.dart';
 import 'package:finalrep_app/models/profile.dart';

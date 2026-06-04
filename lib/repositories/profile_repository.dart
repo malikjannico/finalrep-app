@@ -1,40 +1,31 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../models/profile.dart';
 import '../models/competition.dart';
 import '../utils/mock_safety.dart';
 import '../utils/api_client.dart';
 
-
 class ProfileRepository {
-  final dynamic _client;
   final ApiClient _api;
+  final Map<String, Profile> _profileCache = {};
 
-  ProfileRepository(dynamic client, {ApiClient? api})
-      : _client = client,
-        _api = api ?? ApiClient();
-
-  dynamic get client => _client;
+  ProfileRepository({ApiClient? api})
+      : _api = api ?? ApiClient();
 
   bool get _useMockFallback => MockSafety.isMockAllowed;
 
   /// Fetch a user profile by their unique auth/profile ID.
   Future<Profile?> getProfile(String id) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('profiles').select().eq('id', id).maybeSingle();
-        if (response == null) return null;
-        return Profile.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return null;
-      }
+    if (_profileCache.containsKey(id)) {
+      return _profileCache[id];
     }
     try {
       final response = await _api.get('/profiles/$id');
       if (response.statusCode == 200) {
-        return Profile.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final profile = Profile.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        _profileCache[id] = profile;
+        return profile;
       }
       if (response.statusCode == 404) return null;
       throw Exception('Failed to load profile: ${response.statusCode} ${response.body}');
@@ -48,20 +39,13 @@ class ProfileRepository {
 
   /// Fetch a user profile by their unique username.
   Future<Profile?> getProfileByUsername(String username) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('profiles').select().eq('username', username.trim().toLowerCase()).maybeSingle();
-        if (response == null) return null;
-        return Profile.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return null;
-      }
-    }
     try {
       final cleanUsername = username.trim().toLowerCase();
       final response = await _api.get('/profiles', queryParameters: {'username': cleanUsername});
       if (response.statusCode == 200) {
-        return Profile.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final profile = Profile.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        _profileCache[profile.id] = profile;
+        return profile;
       }
       if (response.statusCode == 404) return null;
       throw Exception('Failed to load profile: ${response.statusCode} ${response.body}');
@@ -75,19 +59,12 @@ class ProfileRepository {
 
   /// Fetch a user profile by their email.
   Future<Profile?> getProfileByEmail(String email) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('profiles').select().eq('email', email.trim().toLowerCase()).maybeSingle();
-        if (response == null) return null;
-        return Profile.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return null;
-      }
-    }
     try {
       final response = await _api.get('/profiles', queryParameters: {'email': email.trim().toLowerCase()});
       if (response.statusCode == 200) {
-        return Profile.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final profile = Profile.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        _profileCache[profile.id] = profile;
+        return profile;
       }
       if (response.statusCode == 404) return null;
       throw Exception('Failed to load profile: ${response.statusCode} ${response.body}');
@@ -101,18 +78,6 @@ class ProfileRepository {
 
   /// Search user profiles by username or full name.
   Future<List<Profile>> searchProfiles(String query) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        if (query.trim().isEmpty) {
-          final response = await _client.from('profiles').select().limit(20);
-          return (response as List).map((data) => Profile.fromJson(data as Map<String, dynamic>)).toList();
-        }
-        final response = await _client.from('profiles').select().or('username.ilike.%${query}%,full_name.ilike.%${query}%');
-        return (response as List).map((data) => Profile.fromJson(data as Map<String, dynamic>)).toList();
-      } catch (_) {
-        return [];
-      }
-    }
     try {
       final cleanQuery = query.trim();
       final response = await _api.get('/profiles', queryParameters: {'search': cleanQuery});
@@ -131,22 +96,17 @@ class ProfileRepository {
 
   /// Update a profile's details in the database.
   Future<Profile?> updateProfile(Profile profile) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('profiles').update(profile.toJson()).eq('id', profile.id).select().single();
-        return Profile.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return profile;
-      }
-    }
     try {
       final response = await _api.post('/profiles', body: profile.toJson());
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return Profile.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final updatedProfile = Profile.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        _profileCache[updatedProfile.id] = updatedProfile;
+        return updatedProfile;
       }
       throw Exception('Failed to update profile: ${response.statusCode} ${response.body}');
     } catch (e) {
       if (_useMockFallback) {
+        _profileCache[profile.id] = profile;
         return profile;
       }
       rethrow;
@@ -179,25 +139,6 @@ class ProfileRepository {
 
   /// Fetch a user's upcoming meets (where start_date is in the future)
   Future<List<Competition>> getUserUpcomingMeets(String profileId) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client
-            .from('athlete_registrations')
-            .select('*, competition:competitions(*)')
-            .eq('profile_id', profileId)
-            .eq('status', 'registered');
-        final list = response as List? ?? [];
-        final meets = list
-            .map((data) => data['competition'])
-            .where((comp) => comp != null)
-            .map((compJson) => Competition.fromJson(compJson as Map<String, dynamic>))
-            .where((comp) => comp.startDate.isAfter(DateTime.now()))
-            .toList();
-        return meets.isNotEmpty ? meets : _getMockUpcomingMeets(profileId);
-      } catch (_) {
-        return _getMockUpcomingMeets(profileId);
-      }
-    }
     try {
       final response = await _api.get('/profiles', queryParameters: {'userId': profileId, 'type': 'upcoming'});
       if (response.statusCode == 200) {
@@ -215,23 +156,6 @@ class ProfileRepository {
 
   /// Fetch a user's completed meets
   Future<List<Competition>> getUserCompletedMeets(String profileId) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client
-            .from('competition_results')
-            .select('*, competition:competitions(*)')
-            .eq('profile_id', profileId);
-        final list = response as List? ?? [];
-        final meets = list
-            .map((data) => data['competition'])
-            .where((comp) => comp != null)
-            .map((compJson) => Competition.fromJson(compJson as Map<String, dynamic>))
-            .toList();
-        return meets.isNotEmpty ? meets : _getMockCompletedMeets(profileId);
-      } catch (_) {
-        return _getMockCompletedMeets(profileId);
-      }
-    }
     try {
       final response = await _api.get('/profiles', queryParameters: {'userId': profileId, 'type': 'completed'});
       if (response.statusCode == 200) {
@@ -251,32 +175,6 @@ class ProfileRepository {
   Future<List<Map<String, dynamic>>> getUserHighestRankings(
     String profileId,
   ) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('highest_rankings').select().eq('profile_id', profileId);
-        final list = response as List? ?? [];
-        if (list.isEmpty) {
-          return _getMockHighestRankings(profileId);
-        }
-
-        final compsRes = await _client.from('competitions').select();
-        final completedTitles = (compsRes as List)
-            .where((c) => c['status'] == 'completed')
-            .map((c) => c['title']?.toString())
-            .whereType<String>()
-            .toSet();
-
-        final filtered = list.where((r) {
-          final title = r['competition']?.toString();
-          if (title == null || title.isEmpty) return true;
-          return completedTitles.contains(title);
-        }).toList();
-
-        return filtered.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      } catch (_) {
-        return _getMockHighestRankings(profileId);
-      }
-    }
     try {
       final response = await _api.get('/profiles', queryParameters: {'userId': profileId, 'type': 'rankings'});
       if (response.statusCode == 200) {
@@ -324,18 +222,6 @@ class ProfileRepository {
   Future<List<Map<String, dynamic>>> getUserPersonalRecords(
     String profileId,
   ) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('personal_records').select().eq('profile_id', profileId);
-        final list = response as List? ?? [];
-        if (list.isEmpty) {
-          return _getMockPersonalRecords(profileId);
-        }
-        return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      } catch (_) {
-        return _getMockPersonalRecords(profileId);
-      }
-    }
     try {
       final response = await _api.get('/profiles', queryParameters: {'userId': profileId, 'type': 'records'});
       if (response.statusCode == 200) {
@@ -438,7 +324,6 @@ class ProfileRepository {
       {
         'lift': 'Muscle Up',
         'weight': '+20.0 kg',
-
         'date': '2025-11-05',
         'competition': 'FinalRep Underground Frankfurt 2025',
       },
@@ -446,16 +331,6 @@ class ProfileRepository {
   }
 
   Future<String?> uploadFile(List<int> bytes, String fileName) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final path = 'profiles/uploads/$fileName';
-        await _client.storage.from('images').uploadBinary(path, Uint8List.fromList(bytes));
-        final url = _client.storage.from('images').getPublicUrl(path);
-        return url;
-      } catch (_) {
-        return '/uploads/$fileName';
-      }
-    }
     try {
       final streamedResponse = await _api.uploadMultipart('/upload', bytes, fileName);
       final response = await http.Response.fromStream(streamedResponse);
@@ -473,9 +348,6 @@ class ProfileRepository {
   }
 
   Future<bool> deleteFile(String url) async {
-    if (_useMockFallback && _client != null) {
-      return true;
-    }
     try {
       final encodedUrl = Uri.encodeComponent(url);
       final response = await _api.delete('/upload?url=$encodedUrl');
@@ -489,4 +361,3 @@ class ProfileRepository {
     }
   }
 }
-

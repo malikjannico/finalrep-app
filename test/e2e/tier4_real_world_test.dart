@@ -46,8 +46,8 @@ void main() {
       await tester.pump(Duration.zero);
 
       // Verify both competitions show up initially
-      expect(find.text('Hamburg Streetlifting Meet'), findsOneWidget);
-      expect(find.text('Classic Pull & Dip Cup'), findsOneWidget);
+      expect(find.textContaining('Hamburg Streetlifting Meet'), findsOneWidget);
+      expect(find.textContaining('Classic Pull & Dip Cup'), findsOneWidget);
 
       // 2. Expand FORMAT filter section and filter by Classic
       await tester.tap(find.text('FORMAT'));
@@ -57,8 +57,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify only Classic Cup is shown
-      expect(find.text('Hamburg Streetlifting Meet'), findsNothing);
-      expect(find.text('Classic Pull & Dip Cup'), findsOneWidget);
+      expect(find.textContaining('Hamburg Streetlifting Meet'), findsNothing);
+      expect(find.textContaining('Classic Pull & Dip Cup'), findsOneWidget);
 
       // 3. Search for "Berlin"
       await tester.enterText(
@@ -72,10 +72,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600)); // wait for debounce
       await tester.pumpAndSettle();
 
-      expect(find.text('Classic Pull & Dip Cup'), findsAtLeast(1));
+      expect(find.textContaining('Classic Pull & Dip Cup'), findsAtLeast(1));
 
       // 4. Tap the competition card to view its detail page
-      await tester.tap(find.text('Classic Pull & Dip Cup').first);
+      await tester.tap(find.textContaining('Classic Pull & Dip Cup').first);
       await tester.pumpAndSettle();
 
       // Verify location details on details page

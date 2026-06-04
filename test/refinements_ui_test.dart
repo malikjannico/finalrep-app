@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'mocks/supabase_dummies.dart';
 import 'package:go_router/go_router.dart';
 import 'package:finalrep_app/router.dart';
 import 'package:finalrep_app/main.dart';

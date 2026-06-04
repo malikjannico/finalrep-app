@@ -92,7 +92,7 @@ void main() {
       'NotificationRepository works as an in-memory database fallback when client is null',
       () async {
         // Create repository with null client and failing api client to force fallback
-        final repo = NotificationRepository(null, api: MockApiClient());
+        final repo = NotificationRepository(api: MockApiClient());
         final userId = '00000000-0000-0000-0000-000000000004';
 
         // 1. Initial notifications list should be empty

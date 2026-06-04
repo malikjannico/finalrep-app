@@ -24,11 +24,13 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
   bool _isCreating = false;
 
   final TextEditingController _createNameController = TextEditingController();
+  final TextEditingController _createAbbreviationController = TextEditingController();
   final TextEditingController _createDescController = TextEditingController();
 
   @override
   void dispose() {
     _createNameController.dispose();
+    _createAbbreviationController.dispose();
     _createDescController.dispose();
     super.dispose();
   }
@@ -133,6 +135,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
 
   void _showAddDisciplineDialog() {
     final nameController = TextEditingController();
+    final abbreviationController = TextEditingController();
     final descController = TextEditingController();
 
     showDialog(
@@ -149,6 +152,15 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                   decoration: const InputDecoration(
                     labelText: 'Discipline Name',
                     hintText: 'e.g. Muscle Up',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: abbreviationController,
+                  decoration: const InputDecoration(
+                    labelText: 'Abbreviation',
+                    hintText: 'e.g. MU',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -172,6 +184,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
             ElevatedButton(
               onPressed: () async {
                 final name = nameController.text.trim();
+                final abbreviation = abbreviationController.text.trim();
                 final desc = descController.text.trim();
                 if (name.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -193,7 +206,11 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                   sports: _localConfig!.sports,
                   formats: _localConfig!.formats,
                   disciplines: List<DisciplineDefinition>.from(_localConfig!.disciplines)
-                    ..add(DisciplineDefinition(name: name, description: desc.isEmpty ? null : desc)),
+                    ..add(DisciplineDefinition(
+                      name: name,
+                      description: desc.isEmpty ? null : desc,
+                      abbreviation: abbreviation.isEmpty ? null : abbreviation,
+                    )),
                   links: _localConfig!.links,
                 );
 
@@ -256,6 +273,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
 
   void _showEditDisciplineDialog(DisciplineDefinition discipline) {
     final nameController = TextEditingController(text: discipline.name);
+    final abbreviationController = TextEditingController(text: discipline.abbreviation ?? '');
     final descController = TextEditingController(text: discipline.description ?? '');
 
     showDialog(
@@ -271,6 +289,15 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                   controller: nameController,
                   decoration: const InputDecoration(
                     labelText: 'Discipline Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: abbreviationController,
+                  decoration: const InputDecoration(
+                    labelText: 'Abbreviation',
+                    hintText: 'e.g. MU',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -293,6 +320,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
             ElevatedButton(
               onPressed: () {
                 final name = nameController.text.trim();
+                final abbreviation = abbreviationController.text.trim();
                 final desc = descController.text.trim();
                 if (name.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -315,7 +343,11 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                   // Update disciplines list
                   final updatedDisciplines = _localConfig!.disciplines.map((d) {
                     if (d.name == discipline.name) {
-                      return DisciplineDefinition(name: name, description: desc.isEmpty ? null : desc);
+                      return DisciplineDefinition(
+                        name: name,
+                        description: desc.isEmpty ? null : desc,
+                        abbreviation: abbreviation.isEmpty ? null : abbreviation,
+                      );
                     }
                     return d;
                   }).toList();
@@ -403,6 +435,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
 
   Future<void> _handleCreateDiscipline({required bool saveAndCreateAnother}) async {
     final name = _createNameController.text.trim();
+    final abbreviation = _createAbbreviationController.text.trim();
     final desc = _createDescController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -429,7 +462,11 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
         sports: _localConfig!.sports,
         formats: _localConfig!.formats,
         disciplines: List<DisciplineDefinition>.from(_localConfig!.disciplines)
-          ..add(DisciplineDefinition(name: name, description: desc.isEmpty ? null : desc)),
+          ..add(DisciplineDefinition(
+            name: name,
+            description: desc.isEmpty ? null : desc,
+            abbreviation: abbreviation.isEmpty ? null : abbreviation,
+          )),
         links: _localConfig!.links,
       );
 
@@ -447,6 +484,7 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
         setState(() {
           _localConfig = updatedConfig;
           _createNameController.clear();
+          _createAbbreviationController.clear();
           _createDescController.clear();
           if (!saveAndCreateAnother) {
             _isCreating = false;
@@ -501,6 +539,15 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                     decoration: const InputDecoration(
                       labelText: 'Discipline Name',
                       hintText: 'e.g. Muscle Up',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _createAbbreviationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Abbreviation',
+                      hintText: 'e.g. MU',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -757,16 +804,38 @@ class _DisciplinesConfigPageState extends State<DisciplinesConfigPage> {
                                     : theme.colorScheme.surfaceContainerLowest,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(
+                                      side: BorderSide(
                                     color: theme.colorScheme.outlineVariant.withOpacity(0.3),
                                   ),
                                 ),
                                 margin: const EdgeInsets.symmetric(vertical: 6),
                                 child: ListTile(
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  title: Text(
-                                    discipline.name,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  title: Row(
+                                    children: [
+                                      Text(
+                                        discipline.name,
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      if (discipline.abbreviation != null && discipline.abbreviation!.isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: theme.colorScheme.primaryContainer,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            discipline.abbreviation!,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: theme.colorScheme.onPrimaryContainer,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                   subtitle: discipline.description != null && discipline.description!.isNotEmpty
                                       ? Padding(

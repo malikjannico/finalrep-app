@@ -59,13 +59,10 @@ void main() {
     await tester.tap(nextButton); // 5 -> 6 (Reg Settings)
     await tester.pumpAndSettle();
 
-    await tester.tap(nextButton); // 6 -> 7 (Competition Group)
+    await tester.tap(nextButton); // 6 -> 7 (Athlete Groups)
     await tester.pumpAndSettle();
 
-    await tester.tap(nextButton); // 7 -> 8 (Athlete Groups)
-    await tester.pumpAndSettle();
-
-    await tester.tap(nextButton); // 8 -> 9 (Fees & Bank Details)
+    await tester.tap(nextButton); // 7 -> 8 (Fees & Bank Details)
     await tester.pumpAndSettle();
 
     // Enable fees
@@ -94,7 +91,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(nextButton); // 9 -> 10 (Payment Settings)
+    await tester.tap(nextButton); // 8 -> 9 (Payment Settings)
     await tester.pumpAndSettle();
 
     // Select custom reference using dropdown
@@ -109,13 +106,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(nextButton); // 10 -> 11 (Volunteer Setup)
+    await tester.tap(nextButton); // 9 -> 10 (Volunteer Setup)
     await tester.pumpAndSettle();
 
-    await tester.tap(nextButton); // 11 -> 12 (Disclaimers & Custom Fields)
+    await tester.tap(nextButton); // 10 -> 11 (Disclaimers & Custom Fields)
     await tester.pumpAndSettle();
 
-    // Submit the wizard in Step 12
+    // Submit the wizard in Step 11
     await tester.tap(nextButton);
     await tester.pumpAndSettle();
 

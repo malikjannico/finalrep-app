@@ -41,16 +41,22 @@ class FormatDefinition {
 class DisciplineDefinition {
   final String name;
   final String? description;
+  final String? abbreviation;
 
-  DisciplineDefinition({required this.name, this.description});
+  DisciplineDefinition({required this.name, this.description, this.abbreviation});
 
   factory DisciplineDefinition.fromJson(Map<String, dynamic> json) =>
       DisciplineDefinition(
         name: json['name'] as String,
         description: json['description'] as String?,
+        abbreviation: json['abbreviation'] as String?,
       );
 
-  Map<String, dynamic> toJson() => {'name': name, 'description': description};
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'description': description,
+    'abbreviation': abbreviation,
+  };
 }
 
 class FormatDisciplineLink {

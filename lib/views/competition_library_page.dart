@@ -929,7 +929,7 @@ class _CompetitionLibraryPageState extends State<CompetitionLibraryPage> {
                 crossAxisCount: isDesktop ? 3 : (isTablet ? 2 : 1),
                 crossAxisSpacing: 20,
                 mainAxisSpacing: 20,
-                mainAxisExtent: 380,
+                mainAxisExtent: 290,
               ),
               delegate: SliverChildBuilderDelegate((context, index) {
                 final comp = provider.competitions[index];

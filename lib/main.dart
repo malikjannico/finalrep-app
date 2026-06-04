@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'theme.dart';
@@ -103,16 +102,11 @@ void main() async {
     }
   }
 
-  // Create a placeholder/dummy SupabaseClient for repository construction in test/dev modes
-  final supabase = SupabaseClient(
-    'https://placeholder.supabase.co',
-    'placeholder-anon-key',
-  );
-  final competitionRepository = CompetitionRepository(supabase);
-  final profileRepository = ProfileRepository(supabase);
-  final adminRepository = AdminRepository(supabase);
-  final associationRepository = AssociationRepository(supabase);
-  final notificationRepository = NotificationRepository(supabase);
+  final competitionRepository = CompetitionRepository();
+  final profileRepository = ProfileRepository();
+  final adminRepository = AdminRepository();
+  final associationRepository = AssociationRepository();
+  final notificationRepository = NotificationRepository();
 
   runApp(
     MultiProvider(
@@ -127,7 +121,6 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => AuthProvider(
-            supabase,
             profileRepository,
             adminRepository: adminRepository,
             notificationRepository: notificationRepository,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../mocks/supabase_dummies.dart';
 import 'dart:typed_data';
 
 import 'e2e_test_harness.dart';
@@ -526,8 +526,8 @@ void main() {
           await tester.pump(Duration.zero);
 
           // Verify both items rendered
-          expect(find.text('Hamburg Streetlifting Meet'), findsOneWidget);
-          expect(find.text('Classic Pull & Dip Cup'), findsOneWidget);
+          expect(find.textContaining('Hamburg Streetlifting Meet'), findsOneWidget);
+          expect(find.textContaining('Classic Pull & Dip Cup'), findsOneWidget);
 
           // Expand format filter
           await tester.tap(find.text('FORMAT'));
@@ -538,8 +538,8 @@ void main() {
           await tester.pumpAndSettle();
 
           // Verify Classic Cup is filtered out
-          expect(find.text('Hamburg Streetlifting Meet'), findsOneWidget);
-          expect(find.text('Classic Pull & Dip Cup'), findsNothing);
+          expect(find.textContaining('Hamburg Streetlifting Meet'), findsOneWidget);
+          expect(find.textContaining('Classic Pull & Dip Cup'), findsNothing);
         },
       );
 
@@ -626,7 +626,7 @@ void main() {
           await tester.pump(Duration.zero);
 
           // Tap card of Hamburg Meet
-          final compCard = find.text('Hamburg Streetlifting Meet');
+          final compCard = find.textContaining('Hamburg Streetlifting Meet');
           expect(compCard, findsAtLeast(1));
           await tester.tap(compCard.first);
           await tester.pumpAndSettle();

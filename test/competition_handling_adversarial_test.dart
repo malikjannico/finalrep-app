@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:finalrep_app/providers/competition_provider.dart';
 import 'package:finalrep_app/repositories/competition_repository.dart';
 import 'package:finalrep_app/repositories/profile_repository.dart';
@@ -8,16 +7,8 @@ import 'package:finalrep_app/repositories/notification_repository.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/models/association.dart';
 
-class LocalMockSupabaseClient implements SupabaseClient {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 class LocalMockCompetitionRepository implements CompetitionRepository {
   final Map<String, Competition> competitions = {};
-
-  @override
-  SupabaseClient get client => LocalMockSupabaseClient();
 
   @override
   Future<List<Competition>> getUpcomingCompetitions({
@@ -59,7 +50,7 @@ void main() {
       compRepo = LocalMockCompetitionRepository();
       profileRepo = LocalMockProfileRepository();
       assocRepo = LocalMockAssociationRepository();
-      notifRepo = NotificationRepository(null);
+      notifRepo = NotificationRepository();
 
       provider = CompetitionProvider(
         compRepo,

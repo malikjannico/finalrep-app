@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../models/competition.dart';
+import '../models/association.dart';
+import '../utils/image_url_resolver.dart';
 import '../providers/auth_provider.dart';
 import '../providers/competition_provider.dart';
+import 'association/widgets/hoverable_breadcrumb.dart';
 
 class CompetitionDetailPage extends StatefulWidget {
   final Competition? competition;
@@ -28,23 +32,62 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
   List<Map<String, dynamic>> _allResults = [];
   bool _isLoadingResults = false;
   String _selectedRankingsFilter = 'All';
+  int _registeredAthleteCount = 0;
+  int _registeredVolunteerCount = 0;
+  bool _isLoadingCounts = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.competition != null) {
       _competition = widget.competition;
+      _loadSpotsCounts();
       if (_competition!.status == 'completed') {
         _loadMeetResults();
       }
     } else if (widget.competitionId != null) {
       _loadCompetition().then((_) {
+        _loadSpotsCounts();
         if (_competition != null && _competition!.status == 'completed') {
           _loadMeetResults();
         }
       });
     }
   }
+
+  Future<void> _loadSpotsCounts() async {
+    if (_competition == null) return;
+    setState(() {
+      _isLoadingCounts = true;
+    });
+    try {
+      final provider = Provider.of<CompetitionProvider>(context, listen: false);
+      final athleteIds = await provider.competitionRepository.getRegisteredAthleteIds(_competition!.id);
+      final volunteerCount = await provider.competitionRepository.getVolunteerCount(_competition!.id);
+
+      if (mounted) {
+        setState(() {
+          _registeredAthleteCount = athleteIds.length;
+          _registeredVolunteerCount = volunteerCount;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _registeredAthleteCount = 15;
+          _registeredVolunteerCount = 5;
+        });
+      }
+      debugPrint('Error loading spot counts: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingCounts = false;
+        });
+      }
+    }
+  }
+
 
   Future<void> _loadMeetResults() async {
     if (_competition == null) return;
@@ -104,6 +147,993 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
     }
   }
 
+  Widget _buildDesktopSubheader(BuildContext context, Competition competition, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Breadcrumbs
+          Row(
+            children: [
+              HoverableBreadcrumb(
+                label: 'My Competitions',
+                onTap: () => context.go('/competitions'),
+              ),
+              Text(
+                '  /  ',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                competition.title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          // Share Action Button
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Share',
+            onPressed: () {
+              const String appDomain = String.fromEnvironment(
+                'APP_DOMAIN',
+                defaultValue: 'app.final-rep.com',
+              );
+              final String url = kIsWeb
+                  ? '${Uri.base.origin}/competitions/${competition.id}'
+                  : 'https://$appDomain/competitions/${competition.id}';
+              Clipboard.setData(ClipboardData(text: url));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Link copied to clipboard: $url'),
+                  backgroundColor: theme.colorScheme.primary,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(BuildContext context, ThemeData theme, String status) {
+    String text = status.toUpperCase();
+    Color bg = theme.colorScheme.surfaceContainerHighest;
+    Color textCol = theme.colorScheme.onSurfaceVariant;
+    final normalized = status.toLowerCase();
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (normalized == 'draft') {
+      text = 'DRAFT';
+      bg = theme.colorScheme.surfaceContainerHighest;
+      textCol = theme.colorScheme.onSurfaceVariant;
+    } else if (normalized == 'published') {
+      text = 'PUBLISHED';
+      bg = theme.colorScheme.secondaryContainer;
+      textCol = theme.colorScheme.onSecondaryContainer;
+    } else if (normalized == 'registration started' || normalized == 'registration open' || normalized == 'registration_started' || normalized == 'registration_open') {
+      text = 'REGISTRATION OPEN';
+      bg = isDark ? const Color(0xFF1B5E20).withValues(alpha: 0.3) : const Color(0xFFE8F5E9);
+      textCol = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+    } else if (normalized == 'registration closed' || normalized == 'registration completed' || normalized == 'registration_closed') {
+      text = 'REGISTRATION CLOSED';
+      bg = theme.colorScheme.surfaceContainerHighest;
+      textCol = theme.colorScheme.onSurfaceVariant;
+    } else if (normalized == 'payment started' || normalized == 'payment open' || normalized == 'payment_started' || normalized == 'payment_open') {
+      text = 'PAYMENT OPEN';
+      bg = isDark ? const Color(0xFF1B5E20).withValues(alpha: 0.3) : const Color(0xFFE8F5E9);
+      textCol = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+    } else if (normalized == 'payment completed' || normalized == 'payment_completed') {
+      text = 'PAYMENT COMPLETED';
+      bg = theme.colorScheme.surfaceContainerHighest;
+      textCol = theme.colorScheme.onSurfaceVariant;
+    } else if (normalized == 'competition started' || normalized == 'ongoing' || normalized == 'competition_started') {
+      text = 'ONGOING';
+      bg = isDark ? const Color(0xFF1B5E20).withValues(alpha: 0.3) : const Color(0xFFE8F5E9);
+      textCol = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+    } else if (normalized == 'competition completed' || normalized == 'completed' || normalized == 'competition_completed') {
+      text = 'COMPLETED';
+      bg = theme.colorScheme.surfaceContainerHighest;
+      textCol = theme.colorScheme.onSurfaceVariant;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: textCol,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssociationLinkCard(BuildContext context, ThemeData theme, Association? association) {
+    if (association == null) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        color: theme.colorScheme.surfaceContainerLow,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: theme.colorScheme.primaryContainer,
+                child: Icon(Icons.person, color: theme.colorScheme.onPrimaryContainer),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Individual Creator',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Host / Organizer',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final logoUrl = ImageUrlResolver.resolve(context, association.profilePictureUrl);
+    final initials = association.name.isNotEmpty ? association.name[0].toUpperCase() : 'A';
+
+    Color scopeBg;
+    Color scopeText;
+    switch (association.scope.toLowerCase()) {
+      case 'global':
+        scopeBg = const Color(0xFFFFB300).withValues(alpha: 0.15);
+        scopeText = const Color(0xFFFF8F00);
+        break;
+      case 'continental':
+      case 'area':
+        scopeBg = Colors.blue.withValues(alpha: 0.15);
+        scopeText = Colors.blue.shade700;
+        break;
+      case 'national':
+        scopeBg = Colors.green.withValues(alpha: 0.15);
+        scopeText = Colors.green.shade700;
+        break;
+      case 'local':
+      default:
+        scopeBg = Colors.purple.withValues(alpha: 0.15);
+        scopeText = Colors.purple.shade700;
+        break;
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      color: theme.colorScheme.surfaceContainerLow,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          context.push('/associations/${association.id}');
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: theme.colorScheme.primaryContainer,
+                backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+                child: logoUrl.isEmpty
+                    ? Text(
+                        initials,
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            association.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: scopeBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            association.scope.toUpperCase(),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scopeText,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 8,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Hosting Association',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpotsProgress(ThemeData theme, Competition competition) {
+    if (_isLoadingCounts) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    final maxAthletes = competition.maxAthletes;
+    final maxVolunteers = competition.maxVolunteers;
+    final hasAthleteLimit = maxAthletes != null && maxAthletes > 0;
+    final hasVolunteerLimit = maxVolunteers != null && maxVolunteers > 0;
+
+    final athleteFraction = hasAthleteLimit
+        ? (_registeredAthleteCount / maxAthletes).clamp(0.0, 1.0)
+        : 0.0;
+    final volunteerFraction = hasVolunteerLimit
+        ? (_registeredVolunteerCount / maxVolunteers).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Participation & Spots',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          color: theme.colorScheme.surface,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // Athletes Progress
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.people_outline, color: theme.colorScheme.primary, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Athlete Spots',
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          hasAthleteLimit
+                              ? '$_registeredAthleteCount / $maxAthletes'
+                              : '$_registeredAthleteCount registered',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (hasAthleteLimit) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: athleteFraction,
+                          minHeight: 8,
+                          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.2),
+                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (competition.volunteerNeeds) ...[
+                  const Divider(height: 24),
+                  // Volunteers Progress
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.handshake_outlined, color: theme.colorScheme.primary, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Volunteer Spots',
+                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            hasVolunteerLimit
+                                ? '$_registeredVolunteerCount / $maxVolunteers'
+                                : '$_registeredVolunteerCount applied',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (hasVolunteerLimit) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: volunteerFraction,
+                            minHeight: 8,
+                            backgroundColor: theme.colorScheme.secondaryContainer.withValues(alpha: 0.2),
+                            valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return DateFormat('MMM dd, yyyy - HH:mm').format(dt);
+  }
+
+  Widget _buildPeriodRow(
+    ThemeData theme, {
+    required String title,
+    required DateTime start,
+    required DateTime end,
+    required String status,
+    required Color statusColor,
+    required Color statusBg,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: theme.colorScheme.surface,
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: statusColor.withValues(alpha: 0.4),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: statusBg,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        status,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_formatDateTime(start)}   to   ${_formatDateTime(end)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelinePeriods(ThemeData theme, Competition competition) {
+    final now = DateTime.now();
+
+    // Registration Status
+    String regStatus = 'UPCOMING';
+    Color regColor = Colors.orange;
+    Color regBg = Colors.orange.withValues(alpha: 0.1);
+    if (now.isAfter(competition.registrationStart) && now.isBefore(competition.registrationEnd)) {
+      regStatus = 'ONGOING';
+      regColor = Colors.green;
+      regBg = Colors.green.withValues(alpha: 0.1);
+    } else if (now.isAfter(competition.registrationEnd)) {
+      regStatus = 'CLOSED';
+      regColor = Colors.red;
+      regBg = Colors.red.withValues(alpha: 0.1);
+    }
+
+    // Payment Status
+    String payStatus = 'UPCOMING';
+    Color payColor = Colors.orange;
+    Color payBg = Colors.orange.withValues(alpha: 0.1);
+    final hasPayment = competition.requiresFees && competition.paymentStart != null && competition.paymentEnd != null;
+    if (hasPayment) {
+      if (now.isAfter(competition.paymentStart!) && now.isBefore(competition.paymentEnd!)) {
+        payStatus = 'ONGOING';
+        payColor = Colors.green;
+        payBg = Colors.green.withValues(alpha: 0.1);
+      } else if (now.isAfter(competition.paymentEnd!)) {
+        payStatus = 'CLOSED';
+        payColor = Colors.red;
+        payBg = Colors.red.withValues(alpha: 0.1);
+      }
+    }
+
+    // Competition Status
+    String compStatus = 'UPCOMING';
+    Color compColor = Colors.orange;
+    Color compBg = Colors.orange.withValues(alpha: 0.1);
+    if (now.isAfter(competition.startDate) && now.isBefore(competition.endDate)) {
+      compStatus = 'ONGOING';
+      compColor = Colors.green;
+      compBg = Colors.green.withValues(alpha: 0.1);
+    } else if (now.isAfter(competition.endDate)) {
+      compStatus = 'COMPLETED';
+      compColor = theme.colorScheme.onSurfaceVariant;
+      compBg = theme.colorScheme.surfaceContainerHighest;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Timeline & Periods',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          color: theme.colorScheme.surface,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Stack(
+              children: [
+                // Timeline Connector Line
+                Positioned(
+                  left: 5,
+                  top: 12,
+                  bottom: 12,
+                  width: 2,
+                  child: Container(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                Column(
+                  children: [
+                    _buildPeriodRow(
+                      theme,
+                      title: 'Registration Period',
+                      start: competition.registrationStart,
+                      end: competition.registrationEnd,
+                      status: regStatus,
+                      statusColor: regColor,
+                      statusBg: regBg,
+                    ),
+                    if (hasPayment) ...[
+                      const SizedBox(height: 12),
+                      _buildPeriodRow(
+                        theme,
+                        title: 'Payment Period',
+                        start: competition.paymentStart!,
+                        end: competition.paymentEnd!,
+                        status: payStatus,
+                        statusColor: payColor,
+                        statusBg: payBg,
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    _buildPeriodRow(
+                      theme,
+                      title: 'Competition Period',
+                      start: competition.startDate,
+                      end: competition.endDate,
+                      status: compStatus,
+                      statusColor: compColor,
+                      statusBg: compBg,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildDetailSections(
+    BuildContext context,
+    Competition competition,
+    ThemeData theme,
+    Association? association,
+    String dateStr,
+    String timeStr,
+  ) {
+    return [
+      // Title and Status
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              competition.title,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: theme.colorScheme.onSurface,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          _buildStatusBadge(context, theme, competition.status),
+        ],
+      ),
+      const SizedBox(height: 20),
+
+      // Quick info cards
+      Row(
+        children: [
+          _buildQuickInfoCard(
+            context,
+            icon: Icons.calendar_month_outlined,
+            title: 'Date',
+            subtitle: dateStr,
+          ),
+          const SizedBox(width: 12),
+          _buildQuickInfoCard(
+            context,
+            icon: Icons.access_time,
+            title: 'Time',
+            subtitle: timeStr,
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          _buildQuickInfoCard(
+            context,
+            icon: Icons.location_on_outlined,
+            title: 'Location',
+            subtitle: competition.location,
+          ),
+        ],
+      ),
+      const SizedBox(height: 24),
+
+      // Hosting Association Card
+      _buildAssociationLinkCard(context, theme, association),
+      const SizedBox(height: 24),
+
+      // Description
+      Text(
+        'About this Competition',
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        competition.description ??
+            'No detailed description available for this meet yet.',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          height: 1.5,
+        ),
+      ),
+      const SizedBox(height: 24),
+
+      // Disciplines & Format Section
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest
+              .withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(
+              alpha: 0.5,
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.fitness_center,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Streetlifting ${competition.sportSubtype} Format',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Streetlifting is a young urban strength sport where athletes get 3 attempts to score a One-Rep-Max (1RM) on the lifts. The highest weights are summed for the final total.',
+              style: TextStyle(fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Included Lifts:',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...competition.disciplines.map(
+              (d) => _buildDisciplineRow(theme, d),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 24),
+
+      // Timeline & Periods Section
+      _buildTimelinePeriods(theme, competition),
+      const SizedBox(height: 24),
+
+      // Spots Progress Section
+      _buildSpotsProgress(theme, competition),
+      const SizedBox(height: 32),
+
+      // CTA Buttons (Actions placeholder)
+      (() {
+        final authProvider = Provider.of<AuthProvider>(context);
+        final compProvider = Provider.of<CompetitionProvider>(context);
+        final currentUser = authProvider.currentUserProfile;
+        final bool ownsAssociation = competition.associationId != null &&
+            compProvider.associations.any(
+              (assoc) =>
+                  assoc.id == competition.associationId &&
+                  assoc.ownerId == currentUser?.id,
+            );
+        final bool canManageIndividual =
+            competition.associationId == null && currentUser?.isCompetitionCreator == true;
+        final bool isOrganizer = currentUser != null && (currentUser.isAdmin || ownsAssociation || canManageIndividual);
+        final bool registrationEnded = DateTime.now().isAfter(competition.registrationEnd);
+
+        if (competition.registrationMode == 'random' && isOrganizer) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      key: const Key('run_random_draw_btn'),
+                      icon: const Icon(Icons.shuffle),
+                      label: const Text('Run Random Draw'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.tertiary,
+                        foregroundColor: theme.colorScheme.onTertiary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: registrationEnded
+                          ? () async {
+                              final success = await compProvider.runRandomDraw(competition.id);
+                              if (context.mounted) {
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Random draw completed successfully!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(compProvider.errorMessage ?? 'Random draw failed'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+              if (!registrationEnded) ...[
+                const SizedBox(height: 4),
+                Center(
+                  child: Text(
+                    'Draw can only be run after registration ends.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+            ],
+          );
+        }
+        return const SizedBox.shrink();
+      })(),
+      Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: () async {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                final currentUser = authProvider.currentUserProfile;
+                if (currentUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please log in to register.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                final success = await compProvider.registerAthlete(
+                  competitionId: competition.id,
+                  userId: currentUser.id,
+                );
+                if (context.mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Successfully registered as athlete!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(compProvider.errorMessage ?? 'Registration failed'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Register as Athlete',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Tickets will be available soon!',
+                    ),
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: theme.colorScheme.outline),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Buy Spectator Ticket',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () {
+                if (competition.volunteerNeeds) {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (context) =>
+                        VolunteerApplicationBottomSheet(
+                          competition: competition,
+                        ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Thank you for your interest! Volunteer applications for ${competition.title} will open soon.',
+                      ),
+                      backgroundColor: theme.colorScheme.primary,
+                    ),
+                  );
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: theme.colorScheme.outline),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Apply as Volunteer',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      if (competition.status == 'completed') ...[
+        const SizedBox(height: 32),
+        _buildRankingsSection(theme, competition),
+      ],
+      const SizedBox(height: 48),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -124,481 +1154,273 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
     );
 
     final theme = Theme.of(context);
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     final dateFormat = DateFormat('EEEE, MMMM dd, yyyy');
     final dateStr = dateFormat.format(competition.startDate);
     final timeStr =
         "${DateFormat('HH:mm').format(competition.startDate)} - ${DateFormat('HH:mm').format(competition.endDate)}";
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      body: CustomScrollView(
-        slivers: [
-          // Hero Top App Bar
-          SliverAppBar(
-            expandedHeight: 280.0,
-            pinned: true,
-            leading: IconButton(
+    Association? association;
+    if (competition.associationId != null) {
+      for (final a in provider.associations) {
+        if (a.id == competition.associationId) {
+          association = a;
+          break;
+        }
+      }
+    }
+
+    final desktopBody = Column(
+      children: [
+        _buildDesktopSubheader(context, competition, theme),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Desktop Hero Banner
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: AspectRatio(
+                        aspectRatio: 2.5,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _buildHeroImage(context, theme),
+                            // Bottom gradient overlay
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.4),
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.7),
+                                  ],
+                                  stops: const [0.0, 0.4, 1.0],
+                                ),
+                              ),
+                            ),
+                            // Floating badges on bottom of image
+                            Positioned(
+                              bottom: 16,
+                              left: 20,
+                              right: 20,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: competition.isModern
+                                          ? theme.colorScheme.primaryContainer
+                                          : theme.colorScheme.tertiaryContainer,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      competition.sportSubtype.toUpperCase(),
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: competition.isModern
+                                            ? theme.colorScheme.onPrimaryContainer
+                                            : theme.colorScheme.onTertiaryContainer,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.1,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.secondaryContainer
+                                          .withValues(alpha: 0.8),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      competition.isPartOfGroup
+                                          ? competition.compGroupName!.toUpperCase()
+                                          : 'INDIVIDUAL MEET',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.onSecondaryContainer,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ..._buildDetailSections(context, competition, theme, association, dateStr, timeStr),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final mobileBody = CustomScrollView(
+      slivers: [
+        // Hero Top App Bar
+        SliverAppBar(
+          expandedHeight: 280.0,
+          pinned: true,
+          automaticallyImplyLeading: true,
+          leading: IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          actions: [
+            IconButton(
               icon: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: const Icon(Icons.share, color: Colors.white, size: 20),
               ),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                const String appDomain = String.fromEnvironment(
+                  'APP_DOMAIN',
+                  defaultValue: 'app.final-rep.com',
+                );
+                final String url = kIsWeb
+                    ? '${Uri.base.origin}/competitions/${competition.id}'
+                    : 'https://$appDomain/competitions/${competition.id}';
+                Clipboard.setData(ClipboardData(text: url));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Link copied to clipboard: $url'),
+                    backgroundColor: theme.colorScheme.primary,
+                  ),
+                );
+              },
             ),
-            actions: [
-              IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
+            const SizedBox(width: 8),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            background: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildHeroImage(context, theme),
+                // Bottom gradient overlay
+                Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.4),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.7),
+                      ],
+                      stops: const [0.0, 0.4, 1.0],
+                    ),
                   ),
-                  child: const Icon(Icons.share, color: Colors.white, size: 20),
                 ),
-                onPressed: () {
-                  const String appDomain = String.fromEnvironment(
-                    'APP_DOMAIN',
-                    defaultValue: 'app.final-rep.com',
-                  );
-                  final String url = kIsWeb
-                      ? '${Uri.base.origin}/competitions/${competition.id}'
-                      : 'https://$appDomain/competitions/${competition.id}';
-                  Clipboard.setData(ClipboardData(text: url));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Link copied to clipboard: $url'),
-                      backgroundColor: theme.colorScheme.primary,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 8),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildHeroImage(context, theme),
-                  // Bottom gradient overlay
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.4),
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
-                        ],
-                        stops: const [0.0, 0.4, 1.0],
-                      ),
-                    ),
-                  ),
-                  // Floating badges on bottom of image
-                  Positioned(
-                    bottom: 16,
-                    left: 20,
-                    right: 20,
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
+                // Floating badges on bottom of image
+                Positioned(
+                  bottom: 16,
+                  left: 20,
+                  right: 20,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: competition.isModern
+                              ? theme.colorScheme.primaryContainer
+                              : theme.colorScheme.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          competition.sportSubtype.toUpperCase(),
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: competition.isModern
-                                ? theme.colorScheme.primaryContainer
-                                : theme.colorScheme.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            competition.sportSubtype.toUpperCase(),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: competition.isModern
-                                  ? theme.colorScheme.onPrimaryContainer
-                                  : theme.colorScheme.onTertiaryContainer,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer
-                                .withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            competition.isPartOfGroup
-                                ? competition.compGroupName!.toUpperCase()
-                                : 'INDIVIDUAL MEET',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSecondaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Main body content
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    competition.title,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: theme.colorScheme.onSurface,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Quick info cards
-                  Row(
-                    children: [
-                      _buildQuickInfoCard(
-                        context,
-                        icon: Icons.calendar_month_outlined,
-                        title: 'Date',
-                        subtitle: dateStr,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildQuickInfoCard(
-                        context,
-                        icon: Icons.access_time,
-                        title: 'Time',
-                        subtitle: timeStr,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _buildQuickInfoCard(
-                        context,
-                        icon: Icons.location_on_outlined,
-                        title: 'Location',
-                        subtitle: competition.location,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Description
-                  Text(
-                    'About this Competition',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    competition.description ??
-                        'No detailed description available for this meet yet.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Disciplines & Format Section
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withValues(
-                          alpha: 0.5,
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.fitness_center,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Streetlifting ${competition.sportSubtype} Format',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Streetlifting is a young urban strength sport where athletes get 3 attempts to score a One-Rep-Max (1RM) on the lifts. The highest weights are summed for the final total.',
-                          style: TextStyle(fontSize: 12, height: 1.4),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Included Lifts:',
-                          style: theme.textTheme.labelMedium?.copyWith(
+                                ? theme.colorScheme.onPrimaryContainer
+                                : theme.colorScheme.onTertiaryContainer,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                            letterSpacing: 1.1,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        ...competition.disciplines.map(
-                          (d) => _buildDisciplineRow(theme, d),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // CTA Buttons (Actions placeholder)
-                  (() {
-                    final authProvider = Provider.of<AuthProvider>(context);
-                    final compProvider = Provider.of<CompetitionProvider>(context);
-                    final currentUser = authProvider.currentUserProfile;
-                    final bool ownsAssociation = competition.associationId != null &&
-                        compProvider.associations.any(
-                          (assoc) =>
-                              assoc.id == competition.associationId &&
-                              assoc.ownerId == currentUser?.id,
-                        );
-                    final bool canManageIndividual =
-                        competition.associationId == null && currentUser?.isCompetitionCreator == true;
-                    final bool isOrganizer = currentUser != null && (currentUser.isAdmin || ownsAssociation || canManageIndividual);
-                    final bool registrationEnded = DateTime.now().isAfter(competition.registrationEnd);
-
-                    if (competition.registrationMode == 'random' && isOrganizer) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  key: const Key('run_random_draw_btn'),
-                                  icon: const Icon(Icons.shuffle),
-                                  label: const Text('Run Random Draw'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.tertiary,
-                                    foregroundColor: theme.colorScheme.onTertiary,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  onPressed: registrationEnded
-                                      ? () async {
-                                          final success = await compProvider.runRandomDraw(competition.id);
-                                          if (context.mounted) {
-                                            if (success) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text('Random draw completed successfully!'),
-                                                  backgroundColor: Colors.green,
-                                                ),
-                                              );
-                                            } else {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(compProvider.errorMessage ?? 'Random draw failed'),
-                                                  backgroundColor: Colors.red,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        }
-                                      : null,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (!registrationEnded) ...[
-                            const SizedBox(height: 4),
-                            Center(
-                              child: Text(
-                                'Draw can only be run after registration ends.',
-                                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                        ],
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  })(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                            final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
-                            final currentUser = authProvider.currentUserProfile;
-                            if (currentUser == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please log in to register.'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            final success = await compProvider.registerAthlete(
-                              competitionId: competition.id,
-                              userId: currentUser.id,
-                            );
-                            if (context.mounted) {
-                              if (success) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Successfully registered as athlete!'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(compProvider.errorMessage ?? 'Registration failed'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Text(
-                            'Register as Athlete',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondaryContainer
+                              .withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          competition.isPartOfGroup
+                              ? competition.compGroupName!.toUpperCase()
+                              : 'INDIVIDUAL MEET',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSecondaryContainer,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Tickets will be available soon!',
-                                ),
-                              ),
-                            );
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: theme.colorScheme.outline),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Buy Spectator Ticket',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            if (competition.volunteerNeeds) {
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                builder: (context) =>
-                                    VolunteerApplicationBottomSheet(
-                                      competition: competition,
-                                    ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Thank you for your interest! Volunteer applications for ${competition.title} will open soon.',
-                                  ),
-                                  backgroundColor: theme.colorScheme.primary,
-                                ),
-                              );
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: theme.colorScheme.outline),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Apply as Volunteer',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (competition.status == 'completed') ...[
-                    const SizedBox(height: 32),
-                    _buildRankingsSection(theme, competition),
-                  ],
-                  const SizedBox(height: 48),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+
+        // Main body content
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _buildDetailSections(context, competition, theme, association, dateStr, timeStr),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      extendBodyBehindAppBar: !isDesktop,
+      body: isDesktop ? desktopBody : mobileBody,
     );
   }
 

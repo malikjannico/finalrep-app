@@ -454,7 +454,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                     mainAxisExtent:
-                        380, // Standard mainAxisExtent for CompetitionCard
+                        290, // Standard mainAxisExtent for CompetitionCard
                   ),
                   itemCount: _suggestions.length,
                   itemBuilder: (context, index) {
@@ -639,9 +639,9 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                   ),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 1,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    mainAxisExtent: 250,
+                    crossAxisSpacing: 20,
+                    mainAxisSpacing: 20,
+                    mainAxisExtent: 290,
                   ),
                   itemCount: provider.searchedAssociations.length,
                   itemBuilder: (context, index) {

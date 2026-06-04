@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'mocks/supabase_dummies.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:finalrep_app/models/profile.dart';
@@ -33,7 +34,7 @@ class WidgetMockAuthProvider extends ChangeNotifier implements AuthProvider {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
-  NotificationRepository get notificationRepository => NotificationRepository(null);
+  NotificationRepository get notificationRepository => NotificationRepository();
 
   @override
   Profile? get currentUserProfile => _currentUserProfile;
@@ -66,6 +67,7 @@ void main() {
     late AuthProvider authProvider;
     late CompetitionProvider compProvider;
     late StreamController<AuthState> authStateController;
+    late MockFirebaseAuth mockFbAuth;
 
     setUp(() async {
       mockProfileRepo = MockProfileRepository();
@@ -73,15 +75,17 @@ void main() {
       mockAdminRepo = MockAdminRepository();
 
       // Use null client to test the local/mock fallback cache of NotificationRepository
-      notificationRepo = NotificationRepository(null);
+      notificationRepo = NotificationRepository();
 
       authStateController = StreamController<AuthState>.broadcast();
       final mockAuth = MockGoTrueClient(authStateController);
       final mockClient = MockSupabaseClient(auth: mockAuth);
 
-      authProvider = AuthProvider(
-        mockClient,
-        mockProfileRepo,
+      final fbAuthController = StreamController<fb.User?>.broadcast();
+      mockFbAuth = MockFirebaseAuth(fbAuthController);
+
+      authProvider = AuthProvider(mockProfileRepo,
+        firebaseAuth: mockFbAuth,
         adminRepository: mockAdminRepo,
         notificationRepository: notificationRepo,
       );
@@ -89,6 +93,7 @@ void main() {
       compProvider = CompetitionProvider(
         mockCompRepo,
         mockProfileRepo,
+        firebaseAuth: mockFbAuth,
         notificationRepository: notificationRepo,
       );
 
@@ -195,7 +200,7 @@ void main() {
     test(
       '3. Payment Triggers (Formulation & Registration Action Required) Fire Successfully',
       () async {
-        final associationRepo = AssociationRepository(null);
+        final associationRepo = AssociationRepository();
         // Seed association in mock fallback to avoid the getAssociationDetails TypeError
         final testAssoc = Association(
           id: 'assoc-owner-999',
@@ -215,6 +220,7 @@ void main() {
         compProvider = CompetitionProvider(
           mockCompRepo,
           mockProfileRepo,
+          firebaseAuth: mockFbAuth,
           associationRepository: associationRepo,
           notificationRepository: notificationRepo,
         );
@@ -475,7 +481,7 @@ void main() {
         // Already initialized in test run
       }
 
-      notificationRepo = NotificationRepository(null); // use mock fallback
+      notificationRepo = NotificationRepository(); // use mock fallback
     });
 
     Widget makeTestableWidget() {

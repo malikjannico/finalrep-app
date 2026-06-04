@@ -74,6 +74,8 @@ class DbConnection {
       {'table': 'associations', 'column': 'applied_shared_resources', 'type': 'JSONB NOT NULL DEFAULT \'{"rulebooks": {}, "competition_groups": [], "athlete_groups": []}\'::jsonb'},
       {'table': 'competition_groups', 'column': 'sharing_config', 'type': 'JSONB NOT NULL DEFAULT \'{"mode": "private", "targets": []}\'::jsonb'},
       {'table': 'athlete_groups', 'column': 'sharing_config', 'type': 'JSONB NOT NULL DEFAULT \'{"mode": "private", "targets": []}\'::jsonb'},
+      {'table': 'competitions', 'column': 'latitude', 'type': 'DOUBLE PRECISION'},
+      {'table': 'competitions', 'column': 'longitude', 'type': 'DOUBLE PRECISION'},
     ];
 
     for (final col in migrationColumns) {

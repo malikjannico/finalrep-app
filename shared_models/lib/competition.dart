@@ -49,6 +49,8 @@ class Competition {
   final String? disclaimerUrl;
   final String? disclaimerType;
   final bool bannerSafeZoneGuide;
+  final double? _latitude;
+  final double? _longitude;
 
   Competition({
     required this.id,
@@ -99,7 +101,11 @@ class Competition {
     this.disclaimerType,
     this.bannerSafeZoneGuide = false,
     this.rankingType = 'open',
-  }) : registrationStart = registrationStart ?? startDate,
+    double? latitude,
+    double? longitude,
+  }) : _latitude = latitude,
+       _longitude = longitude,
+       registrationStart = registrationStart ?? startDate,
        registrationEnd = registrationEnd ?? endDate;
 
   factory Competition.fromJson(Map<String, dynamic> json) {
@@ -186,6 +192,8 @@ class Competition {
       disclaimerType: json['disclaimer_type'] as String?,
       bannerSafeZoneGuide: json['banner_safe_zone_guide'] as bool? ?? false,
       rankingType: json['ranking_type'] as String? ?? 'open',
+      latitude: json['latitude'] != null ? (json['latitude'] as num).toDouble() : null,
+      longitude: json['longitude'] != null ? (json['longitude'] as num).toDouble() : null,
     );
   }
 
@@ -246,6 +254,8 @@ class Competition {
       if (disclaimerType != null) 'disclaimer_type': disclaimerType,
       'banner_safe_zone_guide': bannerSafeZoneGuide,
       'ranking_type': rankingType,
+      if (_latitude != null) 'latitude': _latitude,
+      if (_longitude != null) 'longitude': _longitude,
     };
   }
 
@@ -298,6 +308,8 @@ class Competition {
     String? disclaimerType,
     bool? bannerSafeZoneGuide,
     String? rankingType,
+    double? latitude,
+    double? longitude,
   }) {
     return Competition(
       id: id ?? this.id,
@@ -350,6 +362,8 @@ class Competition {
       disclaimerType: disclaimerType ?? this.disclaimerType,
       bannerSafeZoneGuide: bannerSafeZoneGuide ?? this.bannerSafeZoneGuide,
       rankingType: rankingType ?? this.rankingType,
+      latitude: latitude ?? this._latitude,
+      longitude: longitude ?? this._longitude,
     );
   }
 
@@ -368,6 +382,7 @@ class Competition {
       compGroupName != null && compGroupName!.trim().isNotEmpty;
 
   double get latitude {
+    if (_latitude != null) return _latitude!;
     final c = city?.toLowerCase() ?? '';
     if (c.contains('hamburg')) return 53.5511;
     if (c.contains('berlin')) return 52.5200;
@@ -386,6 +401,7 @@ class Competition {
   }
 
   double get longitude {
+    if (_longitude != null) return _longitude!;
     final c = city?.toLowerCase() ?? '';
     if (c.contains('hamburg')) return 9.9937;
     if (c.contains('berlin')) return 13.4050;

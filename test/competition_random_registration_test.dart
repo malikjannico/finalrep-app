@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'mocks/supabase_dummies.dart';
 import 'package:finalrep_app/models/association.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/models/profile.dart';
@@ -140,15 +140,16 @@ void main() {
         expect(drawBtnFinder, findsOneWidget);
 
         // 6. Tap "Run Random Draw"
+        await tester.ensureVisible(drawBtnFinder);
         await tester.tap(drawBtnFinder);
         await tester.pumpAndSettle();
 
         // Verify draw successfully processed the statuses
         // For Men Group (limit: 1, 2 candidates: m1 & m2):
         // One must be 'registered', the other 'waitlisted' (since enableWaitlist is true)
-        final statusM1 = regs.firstWhere((r) => r['profile_id'] == 'athlete-m1')['status'];
-        final statusM2 = regs.firstWhere((r) => r['profile_id'] == 'athlete-m2')['status'];
-        final statusF1 = regs.firstWhere((r) => r['profile_id'] == 'athlete-f1')['status'];
+        final statusM1 = regs.firstWhere((r) => r['user_id'] == 'athlete-m1')['status'];
+        final statusM2 = regs.firstWhere((r) => r['user_id'] == 'athlete-m2')['status'];
+        final statusF1 = regs.firstWhere((r) => r['user_id'] == 'athlete-f1')['status'];
 
         expect([statusM1, statusM2], contains('registered'));
         expect([statusM1, statusM2], contains('waitlisted'));

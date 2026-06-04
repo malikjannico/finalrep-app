@@ -135,10 +135,20 @@ final GoRouter goRouter = GoRouter(
     ),
     GoRoute(
       path: '/competitions/:id',
-      parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CompetitionDetailPage(competitionId: id);
+        final isDesktop = MediaQuery.of(context).size.width >= 900;
+        if (isDesktop) {
+          return NoTransitionPage(
+            child: HomeNavigationShell(
+              initialPath: '/competitions/$id',
+            ),
+          );
+        } else {
+          return MaterialPage(
+            child: CompetitionDetailPage(competitionId: id),
+          );
+        }
       },
     ),
 

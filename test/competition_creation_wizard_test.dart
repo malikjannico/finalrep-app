@@ -167,25 +167,25 @@ void main() {
         ScaffoldMessenger.of(context).clearSnackBars();
         await tester.pumpAndSettle();
 
-        expect(find.text('Step 3 of 12'), findsOneWidget);
+        expect(find.text('Step 3 of 11'), findsOneWidget);
 
         // Tap Next -> Go to Step 4 (Banner Image)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
-        expect(find.text('Step 4 of 12'), findsOneWidget);
+        expect(find.text('Step 4 of 11'), findsOneWidget);
 
         // Tap Next -> Go to Step 5 (Dates & Deadlines)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
-        expect(find.text('Step 5 of 12'), findsOneWidget);
+        expect(find.text('Step 5 of 11'), findsOneWidget);
 
         // Tap Next -> Go to Step 6 (Registration Settings)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
-        expect(find.text('Step 6 of 12'), findsOneWidget);
+        expect(find.text('Step 6 of 11'), findsOneWidget);
 
         // Find and tap waitlist toggle Switch
         final waitlistToggle = find.byKey(const Key('comp_waitlist_toggle'));
@@ -203,23 +203,17 @@ void main() {
         await tester.enterText(maxAthletesField, '50');
         await tester.pumpAndSettle();
 
-        // Tap Next -> Go to Step 7 (Competition Group)
+        // Tap Next -> Go to Step 7 (Athlete Groups)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
-        expect(find.text('Step 7 of 12'), findsOneWidget);
+        expect(find.text('Step 7 of 11'), findsOneWidget);
 
-        // Tap Next -> Go to Step 8 (Athlete Groups)
+        // Tap Next -> Go to Step 8 (Fees & Bank Details)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
-        expect(find.text('Step 8 of 12'), findsOneWidget);
-
-        // Tap Next -> Go to Step 9 (Fees & Bank Details)
-        await tester.tap(nextButton);
-        await tester.pumpAndSettle();
-
-        expect(find.text('Step 9 of 12'), findsOneWidget);
+        expect(find.text('Step 8 of 11'), findsOneWidget);
 
         // Fees switch toggle Switch
         final feesToggle = find.byKey(const Key('comp_fees_toggle'));
@@ -283,6 +277,8 @@ void main() {
         'Apply as Volunteer',
       );
       expect(applyButton, findsOneWidget);
+      await tester.ensureVisible(applyButton);
+      await tester.pumpAndSettle();
       await tester.tap(applyButton);
       await tester.pumpAndSettle();
 

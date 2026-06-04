@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/models/profile.dart';
+import 'package:finalrep_app/models/association.dart';
+import 'package:finalrep_app/models/athlete_group.dart';
 import 'package:finalrep_app/views/competition_creation_page.dart';
 import 'e2e/e2e_test_harness.dart';
 
@@ -91,6 +93,30 @@ void main() {
     testWidgets(
       'Adversarial Test 3b: Athlete sex eligibility validation during registration',
       (tester) async {
+        // Seed association
+        final assoc = Association(
+          id: 'assoc-1',
+          name: 'Men Association',
+          description: 'Restricted to Men',
+          scope: 'local',
+          ownerId: 'user-1',
+          rulebooks: {},
+          socialChannels: {},
+        );
+        harness.db.associations.add(assoc.toJson());
+
+        // Seed a Men-only athlete group
+        final group = AthleteGroup(
+          id: 'group-men-1',
+          associationId: 'assoc-1',
+          name: 'Men Group',
+          sport: 'Streetlifting',
+          format: 'Modern',
+          gender: 'men',
+          isActive: true,
+        );
+        harness.db.athleteGroups.add(group.toJson());
+
         // Seed a competition belonging to assoc-1, which has Men-only athlete groups seeded
         final comp = Competition(
           id: 'comp-sex-test',
@@ -230,18 +256,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Step 6: Registration Settings
-      await tester.tap(nextButton); // 6 -> 7 (Competition Group)
+      await tester.tap(nextButton); // 6 -> 7 (Athlete Groups)
       await tester.pumpAndSettle();
 
-      // Step 7: Competition Group
-      await tester.tap(nextButton); // 7 -> 8 (Athlete Groups)
+      // Step 7: Athlete Groups
+      await tester.tap(nextButton); // 7 -> 8 (Fees)
       await tester.pumpAndSettle();
 
-      // Step 8: Athlete Groups
-      await tester.tap(nextButton); // 8 -> 9 (Fees)
-      await tester.pumpAndSettle();
-
-      // Step 9: Fees
+      // Step 8: Fees
       // Toggle fees ON
       final feesToggle = find.byKey(const Key('comp_fees_toggle'));
       await tester.tap(feesToggle);
@@ -268,10 +290,10 @@ void main() {
       await tester.tap(nextButton);
       await tester.pumpAndSettle();
 
-      // If the wizard allows moving to Step 10, it means negative fee was accepted!
-      final step10Visible = find.text('Step 10 of 12');
+      // If the wizard allows moving to Step 9, it means negative fee was accepted!
+      final step9Visible = find.text('Step 9 of 11');
       expect(
-        step10Visible,
+        step9Visible,
         findsNothing,
         reason: 'Negative fee amount must be blocked by validation',
       );
@@ -343,7 +365,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // A waitlist makes no sense without a capacity limit! Validation should block this.
-        final step7Visible = find.text('Step 7 of 12');
+        final step7Visible = find.text('Step 7 of 11');
         expect(
           step7Visible,
           findsNothing,
@@ -420,7 +442,7 @@ void main() {
           await tester.pumpAndSettle();
 
           // Negative capacity must be blocked by validation
-          final step7Visible = find.text('Step 7 of 12');
+          final step7Visible = find.text('Step 7 of 11');
           expect(
             step7Visible,
             findsNothing,

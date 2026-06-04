@@ -453,12 +453,17 @@ class _AssociationLibraryPageState extends State<AssociationLibraryPage> {
 
   Widget _buildGridListView(List<Association> associations, ThemeData theme, bool isDesktop) {
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(
+        left: isDesktop ? 24 : 16,
+        right: isDesktop ? 24 : 16,
+        bottom: 40,
+        top: 12,
+      ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: isDesktop ? 3 : (MediaQuery.of(context).size.width >= 600 ? 2 : 1),
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        mainAxisExtent: 250, // Adjusted for premium content height
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+        mainAxisExtent: 290,
       ),
       itemCount: associations.length,
       itemBuilder: (context, index) {

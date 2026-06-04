@@ -17,6 +17,8 @@ import '../models/system_notification.dart';
 import '../repositories/admin_repository.dart';
 import '../models/admin_config.dart';
 import '../utils/mock_safety.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+import '../utils/uuid_helper.dart';
 
 enum CompetitionsLayout { grid, list, map }
 
@@ -28,6 +30,8 @@ class CompetitionProvider extends ChangeNotifier {
   final AssociationRepository _associationRepository;
   final NotificationRepository _notificationRepository;
   final AdminRepository _adminRepository;
+  final fb.FirebaseAuth? _firebaseAuthOverride;
+  fb.FirebaseAuth get _firebaseAuth => _firebaseAuthOverride ?? fb.FirebaseAuth.instance;
 
   String _query = '';
   final Set<String> _selectedSubtypes = {};
@@ -69,35 +73,14 @@ class CompetitionProvider extends ChangeNotifier {
   CompetitionProvider(
     this._repository,
     this._profileRepository, {
+    fb.FirebaseAuth? firebaseAuth,
     AssociationRepository? associationRepository,
     NotificationRepository? notificationRepository,
     AdminRepository? adminRepository,
-  }) : _associationRepository =
-           associationRepository ??
-           (() {
-             try {
-               return AssociationRepository(_repository.client);
-             } catch (_) {
-               return AssociationRepository(null as dynamic);
-             }
-           }()),
-       _notificationRepository =
-           notificationRepository ??
-           (() {
-             try {
-               return NotificationRepository(_repository.client);
-             } catch (_) {
-               return NotificationRepository(null as dynamic);
-             }
-           }()),
-       _adminRepository = adminRepository ??
-           (() {
-             try {
-               return AdminRepository(_repository.client);
-             } catch (_) {
-               return AdminRepository(null as dynamic);
-             }
-           }()) {
+  }) : _firebaseAuthOverride = firebaseAuth,
+       _associationRepository = associationRepository ?? AssociationRepository(),
+       _notificationRepository = notificationRepository ?? NotificationRepository(),
+       _adminRepository = adminRepository ?? AdminRepository() {
     fetchCompetitions();
     fetchAssociations();
     loadSportsConfig();
@@ -168,15 +151,18 @@ class CompetitionProvider extends ChangeNotifier {
   String? _selectedAssociationId;
   String? _selectedProfileId;
   String? _selectedProfileUsername;
+  String? _selectedCompetitionId;
 
   String? get selectedAssociationId => _selectedAssociationId;
   String? get selectedProfileId => _selectedProfileId;
   String? get selectedProfileUsername => _selectedProfileUsername;
+  String? get selectedCompetitionId => _selectedCompetitionId;
 
   void selectAssociation(String? id) {
     _selectedAssociationId = id;
     _selectedProfileId = null;
     _selectedProfileUsername = null;
+    _selectedCompetitionId = null;
     _applyFilters();
     notifyListeners();
   }
@@ -185,6 +171,15 @@ class CompetitionProvider extends ChangeNotifier {
     _selectedProfileId = id;
     _selectedProfileUsername = username;
     _selectedAssociationId = null;
+    _selectedCompetitionId = null;
+    notifyListeners();
+  }
+
+  void selectCompetition(String? id) {
+    _selectedCompetitionId = id;
+    _selectedAssociationId = null;
+    _selectedProfileId = null;
+    _selectedProfileUsername = null;
     notifyListeners();
   }
 
@@ -192,6 +187,7 @@ class CompetitionProvider extends ChangeNotifier {
     _selectedAssociationId = null;
     _selectedProfileId = null;
     _selectedProfileUsername = null;
+    _selectedCompetitionId = null;
     notifyListeners();
   }
 
@@ -988,9 +984,11 @@ class CompetitionProvider extends ChangeNotifier {
 
         if (created.requiresFees) {
           final deadline = created.paymentEnd ?? created.registrationEnd;
+          final fbUser = _firebaseAuth.currentUser;
+          final currentUid = fbUser != null ? UuidHelper.getDeterministicUuid(fbUser.uid) : '';
           final creatorUserId = MockSafety.isTesting
-              ? (created.associationId ?? _repository.client.auth.currentUser?.id ?? '')
-              : (_repository.client.auth.currentUser?.id ?? assoc?.ownerId ?? '');
+              ? (created.associationId ?? currentUid)
+              : (currentUid.isNotEmpty ? currentUid : (assoc?.ownerId ?? ''));
           if (creatorUserId.isNotEmpty || MockSafety.isTesting) {
             final notif = SystemNotification(
               id: 'notif-pay-setup-${DateTime.now().millisecondsSinceEpoch}',
@@ -1220,7 +1218,7 @@ class CompetitionProvider extends ChangeNotifier {
       };
 
       try {
-        await _repository.client.from('volunteer_applications').insert(payload);
+        await _repository.submitVolunteerApplication(payload);
       } catch (e) {
         debugPrint('Error inserting volunteer application: $e');
       }
@@ -1240,7 +1238,8 @@ class CompetitionProvider extends ChangeNotifier {
       }
 
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('submitVolunteerApplication error: $e\n$stackTrace');
       _errorMessage = e.toString();
       return false;
     } finally {
@@ -1483,10 +1482,7 @@ class CompetitionProvider extends ChangeNotifier {
     notifyListeners();
     try {
       try {
-        await _repository.client
-            .from('competitions')
-            .update({'schedule_published': isPublic})
-            .eq('id', competitionId);
+        await _repository.publishSchedule(competitionId, isPublic: isPublic);
       } catch (e) {
         debugPrint('Error updating competition schedule in DB: $e');
       }

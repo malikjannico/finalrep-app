@@ -228,11 +228,7 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       if (mounted) {
         if (!widget.isInline) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop(); // Return to previous screen upon success
-          } else {
-            context.go('/'); // Fallback to home page if we cannot pop
-          }
+          context.go('/');
         }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

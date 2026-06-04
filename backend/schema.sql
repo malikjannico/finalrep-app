@@ -70,7 +70,9 @@ CREATE TABLE IF NOT EXISTS public.competitions (
     disclaimer_type TEXT,
     banner_safe_zone_guide BOOLEAN NOT NULL DEFAULT false,
     schedule_published BOOLEAN NOT NULL DEFAULT false,
-    ranking_type TEXT NOT NULL DEFAULT 'open'
+    ranking_type TEXT NOT NULL DEFAULT 'open',
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION
 );
 
 -- 3. Associations Table

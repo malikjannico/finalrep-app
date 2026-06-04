@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'mocks/supabase_dummies.dart';
 import 'package:finalrep_app/models/association.dart';
 import 'package:finalrep_app/models/athlete_group.dart';
 import 'package:finalrep_app/views/association_management_page.dart';

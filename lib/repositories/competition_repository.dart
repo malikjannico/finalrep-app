@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/competition.dart';
 import '../models/streetlifting_attempt.dart';
 import '../models/flight.dart';
@@ -11,7 +10,6 @@ import '../utils/mock_safety.dart';
 import '../utils/api_client.dart';
 
 class CompetitionRepository {
-  final dynamic _client;
   final ApiClient _api;
 
   static final List<Competition> _mockCompetitions = [
@@ -92,16 +90,12 @@ class CompetitionRepository {
     ),
   ];
 
-  CompetitionRepository(dynamic client, {ApiClient? api})
-      : _client = client,
-        _api = api ?? ApiClient();
-
-  dynamic get client => _client;
+  CompetitionRepository({ApiClient? api})
+      : _api = api ?? ApiClient();
 
   String get baseUrl => _api.baseUrl;
 
   bool get _useMockFallback => MockSafety.isMockAllowed;
-
 
   List<Competition> _getMockCompetitions({
     String? query,
@@ -144,44 +138,16 @@ class CompetitionRepository {
   Future<List<Competition>> getUpcomingCompetitions({
     String? query,
     String? sportSubtype, // 'Modern', 'Classic', or null/empty for All
-    String?
-    compGroupName, // 'FinalRep Underground', 'FinalRep Qualifier', 'FinalRep Final', 'Individual', or null/empty for All
+    String? compGroupName, // 'FinalRep Underground', 'FinalRep Qualifier', 'FinalRep Final', 'Individual', or null/empty for All
     String? status = 'upcoming',
   }) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        var queryBuilder = _client.from('competitions').select();
-        if (status != null && status.isNotEmpty) {
-          queryBuilder = queryBuilder.eq('status', status);
-        }
-        final response = await queryBuilder;
-        final list = (response as List)
-            .map((data) => Competition.fromJson(data as Map<String, dynamic>))
-            .toList();
-        var filtered = list;
-        if (query != null && query.trim().isNotEmpty) {
-          final q = query.trim().toLowerCase();
-          filtered = filtered.where((c) => c.title.toLowerCase().contains(q) || c.location.toLowerCase().contains(q)).toList();
-        }
-        if (sportSubtype != null && sportSubtype.isNotEmpty && sportSubtype != 'All') {
-          filtered = filtered.where((c) => c.sportSubtype == sportSubtype).toList();
-        }
-        if (compGroupName != null && compGroupName.isNotEmpty && compGroupName != 'All') {
-          if (compGroupName == 'Individual') {
-            filtered = filtered.where((c) => c.compGroupName == null).toList();
-          } else {
-            filtered = filtered.where((c) => c.compGroupName == compGroupName).toList();
-          }
-        }
-        return filtered.isNotEmpty ? filtered : _getMockCompetitions(query: query, sportSubtype: sportSubtype, compGroupName: compGroupName, status: status);
-      } catch (_) {
-        return _getMockCompetitions(
-          query: query,
-          sportSubtype: sportSubtype,
-          compGroupName: compGroupName,
-          status: status,
-        );
-      }
+    if (_useMockFallback) {
+      return _getMockCompetitions(
+        query: query,
+        sportSubtype: sportSubtype,
+        compGroupName: compGroupName,
+        status: status,
+      );
     }
     try {
       final Map<String, String> queryParameters = {};
@@ -224,17 +190,11 @@ class CompetitionRepository {
   }
 
   Future<Competition?> getCompetitionById(String id) async {
-    if (_useMockFallback && _client != null) {
+    if (_useMockFallback) {
       try {
-        final response = await _client.from('competitions').select().eq('id', id).maybeSingle();
-        if (response == null) return null;
-        return Competition.fromJson(response as Map<String, dynamic>);
+        return _mockCompetitions.firstWhere((element) => element.id == id);
       } catch (_) {
-        try {
-          return _mockCompetitions.firstWhere((element) => element.id == id);
-        } catch (_) {
-          return null;
-        }
+        return null;
       }
     }
     try {
@@ -260,14 +220,9 @@ class CompetitionRepository {
   }
 
   Future<Competition?> createCompetition(Competition competition) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('competitions').insert(competition.toJson()).select().single();
-        return Competition.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        _syncCompetitionToMock(competition);
-        return competition;
-      }
+    if (_useMockFallback) {
+      _syncCompetitionToMock(competition);
+      return competition;
     }
     try {
       final response = await _api.post('/competitions', body: competition.toJson());
@@ -288,16 +243,9 @@ class CompetitionRepository {
   }
 
   Future<Competition?> updateCompetition(Competition competition) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('competitions').update(competition.toJson()).eq('id', competition.id).select().single();
-        final updated = Competition.fromJson(response as Map<String, dynamic>);
-        _syncCompetitionToMock(updated);
-        return updated;
-      } catch (_) {
-        _syncCompetitionToMock(competition);
-        return competition;
-      }
+    if (_useMockFallback) {
+      _syncCompetitionToMock(competition);
+      return competition;
     }
     try {
       final response = await _api.put('/competitions/${competition.id}', body: competition.toJson());
@@ -317,14 +265,52 @@ class CompetitionRepository {
     }
   }
 
-  Future<List<StreetliftingAttempt>> getAttempts(String competitionId) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('attempts').select().eq('competition_id', competitionId);
-        return (response as List).map((data) => StreetliftingAttempt.fromJson(data as Map<String, dynamic>)).toList();
-      } catch (_) {
-        return [];
+  /// Get the number of volunteer applications for a competition.
+  Future<int> getVolunteerCount(String competitionId) async {
+    try {
+      final response = await _api.get('/competitions/$competitionId/volunteers/count');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        return body['count'] as int? ?? 0;
       }
+      throw Exception('Failed to get volunteer count');
+    } catch (e) {
+      if (_useMockFallback) {
+        return 5;
+      }
+      rethrow;
+    }
+  }
+
+  /// Submit a volunteer application.
+  Future<bool> submitVolunteerApplication(Map<String, dynamic> payload) async {
+    try {
+      final response = await _api.post('/volunteer-applications', body: payload);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      if (_useMockFallback) {
+        return true;
+      }
+      rethrow;
+    }
+  }
+
+  /// Publish or unpublish the schedule of a competition.
+  Future<bool> publishSchedule(String competitionId, {required bool isPublic}) async {
+    try {
+      final response = await _api.put('/competitions/$competitionId/publish-schedule?isPublic=$isPublic');
+      return response.statusCode == 200;
+    } catch (e) {
+      if (_useMockFallback) {
+        return true;
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<StreetliftingAttempt>> getAttempts(String competitionId) async {
+    if (_useMockFallback) {
+      return [];
     }
     try {
       final response = await _api.get('/attempts', queryParameters: {'competitionId': competitionId});
@@ -345,13 +331,8 @@ class CompetitionRepository {
   Future<StreetliftingAttempt?> createAttempt(
     StreetliftingAttempt attempt,
   ) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('attempts').insert(attempt.toJson()).select().single();
-        return StreetliftingAttempt.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return attempt;
-      }
+    if (_useMockFallback) {
+      return attempt;
     }
     try {
       final response = await _api.post('/attempts', body: attempt.toJson());
@@ -371,13 +352,8 @@ class CompetitionRepository {
   Future<StreetliftingAttempt?> updateAttempt(
     StreetliftingAttempt attempt,
   ) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('attempts').update(attempt.toJson()).eq('id', attempt.id).select().single();
-        return StreetliftingAttempt.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return attempt;
-      }
+    if (_useMockFallback) {
+      return attempt;
     }
     try {
       final response = await _api.put('/attempts', body: attempt.toJson());
@@ -395,13 +371,8 @@ class CompetitionRepository {
   }
 
   Future<List<Flight>> getFlights(String competitionId) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('flights').select().eq('competition_id', competitionId);
-        return (response as List).map((data) => Flight.fromJson(data as Map<String, dynamic>)).toList();
-      } catch (_) {
-        return [];
-      }
+    if (_useMockFallback) {
+      return [];
     }
     try {
       final response = await _api.get('/flights', queryParameters: {'competitionId': competitionId});
@@ -420,13 +391,8 @@ class CompetitionRepository {
   }
 
   Future<Flight?> createFlight(Flight flight) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('flights').insert(flight.toJson()).select().single();
-        return Flight.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return flight;
-      }
+    if (_useMockFallback) {
+      return flight;
     }
     try {
       final response = await _api.post('/flights', body: flight.toJson());
@@ -444,13 +410,8 @@ class CompetitionRepository {
   }
 
   Future<Flight?> updateFlight(Flight flight) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('flights').update(flight.toJson()).eq('id', flight.id).select().single();
-        return Flight.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return flight;
-      }
+    if (_useMockFallback) {
+      return flight;
     }
     try {
       final response = await _api.put('/flights', body: flight.toJson());
@@ -468,13 +429,8 @@ class CompetitionRepository {
   }
 
   Future<List<ScheduleItem>> getScheduleItems(String competitionId) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('schedule_items').select().eq('competition_id', competitionId);
-        return (response as List).map((data) => ScheduleItem.fromJson(data as Map<String, dynamic>)).toList();
-      } catch (_) {
-        return [];
-      }
+    if (_useMockFallback) {
+      return [];
     }
     try {
       final response = await _api.get('/schedule', queryParameters: {'competitionId': competitionId});
@@ -493,13 +449,8 @@ class CompetitionRepository {
   }
 
   Future<ScheduleItem?> createScheduleItem(ScheduleItem item) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('schedule_items').insert(item.toJson()).select().single();
-        return ScheduleItem.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return item;
-      }
+    if (_useMockFallback) {
+      return item;
     }
     try {
       final response = await _api.post('/schedule', body: item.toJson());
@@ -517,13 +468,8 @@ class CompetitionRepository {
   }
 
   Future<ScheduleItem?> updateScheduleItem(ScheduleItem item) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('schedule_items').update(item.toJson()).eq('id', item.id).select().single();
-        return ScheduleItem.fromJson(response as Map<String, dynamic>);
-      } catch (_) {
-        return item;
-      }
+    if (_useMockFallback) {
+      return item;
     }
     try {
       final response = await _api.put('/schedule', body: item.toJson());
@@ -541,18 +487,8 @@ class CompetitionRepository {
   }
 
   Future<List<Profile>> getCompetitionAthletes(String competitionId) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('athlete_registrations').select('*, profile:profiles(*)').eq('competition_id', competitionId);
-        final list = response as List? ?? [];
-        return list
-            .map((data) => data['profile'])
-            .where((profile) => profile != null)
-            .map((profileJson) => Profile.fromJson(profileJson as Map<String, dynamic>))
-            .toList();
-      } catch (_) {
-        return [];
-      }
+    if (_useMockFallback) {
+      return [];
     }
     try {
       final response = await _api.get('/competitions/$competitionId/athletes');
@@ -571,19 +507,8 @@ class CompetitionRepository {
   }
 
   Future<bool> registerAthlete(String competitionId, String userId, {String status = 'registered'}) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final regId = 'reg-${DateTime.now().millisecondsSinceEpoch}';
-        await _client.from('athlete_registrations').insert({
-          'id': regId,
-          'competition_id': competitionId,
-          'profile_id': userId,
-          'status': status,
-        });
-        return true;
-      } catch (_) {
-        return false;
-      }
+    if (_useMockFallback) {
+      return false;
     }
     try {
       final response = await _api.post('/competitions/$competitionId/register', body: {'userId': userId, 'status': status});
@@ -602,14 +527,8 @@ class CompetitionRepository {
   }
 
   Future<List<String>> getRegisteredAthleteIds(String competitionId) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('athlete_registrations').select('profile_id').eq('competition_id', competitionId);
-        final list = response as List? ?? [];
-        return list.map((data) => data['profile_id'] as String).toList();
-      } catch (_) {
-        return [];
-      }
+    if (_useMockFallback) {
+      return [];
     }
     try {
       final response = await _api.get('/competitions/$competitionId/registrations');
@@ -628,14 +547,8 @@ class CompetitionRepository {
   }
 
   Future<List<Map<String, dynamic>>> getMeetResults() async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final response = await _client.from('competition_results').select('*, competition:competitions(*), profile:profiles(*)');
-        final list = response as List? ?? [];
-        return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      } catch (_) {
-        return [];
-      }
+    if (_useMockFallback) {
+      return [];
     }
     try {
       final response = await _api.get('/rankings');
@@ -656,115 +569,6 @@ class CompetitionRepository {
   }
 
   Future<bool> runRandomDraw(String competitionId) async {
-    if (_useMockFallback && _client != null) {
-      try {
-        final compJson = await _client.from('competitions').select().eq('id', competitionId).maybeSingle();
-        if (compJson == null) return false;
-        
-        final competition = Competition.fromJson(compJson as Map<String, dynamic>);
-        if (competition.registrationMode != 'random') return false;
-        
-        final regs = await _client.from('athlete_registrations').select().eq('competition_id', competitionId) as List? ?? [];
-        if (regs.isEmpty) return true;
-        
-        final profilesRes = await _client.from('profiles').select() as List? ?? [];
-        final profilesMap = {for (final p in profilesRes) p['id'] as String: Profile.fromJson(p as Map<String, dynamic>)};
-        
-        final assignedStatus = <String, String>{};
-        final random = Random();
-        
-        List<dynamic> groupLimits = competition.maxAthletesPerGroup ?? [];
-        
-        if (groupLimits.isNotEmpty) {
-          for (final group in groupLimits) {
-            final groupGender = (group['gender'] as String? ?? 'open').toLowerCase();
-            final groupLimit = group['limit'] as int?;
-            
-            final candidates = regs.where((reg) {
-              final regId = reg['id'] as String;
-              if (assignedStatus[regId] == 'registered') return false;
-              
-              final profileId = reg['profile_id'] as String;
-              final userSex = (profilesMap[profileId]?.sex ?? '').toLowerCase();
-              
-              if (groupGender == 'open' || groupGender == 'mixed') return true;
-              if ((groupGender == 'men' || groupGender == 'male') && (userSex == 'male' || userSex == 'other')) return true;
-              if ((groupGender == 'women' || groupGender == 'female' || groupGender == 'woman') && (userSex == 'female' || userSex == 'other')) return true;
-              
-              return false;
-            }).toList();
-            
-            candidates.shuffle(random);
-            
-            if (groupLimit != null) {
-              final limit = groupLimit < candidates.length ? groupLimit : candidates.length;
-              for (int i = 0; i < limit; i++) {
-                final regId = candidates[i]['id'] as String;
-                assignedStatus[regId] = 'registered';
-              }
-              for (int i = limit; i < candidates.length; i++) {
-                final regId = candidates[i]['id'] as String;
-                if (assignedStatus[regId] != 'registered') {
-                  if (competition.enableWaitlist) {
-                    assignedStatus[regId] = 'waitlisted';
-                  } else {
-                    assignedStatus[regId] = 'pending';
-                  }
-                }
-              }
-            } else {
-              for (final cand in candidates) {
-                final regId = cand['id'] as String;
-                assignedStatus[regId] = 'registered';
-              }
-            }
-          }
-        } else {
-          final candidates = List<dynamic>.from(regs);
-          candidates.shuffle(random);
-          
-          if (competition.maxAthletes != null) {
-            final limit = competition.maxAthletes! < candidates.length ? competition.maxAthletes! : candidates.length;
-            for (int i = 0; i < limit; i++) {
-              final regId = candidates[i]['id'] as String;
-              assignedStatus[regId] = 'registered';
-            }
-            for (int i = limit; i < candidates.length; i++) {
-              final regId = candidates[i]['id'] as String;
-              if (competition.enableWaitlist) {
-                assignedStatus[regId] = 'waitlisted';
-              } else {
-                assignedStatus[regId] = 'pending';
-              }
-            }
-          } else {
-            for (final cand in candidates) {
-              final regId = cand['id'] as String;
-              assignedStatus[regId] = 'registered';
-            }
-          }
-        }
-        
-        for (final reg in regs) {
-          final regId = reg['id'] as String;
-          if (!assignedStatus.containsKey(regId)) {
-            if (competition.enableWaitlist) {
-              assignedStatus[regId] = 'waitlisted';
-            } else {
-              assignedStatus[regId] = 'pending';
-            }
-          }
-        }
-        
-        for (final entry in assignedStatus.entries) {
-          await _client.from('athlete_registrations').update({'status': entry.value}).eq('id', entry.key);
-        }
-        return true;
-      } catch (_) {
-        return false;
-      }
-    }
-    
     try {
       final response = await _api.post('/competitions/$competitionId/draw');
       if (response.statusCode == 200) {
@@ -780,4 +584,3 @@ class CompetitionRepository {
     }
   }
 }
-

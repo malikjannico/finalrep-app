@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'mocks/supabase_dummies.dart';
 import 'package:finalrep_app/models/association.dart';
 import 'package:finalrep_app/models/athlete_group.dart';
 import 'package:finalrep_app/views/competition_creation_page.dart';
@@ -143,22 +143,18 @@ void main() {
         await tester.pumpAndSettle();
 
         // Step 6: Registration Settings
-        // Step 6 -> Step 7 (Competition Group)
+        // Step 6 -> Step 7 (Athlete Groups)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 
-        // Step 7 -> Step 8 (Athlete Groups)
-        await tester.tap(nextButton);
-        await tester.pumpAndSettle();
-
-        // We are at Step 8: Athlete Groups. Verify "Apply Parent Groups" button is disabled (onPressed is null)
+        // We are at Step 7: Athlete Groups. Verify "Apply Parent Groups" button is disabled (onPressed is null)
         final applyBtnFinder = find.byKey(const Key('apply_parent_groups_btn'));
         expect(applyBtnFinder, findsOneWidget);
         OutlinedButton applyBtn = tester.widget<OutlinedButton>(applyBtnFinder);
         expect(applyBtn.onPressed, isNull);
 
         // Go back to Step 1 to select the Parent Association
-        for (int i = 0; i < 7; i++) {
+        for (int i = 0; i < 6; i++) {
           await tester.tap(find.widgetWithText(OutlinedButton, 'BACK'));
           await tester.pumpAndSettle();
         }
@@ -169,7 +165,7 @@ void main() {
         await tester.tap(find.text('Olympic Federation'));
         await tester.pumpAndSettle();
 
-        // Go forward to Step 8 again
+        // Go forward to Step 7 again
         // Step 1 -> Step 2
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
@@ -185,10 +181,7 @@ void main() {
         // Step 5 -> Step 6
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
-        // Step 6 -> Step 7
-        await tester.tap(nextButton);
-        await tester.pumpAndSettle();
-        // Step 7 -> Step 8
+        // Step 6 -> Step 7 (Athlete Groups)
         await tester.tap(nextButton);
         await tester.pumpAndSettle();
 

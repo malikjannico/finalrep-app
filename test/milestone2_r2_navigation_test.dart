@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'mocks/supabase_dummies.dart';
 import 'package:finalrep_app/models/competition.dart';
 import 'package:finalrep_app/models/profile.dart';
 import 'package:finalrep_app/models/association.dart';

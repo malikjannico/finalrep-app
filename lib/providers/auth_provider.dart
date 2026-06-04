@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../models/profile.dart';
 import '../repositories/profile_repository.dart';
@@ -18,29 +17,29 @@ import '../utils/uuid_helper.dart';
 enum AuthStatus { unauthenticated, authenticating, authenticated }
 
 class AuthProvider extends ChangeNotifier {
-  final dynamic _client;
+  final fb.FirebaseAuth? _firebaseAuthOverride;
+  fb.FirebaseAuth get _firebaseAuth => _firebaseAuthOverride ?? fb.FirebaseAuth.instance;
   final ProfileRepository _profileRepository;
   final AdminRepository _adminRepository;
   final NotificationRepository _notificationRepository;
 
   AuthStatus _status = AuthStatus.unauthenticated;
   Profile? _currentUserProfile;
-  dynamic _session;
   bool _isLoading = false;
   String? _errorMessage;
-  dynamic _authSubscription;
+  StreamSubscription<fb.User?>? _authSubscription;
   bool _isPasswordRecoveryActive = false;
   bool _isDisposed = false;
 
   AuthProvider(
-    dynamic client,
     this._profileRepository, {
+    fb.FirebaseAuth? firebaseAuth,
     AdminRepository? adminRepository,
     NotificationRepository? notificationRepository,
-  }) : _client = client,
-       _adminRepository = adminRepository ?? AdminRepository(client),
+  }) : _firebaseAuthOverride = firebaseAuth,
+       _adminRepository = adminRepository ?? AdminRepository(),
        _notificationRepository =
-           notificationRepository ?? NotificationRepository(client) {
+           notificationRepository ?? NotificationRepository() {
     _init();
   }
 
@@ -56,7 +55,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  Session? get session => _session;
+  dynamic get session => null;
   bool get isPasswordRecoveryActive => _isPasswordRecoveryActive;
   String get timeFormat => _timeFormat;
 
@@ -101,18 +100,13 @@ class AuthProvider extends ChangeNotifier {
     return profile.email;
   }
 
-  bool get _useSupabaseMock => MockSafety.isMockAllowed && _client != null;
-
   Future<void> sendPasswordResetEmail(String email) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
-      if (_useSupabaseMock) {
-        await (_client as SupabaseClient).auth.resetPasswordForEmail(email);
-      } else {
-        await fb.FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
-      }
+      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+      _isPasswordRecoveryActive = true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
@@ -125,23 +119,16 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _init() {
-    _isLoading = true;
-    if (_useSupabaseMock) {
-      final supabaseClient = _client as SupabaseClient;
-      _authSubscription = supabaseClient.auth.onAuthStateChange.listen((data) async {
+    _isLoading = _firebaseAuth.currentUser != null;
+    try {
+      _authSubscription = _firebaseAuth.authStateChanges().listen((fb.User? user) async {
         print(
-          'DEBUG: AuthProvider received event=${data.event} user=${data.session?.user.id}',
+          'DEBUG: AuthProvider received user=${user?.uid}',
         );
-        _session = data.session;
-        final user = data.session?.user;
-
-        if (data.event == AuthChangeEvent.passwordRecovery) {
-          _isPasswordRecoveryActive = true;
-        }
-
         if (user != null) {
           _status = AuthStatus.authenticating;
-          final profile = await _fetchProfileWithRetry(user.id);
+          final mappedUuid = UuidHelper.getDeterministicUuid(user.uid);
+          final profile = await _fetchProfileWithRetry(mappedUuid);
           if (profile != null) {
             _currentUserProfile = profile;
             _status = AuthStatus.authenticated;
@@ -157,36 +144,10 @@ class AuthProvider extends ChangeNotifier {
         _isLoading = false;
         notifyListeners();
       });
-    } else {
-      try {
-        _authSubscription = fb.FirebaseAuth.instance.authStateChanges().listen((fb.User? user) async {
-          print(
-            'DEBUG: AuthProvider received user=${user?.uid}',
-          );
-          if (user != null) {
-            _status = AuthStatus.authenticating;
-            final mappedUuid = UuidHelper.getDeterministicUuid(user.uid);
-            final profile = await _fetchProfileWithRetry(mappedUuid);
-            if (profile != null) {
-              _currentUserProfile = profile;
-              _status = AuthStatus.authenticated;
-            } else {
-              _currentUserProfile = null;
-              _status = AuthStatus.unauthenticated;
-              _errorMessage = "Profile details could not be loaded.";
-            }
-          } else {
-            _currentUserProfile = null;
-            _status = AuthStatus.unauthenticated;
-          }
-          _isLoading = false;
-          notifyListeners();
-        });
-      } catch (e) {
-        _isLoading = false;
-        _status = AuthStatus.unauthenticated;
-        notifyListeners();
-      }
+    } catch (e) {
+      _isLoading = false;
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
     }
   }
 
@@ -235,85 +196,38 @@ class AuthProvider extends ChangeNotifier {
         throw Exception("Username '$username' is already taken.");
       }
 
-      if (_useSupabaseMock) {
-        final response = await (_client as SupabaseClient).auth.signUp(
+      final credential = await _firebaseAuth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      final user = credential.user;
+      if (user != null) {
+        String finalPicUrl = profilePictureUrl ?? '';
+        if (customAvatarBytes != null) {
+          final ext = customAvatarExtension ?? 'jpg';
+          final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+          final uploadedUrl = await _profileRepository.uploadFile(customAvatarBytes, fileName);
+          if (uploadedUrl != null) {
+            finalPicUrl = uploadedUrl;
+          }
+        }
+        final mappedUuid = UuidHelper.getDeterministicUuid(user.uid);
+        final newProfile = Profile(
+          id: mappedUuid,
+          username: cleanUsername,
+          fullName: fullName,
           email: email.trim(),
-          password: password,
-          data: {
-            'username': cleanUsername,
-            'full_name': fullName,
-            'sex': sex,
-            'country': country,
-            'profile_picture_url': profilePictureUrl,
+          sex: sex ?? '',
+          country: country ?? '',
+          profilePictureUrl: finalPicUrl,
+          colorMode: 'system',
+          notificationPreferences: {
+            'competition_updates': true,
+            'association_updates': true,
+            'permissions': true,
           },
         );
-
-        final user = response.user;
-        if (user != null && customAvatarBytes != null) {
-          final ext = customAvatarExtension ?? 'jpg';
-          final filePath =
-              'profiles/${user.id}/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
-
-          await (_client as SupabaseClient).storage
-              .from('avatars')
-              .uploadBinary(
-                filePath,
-                customAvatarBytes,
-                fileOptions: FileOptions(
-                  contentType: 'image/$ext',
-                  cacheControl: '3600',
-                  upsert: true,
-                ),
-              );
-
-          final publicUrl = (_client as SupabaseClient).storage
-              .from('avatars')
-              .getPublicUrl(filePath);
-
-          final profile = await _fetchProfileWithRetry(user.id);
-          if (profile != null) {
-            final updated = profile.copyWith(profilePictureUrl: publicUrl);
-            await _profileRepository.updateProfile(updated);
-            _currentUserProfile = updated;
-            notifyListeners();
-          }
-        }
-      } else {
-        final credential = await fb.FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email.trim(),
-          password: password,
-        );
-        final user = credential.user;
-        if (user != null) {
-          String finalPicUrl = profilePictureUrl ?? '';
-          if (customAvatarBytes != null) {
-            final ext = customAvatarExtension ?? 'jpg';
-            final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
-            final apiClient = ApiClient();
-            final uploadRes = await apiClient.uploadMultipart('upload', customAvatarBytes, fileName);
-            if (uploadRes.statusCode == 200) {
-              final json = jsonDecode(await uploadRes.stream.bytesToString()) as Map<String, dynamic>;
-              finalPicUrl = json['url'] as String;
-            }
-          }
-          final mappedUuid = UuidHelper.getDeterministicUuid(user.uid);
-          final newProfile = Profile(
-            id: mappedUuid,
-            username: cleanUsername,
-            fullName: fullName,
-            email: email.trim(),
-            sex: sex ?? '',
-            country: country ?? '',
-            profilePictureUrl: finalPicUrl,
-            colorMode: 'system',
-            notificationPreferences: {
-              'competition_updates': true,
-              'association_updates': true,
-              'permissions': true,
-            },
-          );
-          await _profileRepository.updateProfile(newProfile);
-        }
+        await _profileRepository.updateProfile(newProfile);
       }
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -333,11 +247,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (_useSupabaseMock) {
-        await (_client as SupabaseClient).auth.signInWithPassword(email: email, password: password);
-      } else {
-        await fb.FirebaseAuth.instance.signInWithEmailAndPassword(email: email.trim(), password: password);
-      }
+      await _firebaseAuth.signInWithEmailAndPassword(email: email.trim(), password: password);
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
@@ -364,17 +274,10 @@ class AuthProvider extends ChangeNotifier {
         throw Exception("Username '$username' not found.");
       }
 
-      if (_useSupabaseMock) {
-        await (_client as SupabaseClient).auth.signInWithPassword(
-          email: profile.email,
-          password: password,
-        );
-      } else {
-        await fb.FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: profile.email,
-          password: password,
-        );
-      }
+      await _firebaseAuth.signInWithEmailAndPassword(
+        email: profile.email,
+        password: password,
+      );
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
@@ -388,11 +291,7 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      if (_useSupabaseMock) {
-        await (_client as SupabaseClient).auth.signOut();
-      } else {
-        await fb.FirebaseAuth.instance.signOut();
-      }
+      await _firebaseAuth.signOut();
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
@@ -418,11 +317,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       if (email != _currentUserProfile!.email) {
-        if (_useSupabaseMock) {
-          await (_client as SupabaseClient).auth.updateUser(UserAttributes(email: email));
-        } else {
-          await fb.FirebaseAuth.instance.currentUser?.verifyBeforeUpdateEmail(email.trim());
-        }
+        await _firebaseAuth.currentUser?.verifyBeforeUpdateEmail(email.trim());
       }
 
       final updatedProfile = _currentUserProfile!.copyWith(
@@ -458,11 +353,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (_useSupabaseMock) {
-        await (_client as SupabaseClient).auth.updateUser(UserAttributes(password: newPassword));
-      } else {
-        await fb.FirebaseAuth.instance.currentUser?.updatePassword(newPassword);
-      }
+      await _firebaseAuth.currentUser?.updatePassword(newPassword);
     } catch (e) {
       _errorMessage = e.toString();
       _isLoading = false;
@@ -544,7 +435,7 @@ class AuthProvider extends ChangeNotifier {
 
         // Trigger Permission Notification
         final notif = SystemNotification(
-          id: 'notif-perm-${DateTime.now().millisecondsSinceEpoch}',
+          id: 'notif-perm-${UuidHelper.generateUuidV4()}',
           userId: app.userId,
           title: 'Permissions Approved',
           message:
@@ -578,7 +469,7 @@ class AuthProvider extends ChangeNotifier {
       if (app != null && app.status == 'rejected') {
         // Trigger Permission Notification
         final notif = SystemNotification(
-          id: 'notif-perm-${DateTime.now().millisecondsSinceEpoch}',
+          id: 'notif-perm-${UuidHelper.generateUuidV4()}',
           userId: app.userId,
           title: 'Permissions Application Update',
           message:

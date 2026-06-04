@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'mocks/supabase_dummies.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:finalrep_app/models/profile.dart';
@@ -33,7 +34,7 @@ class WidgetMockAuthProvider extends ChangeNotifier implements AuthProvider {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
-  NotificationRepository get notificationRepository => NotificationRepository(null);
+  NotificationRepository get notificationRepository => NotificationRepository();
 
   @override
   Profile? get currentUserProfile => _currentUserProfile;
@@ -72,7 +73,7 @@ void main() {
     late NotificationRepository notifRepo;
 
     setUp(() {
-      notifRepo = NotificationRepository(null);
+      notifRepo = NotificationRepository();
     });
 
     test(
@@ -82,6 +83,9 @@ void main() {
         final mockAuthClient = MockGoTrueClient(
           StreamController<AuthState>.broadcast(),
         );
+        final fbAuthController = StreamController<fb.User?>.broadcast();
+        final mockFirebaseAuth = MockFirebaseAuth(fbAuthController);
+
         final mockSupabaseClient = MockSupabaseClient(auth: mockAuthClient);
         final mockProfileRepo = MockProfileRepository();
         final mockAdminRepo = MockAdminRepository();
@@ -94,9 +98,8 @@ void main() {
           email: 'perm@test.com',
         );
 
-        final authProvider = AuthProvider(
-          mockSupabaseClient,
-          mockProfileRepo,
+        final authProvider = AuthProvider(mockProfileRepo,
+          firebaseAuth: mockFirebaseAuth,
           adminRepository: mockAdminRepo,
           notificationRepository: notifRepo,
         );
@@ -156,6 +159,7 @@ void main() {
         final compProvider = CompetitionProvider(
           mockCompRepo,
           mockProfileRepo,
+          firebaseAuth: mockFirebaseAuth,
           associationRepository: mockAssocRepo,
           notificationRepository: notifRepo,
         );

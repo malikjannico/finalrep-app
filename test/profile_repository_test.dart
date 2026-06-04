@@ -1,114 +1,29 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:finalrep_app/repositories/profile_repository.dart';
+import 'package:finalrep_app/utils/api_client.dart';
 
-class SimpleMockSupabaseClient implements SupabaseClient {
+class SimpleMockApiClient extends ApiClient {
   final List<Map<String, dynamic>> rankingsData;
   final List<Map<String, dynamic>> competitionsData;
 
-  SimpleMockSupabaseClient({
+  SimpleMockApiClient({
     required this.rankingsData,
     required this.competitionsData,
   });
 
   @override
-  SupabaseQueryBuilder from(String table) {
-    return SimpleMockQueryBuilder(table, this);
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class SimpleMockQueryBuilder implements SupabaseQueryBuilder {
-  final String table;
-  final SimpleMockSupabaseClient client;
-
-  SimpleMockQueryBuilder(this.table, this.client);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) {
-    if (invocation.memberName == #select) {
-      return SimpleMockFilterBuilder<List<Map<String, dynamic>>>(table, client);
+  Future<http.Response> get(String path, {Map<String, String>? queryParameters}) async {
+    if (path == '/profiles' && queryParameters?['type'] == 'rankings') {
+      return http.Response(jsonEncode(rankingsData), 200);
     }
-    return super.noSuchMethod(invocation);
-  }
-}
-
-// ignore: must_be_immutable
-class SimpleMockFilterBuilder<T>
-    implements PostgrestFilterBuilder<T>, Future<T> {
-  final String table;
-  final SimpleMockSupabaseClient client;
-  final Map<String, dynamic> eqFilters = {};
-  List<String>? inFilterTitles;
-
-  SimpleMockFilterBuilder(this.table, this.client);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) {
-    final name = invocation.memberName;
-    print('SimpleMockFilterBuilder noSuchMethod called: $name');
-    if (name == #eq) {
-      final col = invocation.positionalArguments[0] as String;
-      final val = invocation.positionalArguments[1];
-      eqFilters[col] = val;
-      return this;
+    if (path == '/competitions' && queryParameters?['status'] == 'completed') {
+      final completed = competitionsData.where((c) => c['status'] == 'completed').toList();
+      return http.Response(jsonEncode(completed), 200);
     }
-    if (name == #inFilter) {
-      final col = invocation.positionalArguments[0] as String;
-      final val = invocation.positionalArguments[1] as List;
-      print('inFilter called with col: $col, values: $val');
-      if (col == 'title') {
-        inFilterTitles = val.cast<String>();
-      }
-      return this;
-    }
-    return super.noSuchMethod(invocation);
-  }
-
-  @override
-  Future<R> then<R>(
-    FutureOr<R> Function(T value) onValue, {
-    Function? onError,
-  }) async {
-    dynamic result;
-    if (table == 'highest_rankings') {
-      result = client.rankingsData;
-    } else if (table == 'competitions') {
-      if (inFilterTitles != null) {
-        result = client.competitionsData
-            .where((c) => inFilterTitles!.contains(c['title']))
-            .toList();
-      } else {
-        result = client.competitionsData;
-      }
-    } else {
-      result = [];
-    }
-    print('SimpleMockFilterBuilder then returns for table $table: $result');
-    return onValue(result as T);
-  }
-
-  @override
-  Future<T> catchError(Function onError, {bool Function(Object error)? test}) {
-    return Future<T>.value().catchError(onError, test: test);
-  }
-
-  @override
-  Future<T> timeout(Duration timeLimit, {FutureOr<T> Function()? onTimeout}) {
-    return Future<T>.value().timeout(timeLimit, onTimeout: onTimeout);
-  }
-
-  @override
-  Stream<T> asStream() {
-    return Stream<T>.empty();
-  }
-
-  @override
-  Future<T> whenComplete(FutureOr<void> Function() action) {
-    return Future<T>.value().whenComplete(action);
+    return http.Response('Not found', 404);
   }
 }
 
@@ -137,12 +52,12 @@ void main() {
           {'title': 'Classic Pull & Dip Cup', 'status': 'completed'},
         ];
 
-        final client = SimpleMockSupabaseClient(
+        final api = SimpleMockApiClient(
           rankingsData: rankings,
           competitionsData: competitions,
         );
 
-        final repo = ProfileRepository(client);
+        final repo = ProfileRepository(api: api);
         final results = await repo.getUserHighestRankings('user-1');
 
         print('RESULTS: $results');

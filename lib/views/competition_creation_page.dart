@@ -196,9 +196,9 @@ class CompetitionCreationPage extends StatefulWidget {
 
 class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
   int _currentStep = 0;
-  final int _totalSteps = 12;
+  final int _totalSteps = 11;
 
-  final List<GlobalKey<FormState>> _formKeys = List.generate(12, (index) => GlobalKey<FormState>());
+  final List<GlobalKey<FormState>> _formKeys = List.generate(11, (index) => GlobalKey<FormState>());
 
   // Step 1: General Info
   final TextEditingController _titleController = TextEditingController();
@@ -215,6 +215,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
 
   late ProfileRepository _profileRepository;
   bool _isSubmitted = false;
+  double? _verifiedLatitude;
+  double? _verifiedLongitude;
 
   bool _isLocationVerified = false;
   bool _isVerifyingLocation = false;
@@ -497,6 +499,9 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
       _parsedZip = fallback['zip'] ?? '22529';
       _parsedAddress = fallback['street'] ?? query;
 
+      _verifiedLatitude = 53.5511;
+      _verifiedLongitude = 9.9937;
+
       if (mounted) {
         setState(() {
           _isVerifyingLocation = false;
@@ -524,8 +529,14 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         if (data.isNotEmpty) {
-          final lat = data[0]['lat'];
-          final lon = data[0]['lon'];
+          final latStr = data[0]['lat'];
+          final lonStr = data[0]['lon'];
+          final lat = double.tryParse(latStr?.toString() ?? '') ?? 0.0;
+          final lon = double.tryParse(lonStr?.toString() ?? '') ?? 0.0;
+          
+          _verifiedLatitude = lat;
+          _verifiedLongitude = lon;
+
           final displayName = data[0]['display_name'] as String? ?? query;
           final addressMap = data[0]['address'] as Map<String, dynamic>?;
 
@@ -885,9 +896,37 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     required Function(T) onChanged,
     Widget? prefixIcon,
     String Function(T)? displayValue,
+    bool enabled = true,
   }) {
     final theme = Theme.of(context);
     final displayStr = displayValue != null ? displayValue(value) : value.toString();
+    final childDecorator = InputDecorator(
+      decoration: InputDecoration(
+        labelText: labelText,
+        prefixIcon: prefixIcon,
+        enabled: enabled,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              displayStr,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: enabled ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withOpacity(0.5),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Icon(
+            Icons.arrow_drop_down,
+            color: enabled ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+          ),
+        ],
+      ),
+    );
+
+    if (!enabled) return childDecorator;
+
     return Theme(
       data: theme.copyWith(
         cardColor: theme.colorScheme.surface,
@@ -898,29 +937,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
         onSelected: onChanged,
         itemBuilder: (BuildContext context) => items,
         borderRadius: BorderRadius.circular(12),
-        child: InputDecorator(
-          decoration: InputDecoration(
-            labelText: labelText,
-            prefixIcon: prefixIcon,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  displayStr,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(
-                Icons.arrow_drop_down,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
+        child: childDecorator,
       ),
     );
   }
@@ -1354,11 +1371,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
         }
       }
 
-      final filtered = resolvedCGs.where((g) =>
-        g.isActive &&
-        g.sport.toLowerCase() == _sportType.toLowerCase() &&
-        g.format.toLowerCase() == _sportSubtype.toLowerCase()
-      ).toList();
+      final filtered = resolvedCGs.where((g) => g.isActive).toList();
 
       if (mounted) {
         setState(() {
@@ -1530,6 +1543,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
       titleImageUrl: _titleImageUrlController.text.trim().isEmpty ? null : _titleImageUrlController.text.trim(),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      latitude: _verifiedLatitude,
+      longitude: _verifiedLongitude,
       registrationStart: _registrationStartDate,
       registrationEnd: _registrationEndDate,
       requiresFees: _requiresFees,
@@ -1573,6 +1588,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
         throw Exception(compProvider.errorMessage ?? 'Failed to create competition');
       }
     } catch (e) {
+      print('DEBUG CREATION ERROR: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
@@ -1585,14 +1601,20 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
   }
 
   Future<void> _nextStep() async {
+    print('DEBUG NEXTSTEP: current=$_currentStep');
     if (_formKeys[_currentStep].currentState!.validate()) {
+      print('DEBUG NEXTSTEP: validation passed for $_currentStep');
       if (_currentStep == 1 && !_isLocationVerified) {
         await _verifyLocation();
-        if (!_isLocationVerified) return;
+        if (!_isLocationVerified) {
+          print('DEBUG NEXTSTEP: location verification failed');
+          return;
+        }
       }
       if (_currentStep == 4) {
         final dateErr = _validateDates();
         if (dateErr != null) {
+          print('DEBUG NEXTSTEP: date validation failed: $dateErr');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(dateErr), backgroundColor: Colors.red),
           );
@@ -1604,9 +1626,13 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
           _currentStep++;
           _locationSuggestions = [];
         });
+        print('DEBUG NEXTSTEP: advanced to $_currentStep');
       } else {
+        print('DEBUG NEXTSTEP: submitting competition');
         _submitCompetition();
       }
+    } else {
+      print('DEBUG NEXTSTEP: validation failed for $_currentStep');
     }
   }
 
@@ -1698,21 +1724,18 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
         stepTitle = 'Registration Settings';
         break;
       case 6:
-        stepTitle = 'Competition Group';
-        break;
-      case 7:
         stepTitle = 'Athlete Groups';
         break;
-      case 8:
+      case 7:
         stepTitle = 'Fees & Bank Details';
         break;
-      case 9:
+      case 8:
         stepTitle = 'Payment Settings';
         break;
-      case 10:
+      case 9:
         stepTitle = 'Volunteer Setup';
         break;
-      case 11:
+      case 10:
         stepTitle = 'Disclaimers & Custom Fields';
         break;
     }
@@ -1775,16 +1798,14 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
       case 5:
         return _buildStep6RegSettings(theme);
       case 6:
-        return _buildStep7CompGroup(theme);
-      case 7:
         return _buildStep8AthleteGroups(theme);
-      case 8:
+      case 7:
         return _buildStep9FeesBank(theme);
-      case 9:
+      case 8:
         return _buildStep10PaymentSettings(theme);
-      case 10:
+      case 9:
         return _buildStep11Volunteers(theme);
-      case 11:
+      case 10:
         return _buildStep12DisclaimersCustomFields(theme);
       default:
         return Container();
@@ -1846,6 +1867,35 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
               _onParentOrSportChanged();
             },
           ),
+          if (_selectedAssociationId != null && _availableCompGroups.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildCustomDropdownField<String?>(
+              labelText: 'Competition Group',
+              value: _selectedCompGroupName,
+              displayValue: (val) => val ?? 'None (Individual)',
+              prefixIcon: const Icon(Icons.group_work_outlined),
+              items: [
+                const PopupMenuItem<String?>(
+                  value: null,
+                  child: Text('None (Individual)'),
+                ),
+                ..._availableCompGroups.map((cg) => PopupMenuItem<String?>(
+                      value: cg.name,
+                      child: Text(cg.name),
+                    )),
+              ],
+              onChanged: (val) {
+                setState(() {
+                  _selectedCompGroupName = val;
+                  if (val != null) {
+                    final selectedGroup = _availableCompGroups.firstWhere((cg) => cg.name == val);
+                    _sportType = selectedGroup.sport;
+                    _sportSubtype = selectedGroup.format;
+                  }
+                });
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -1934,6 +1984,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
             labelText: 'Sport Type',
             value: sports.contains(_sportType) ? _sportType : sports.first,
             prefixIcon: Icon(Icons.sports, color: theme.colorScheme.primary, size: 20),
+            enabled: _selectedCompGroupName == null,
             items: sports
                 .map((s) => PopupMenuItem<String>(
                       value: s,
@@ -1955,12 +2006,13 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
           ),
           const SizedBox(height: 20),
           InkWell(
-            onTap: () => _showFormatSelectorDialog(theme),
+            onTap: _selectedCompGroupName != null ? null : () => _showFormatSelectorDialog(theme),
             borderRadius: BorderRadius.circular(8),
             child: InputDecorator(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Sport Format *',
-                prefixIcon: Icon(Icons.format_list_bulleted_outlined),
+                prefixIcon: const Icon(Icons.format_list_bulleted_outlined),
+                enabled: _selectedCompGroupName == null,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1969,14 +2021,18 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                     child: Text(
                       _sportSubtype,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
+                        color: _selectedCompGroupName == null
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurface.withOpacity(0.5),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Icon(
                     Icons.arrow_drop_down,
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: _selectedCompGroupName == null
+                        ? theme.colorScheme.onSurfaceVariant
+                        : theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
                   ),
                 ],
               ),
@@ -2043,6 +2099,24 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
             }
             return const SizedBox.shrink();
           }),
+          if (_selectedCompGroupName != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.lock_outline, size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Sport and format are locked to match the selected competition group "$_selectedCompGroupName".',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -2542,63 +2616,11 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     );
   }
 
-  Widget _buildStep7CompGroup(ThemeData theme) {
-    return Form(
-      key: _formKeys[6],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Competition Group', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(
-            'Select a competition group to associate with this competition, or select None for an individual competition.',
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 20),
-          if (_selectedAssociationId != null) ...[
-            _buildCustomDropdownField<String?>(
-              labelText: 'Competition Group',
-              value: _selectedCompGroupName,
-              displayValue: (val) => val ?? 'None (Individual)',
-              prefixIcon: const Icon(Icons.group_work_outlined),
-              items: [
-                const PopupMenuItem<String?>(
-                  value: null,
-                  child: Text('None (Individual)'),
-                ),
-                ..._availableCompGroups.map((cg) => PopupMenuItem<String?>(
-                      value: cg.name,
-                      child: Text(cg.name),
-                    )),
-              ],
-              onChanged: (val) {
-                setState(() {
-                  _selectedCompGroupName = val;
-                });
-              },
-            ),
-          ] else ...[
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Text(
-                  'No parent association selected. Competition groups can only be selected when a parent association is configured in step 1.',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildStep8AthleteGroups(ThemeData theme) {
     final provider = Provider.of<CompetitionProvider>(context);
     final isMobile = MediaQuery.of(context).size.width < 600;
     return Form(
-      key: _formKeys[7],
+      key: _formKeys[6],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2811,7 +2833,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
   Widget _buildStep9FeesBank(ThemeData theme) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     return Form(
-      key: _formKeys[8],
+      key: _formKeys[7],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2987,7 +3009,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
 
   Widget _buildStep10PaymentSettings(ThemeData theme) {
     return Form(
-      key: _formKeys[9],
+      key: _formKeys[8],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3077,7 +3099,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
 
   Widget _buildStep11Volunteers(ThemeData theme) {
     return Form(
-      key: _formKeys[10],
+      key: _formKeys[9],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3189,7 +3211,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
 
   Widget _buildStep12DisclaimersCustomFields(ThemeData theme) {
     return Form(
-      key: _formKeys[11],
+      key: _formKeys[10],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

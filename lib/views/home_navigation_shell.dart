@@ -141,6 +141,20 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
       } else if (path == '/profile') {
         _currentTabIndex = 3;
         _safeMutateProvider(() => _provider.clearSelections());
+      } else if (path.startsWith('/competitions/')) {
+        _currentTabIndex = 0;
+        final id = segments.length >= 2 ? segments[1] : null;
+        if (id != null && id != 'create') {
+          _safeMutateProvider(() {
+            _provider.setSearchScope(SearchScope.competitions);
+            _provider.selectCompetition(id);
+          });
+        } else {
+          _safeMutateProvider(() {
+            _provider.setSearchScope(SearchScope.competitions);
+            _provider.clearSelections();
+          });
+        }
       } else if (path.startsWith('/associations/')) {
         _currentTabIndex = 1;
         final id = segments.length >= 2 ? segments[1] : null;
@@ -219,7 +233,12 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
     try {
       final state = GoRouterState.of(context);
       final isDesktop = MediaQuery.of(context).size.width >= 900;
-      if (_currentTabCollection == 'All' && isDesktop && _provider.selectedAssociationId != null) {
+      if (_currentTabCollection == 'All' && isDesktop && _provider.selectedCompetitionId != null) {
+        final target = '/competitions/${_provider.selectedCompetitionId}';
+        if (state.matchedLocation != target) {
+          context.go(target);
+        }
+      } else if (_currentTabCollection == 'All' && isDesktop && _provider.selectedAssociationId != null) {
         final target = '/associations/${_provider.selectedAssociationId}';
         if (state.matchedLocation != target) {
           context.go(target);
@@ -851,6 +870,11 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
     bool isTablet,
   ) {
     if (isDesktop && _currentTabCollection == 'All') {
+      if (provider.selectedCompetitionId != null) {
+        return CompetitionDetailPage(
+          competitionId: provider.selectedCompetitionId!,
+        );
+      }
       if (provider.selectedAssociationId != null) {
         return AssociationDetailPage(
           associationId: provider.selectedAssociationId!,
