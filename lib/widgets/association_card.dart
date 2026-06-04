@@ -37,33 +37,10 @@ class _AssociationCardState extends State<AssociationCard> {
     final logoUrl = ImageUrlResolver.resolve(context, widget.association.profilePictureUrl);
     final bannerUrl = ImageUrlResolver.resolve(context, widget.association.bannerUrl);
 
-    // Color code badge depending on scope
-    Color scopeBg;
-    Color scopeText;
     final territory = widget.association.scope.toLowerCase() != 'global'
         ? (widget.association.areaName ?? widget.association.country)
         : null;
     final showTerritory = territory != null && territory.isNotEmpty;
-    switch (widget.association.scope.toLowerCase()) {
-      case 'global':
-        scopeBg = const Color(0xFFFFB300).withOpacity(0.2);
-        scopeText = const Color(0xFFFF8F00);
-        break;
-      case 'continental':
-      case 'area':
-        scopeBg = Colors.blue.withOpacity(0.2);
-        scopeText = Colors.blue.shade700;
-        break;
-      case 'national':
-        scopeBg = Colors.green.withOpacity(0.2);
-        scopeText = Colors.green.shade700;
-        break;
-      case 'local':
-      default:
-        scopeBg = Colors.purple.withOpacity(0.2);
-        scopeText = Colors.purple.shade700;
-        break;
-    }
 
     final initials = widget.association.name.isNotEmpty
         ? widget.association.name[0].toUpperCase()
@@ -202,39 +179,30 @@ class _AssociationCardState extends State<AssociationCard> {
                           children: [
                             // Scope Badge
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: scopeBg,
-                                borderRadius: BorderRadius.circular(20),
+                                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                widget.association.scope.toUpperCase(),
-                                style: TextStyle(
-                                  color: scopeText,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 9,
-                                  letterSpacing: 0.5,
+                                _toTitleCase(widget.association.scope),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 10,
                                 ),
                               ),
                             ),
                             if (showTerritory) ...[
                               const SizedBox(height: 4),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceContainerLow,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                                  ),
+                                  color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  territory.toUpperCase(),
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurface,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 9,
-                                    letterSpacing: 0.5,
+                                  _toTitleCase(territory),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 10,
                                   ),
                                 ),
                               ),
@@ -305,30 +273,6 @@ class AssociationCompactRow extends StatelessWidget {
     final theme = Theme.of(context);
     final logoUrl = ImageUrlResolver.resolve(context, association.profilePictureUrl);
 
-    // Color code badge depending on scope
-    Color scopeBg;
-    Color scopeText;
-    switch (association.scope.toLowerCase()) {
-      case 'global':
-        scopeBg = const Color(0xFFFFB300).withOpacity(0.2);
-        scopeText = const Color(0xFFFF8F00);
-        break;
-      case 'continental':
-      case 'area':
-        scopeBg = Colors.blue.withOpacity(0.2);
-        scopeText = Colors.blue.shade700;
-        break;
-      case 'national':
-        scopeBg = Colors.green.withOpacity(0.2);
-        scopeText = Colors.green.shade700;
-        break;
-      case 'local':
-      default:
-        scopeBg = Colors.purple.withOpacity(0.2);
-        scopeText = Colors.purple.shade700;
-        break;
-    }
-
     final initials = association.name.isNotEmpty
         ? association.name[0].toUpperCase()
         : 'A';
@@ -340,151 +284,84 @@ class AssociationCompactRow extends StatelessWidget {
 
     final isDesktop = MediaQuery.of(context).size.width >= 900;
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      color: theme.colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.3),
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: isManagement ? () => _navigateToManage(context) : () => _navigateToDetails(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: theme.colorScheme.primaryContainer,
-                backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
-                child: logoUrl.isEmpty
-                    ? Text(
-                        initials,
-                        style: TextStyle(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      association.name,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (!isDesktop) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          // Territory Badge (size matching UserCompactRow chips, if not global)
-                          if (showTerritory) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                                ),
-                              ),
-                              child: Text(
-                                territory.toUpperCase(),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurface,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-
-                          // Scope Badge (size matching UserCompactRow chips)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: scopeBg,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              association.scope.toUpperCase(),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scopeText,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (isDesktop) ...[
-                const SizedBox(width: 16),
-                // Territory Badge
-                if (showTerritory) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                      ),
-                    ),
-                    child: Text(
-                      territory.toUpperCase(),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-
-                // Scope Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: scopeBg,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    association.scope.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: scopeText,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(width: 12),
-              Icon(
-                Icons.chevron_right,
-                size: 16,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-              ),
-            ],
+    final chipsList = [
+      if (showTerritory)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            _toTitleCase(territory),
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 10,
+            ),
           ),
         ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          _toTitleCase(association.scope),
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 10,
+          ),
+        ),
+      ),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundColor: theme.colorScheme.primaryContainer,
+          backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+          child: logoUrl.isEmpty
+              ? Text(
+                  initials,
+                  style: TextStyle(
+                    color: theme.colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                )
+              : null,
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              association.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: chipsList,
+            ),
+          ],
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          size: 16,
+          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+        ),
+        onTap: isManagement ? () => _navigateToManage(context) : () => _navigateToDetails(context),
       ),
     );
   }
@@ -509,4 +386,12 @@ class AssociationCompactRow extends StatelessWidget {
   void _navigateToManage(BuildContext context) {
     context.go('/management/associations/${association.id}');
   }
+}
+
+String _toTitleCase(String text) {
+  if (text.isEmpty) return '';
+  return text.split(' ').map((word) {
+    if (word.isEmpty) return '';
+    return word[0].toUpperCase() + word.substring(1).toLowerCase();
+  }).join(' ');
 }

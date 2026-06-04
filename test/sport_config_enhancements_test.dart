@@ -876,21 +876,20 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Verify scope chip "NATIONAL" is rendered
-        expect(find.text('NATIONAL'), findsOneWidget);
-        expect(find.text('GERMANY'), findsOneWidget);
+        // Verify scope chip "National" is rendered
+        expect(find.text('National'), findsOneWidget);
+        expect(find.text('Germany'), findsOneWidget);
 
-        // Verify chips are next to chevron (which means they are not underneath the name)
-        // We can check that the chips are descendants of the Row, and the Column containing the name does NOT contain the chips.
+        // Verify chips are under the name in both desktop and mobile views
         final nameTileColumn = find.ancestor(
           of: find.text('German Association'),
           matching: find.byType(Column),
         );
         final chipInColumn = find.descendant(
           of: nameTileColumn,
-          matching: find.text('NATIONAL'),
+          matching: find.text('National'),
         );
-        expect(chipInColumn, findsNothing); // Under desktop view, chips should NOT be in the name Column
+        expect(chipInColumn, findsOneWidget); // Under desktop view, chips should be in the name Column
 
         // 2. Mobile View (width < 900)
         tester.view.physicalSize = const Size(500, 600);
@@ -909,7 +908,7 @@ void main() {
         // Under mobile view, chips should be inside the Column underneath the name
         final chipInColumnMobile = find.descendant(
           of: nameTileColumn,
-          matching: find.text('NATIONAL'),
+          matching: find.text('National'),
         );
         expect(chipInColumnMobile, findsOneWidget); // On mobile, chips should be under the name inside the Column
 

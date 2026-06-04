@@ -177,6 +177,7 @@ class CompetitionProvider extends ChangeNotifier {
     _selectedAssociationId = id;
     _selectedProfileId = null;
     _selectedProfileUsername = null;
+    _applyFilters();
     notifyListeners();
   }
 
@@ -659,6 +660,11 @@ class CompetitionProvider extends ChangeNotifier {
       temp = temp.where((c) => _selectedSports.contains(c.sportType)).toList();
     }
 
+    // 8.5. Association Filter
+    if (_selectedAssociationId != null) {
+      temp = temp.where((c) => c.associationId == _selectedAssociationId).toList();
+    }
+
     // 9. Sorting
     if (_sortOrder == 'date_asc') {
       temp.sort((a, b) => a.startDate.compareTo(b.startDate));
@@ -686,6 +692,7 @@ class CompetitionProvider extends ChangeNotifier {
     _selectedCities.clear();
     _selectedDateRange = null;
     _selectedSports.clear();
+    _selectedAssociationId = null;
     _sortOrder = 'date_asc';
     _applyFilters();
     notifyListeners();

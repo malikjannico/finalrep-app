@@ -774,24 +774,17 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
         ),
       ),
       bottomNavigationBar: !isDesktop
-          ? BottomNavigationBar(
-              type: BottomNavigationBarType.fixed,
-              showSelectedLabels: false,
-              showUnselectedLabels: false,
-              currentIndex: _currentTabIndex.clamp(
+          ? NavigationBar(
+              selectedIndex: _currentTabIndex.clamp(
                 0,
                 navItems.isEmpty ? 0 : navItems.length - 1,
               ),
-              selectedItemColor: _currentTabIndex < 0
-                  ? theme.colorScheme.onSurfaceVariant
-                  : const Color(0xFFE94E1B),
-              unselectedItemColor: theme.colorScheme.onSurfaceVariant,
-              onTap: (index) {
+              onDestinationSelected: (index) {
                 final item = navItems[index];
                 _handleTabNavigation(index, item.label);
               },
-              items: navItems.map((item) {
-                return BottomNavigationBarItem(
+              destinations: navItems.map((item) {
+                return NavigationDestination(
                   icon: Icon(item.icon),
                   label: item.label,
                 );
@@ -1029,6 +1022,9 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                       SearchScope.competitions,
                       '',
                     );
+                    try {
+                      context.go('/');
+                    } catch (_) {}
                   },
                   child: SvgPicture.asset(
                     'assets/finalrep_icon.svg',
@@ -1374,12 +1370,16 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
                       _scaffoldKey.currentState?.closeDrawer();
                     }
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        settings: const RouteSettings(name: '/profile'),
-                        builder: (_) => const ProfilePage(),
-                      ),
-                    );
+                    try {
+                      context.go('/profile');
+                    } catch (_) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: '/profile'),
+                          builder: (_) => const ProfilePage(),
+                        ),
+                      );
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -1486,24 +1486,11 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
                 final index = entry.key;
                 final item = entry.value;
                 final bool isActive = _currentTabIndex == index;
-                return ListTile(
-                  leading: Icon(
-                    item.icon,
-                    color: isActive
-                        ? const Color(0xFFE94E1B)
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  title: Text(
-                    item.label,
-                    style: TextStyle(
-                      fontWeight: isActive
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      color: isActive
-                          ? const Color(0xFFE94E1B)
-                          : theme.colorScheme.onSurface,
-                    ),
-                  ),
+                return _buildDrawerItem(
+                  context: context,
+                  icon: item.icon,
+                  label: item.label,
+                  isActive: isActive,
                   onTap: () {
                     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
                       _scaffoldKey.currentState?.closeDrawer();
@@ -1514,15 +1501,11 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
               }),
               if (_currentTabCollection == 'All' &&
                   authProvider.isAuthenticated) ...[
-                ListTile(
-                  leading: Icon(
-                    Icons.settings,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  title: Text(
-                    'Settings',
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
+                _buildDrawerItem(
+                  context: context,
+                  icon: Icons.settings,
+                  label: 'Settings',
+                  isActive: false,
                   onTap: () {
                     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
                       _scaffoldKey.currentState?.closeDrawer();
@@ -1545,15 +1528,12 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
               const Spacer(),
               if (authProvider.isAuthenticated) ...[
                 const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.redAccent),
-                  title: const Text(
-                    'Log Out',
-                    style: TextStyle(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                _buildDrawerItem(
+                  context: context,
+                  icon: Icons.logout,
+                  label: 'Log Out',
+                  isActive: false,
+                  color: Colors.redAccent,
                   onTap: () async {
                     final confirm = await showDialog<bool>(
                       context: context,
@@ -1701,6 +1681,60 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
     );
   }
 
+  Widget _buildDrawerItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    final theme = Theme.of(context);
+    final defaultColor = isActive
+        ? theme.colorScheme.onSecondaryContainer
+        : theme.colorScheme.onSurfaceVariant;
+    final itemColor = color ?? defaultColor;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: isActive ? theme.colorScheme.secondaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(28),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    color: itemColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: isActive || color != null ? FontWeight.bold : FontWeight.normal,
+                        color: itemColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFiltersDrawer(
     BuildContext context,
     CompetitionProvider provider,
@@ -1839,37 +1873,49 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
           ),
       ],
       child: isDrawer
-          ? InkWell(
-              onTap: null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                child: Row(
-                  children: [
-                    Icon(
-                      _currentTabCollection == 'All'
-                          ? Icons.public
-                          : _currentTabCollection == 'Management'
-                              ? Icons.business_center
-                              : Icons.admin_panel_settings,
-                      size: 24,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 32),
-                    Expanded(
-                      child: Text(
-                        _currentTabCollection,
-                        style: TextStyle(
-                          fontWeight: FontWeight.normal,
-                          fontSize: 16,
-                          color: theme.colorScheme.onSurface,
-                        ),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
+              child: Container(
+                height: 56,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(28),
+                    onTap: null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _currentTabCollection == 'All'
+                                ? Icons.public
+                                : _currentTabCollection == 'Management'
+                                    ? Icons.business_center
+                                    : Icons.admin_panel_settings,
+                            size: 24,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _currentTabCollection,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.normal,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ],
                       ),
                     ),
-                    Icon(
-                      Icons.arrow_drop_down,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             )
@@ -2172,7 +2218,7 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
                             assoc.name,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          subtitle: Text(assoc.scope.toUpperCase()),
+                          subtitle: Text(_toTitleCase(assoc.scope)),
                           onTap: () {
                             _hideOverlay();
                             _focusNode.unfocus();
@@ -2424,4 +2470,12 @@ class _DesktopSearchBarState extends State<DesktopSearchBar> {
       ),
     );
   }
+}
+
+String _toTitleCase(String text) {
+  if (text.isEmpty) return '';
+  return text.split(' ').map((word) {
+    if (word.isEmpty) return '';
+    return word[0].toUpperCase() + word.substring(1).toLowerCase();
+  }).join(' ');
 }

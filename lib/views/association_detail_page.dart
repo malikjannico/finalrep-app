@@ -20,6 +20,7 @@ import '../models/competition.dart';
 import '../models/profile.dart';
 import '../utils/image_url_resolver.dart';
 import '../widgets/competition_card.dart';
+import '../widgets/competition_compact_row.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class AssociationDetailPage extends StatefulWidget {
@@ -38,7 +39,8 @@ class AssociationDetailPage extends StatefulWidget {
 
 
 
-class _AssociationDetailPageState extends State<AssociationDetailPage> {
+class _AssociationDetailPageState extends State<AssociationDetailPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   Association? _association;
   List<AssociationMember> _members = [];
   List<CompetitionGroup> _compGroups = [];
@@ -63,6 +65,10 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
     return '$count ${count == 1 ? "Association" : "Associations"}';
   }
 
+  String _formatCountText(int count) {
+    return '$count ${count == 1 ? "Format" : "Formats"}';
+  }
+
   final Map<String, List<String>> sportToFormatsMapping = {
     'Streetlifting': ['Modern', 'Classic', 'Multilift'],
     'Powerlifting': ['3 Lift', 'Bench Only', 'Deadlift Only', 'Push Pull'],
@@ -72,6 +78,14 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+    _tabController.addListener(() {
+      if (_selectedTabIndex != _tabController.index) {
+        setState(() {
+          _selectedTabIndex = _tabController.index;
+        });
+      }
+    });
     _scrollController.addListener(_onScroll);
     _loadData();
   }
@@ -90,6 +104,7 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -366,9 +381,7 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
     }
     socialLinks.addAll(assoc.socialChannels.entries.where((e) => e.value.trim().isNotEmpty));
 
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: theme.colorScheme.surface,
         extendBodyBehindAppBar: !hideAppBar,
       appBar: hideAppBar
@@ -485,38 +498,29 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
                       runSpacing: 8,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: scopeBg,
-                            borderRadius: BorderRadius.circular(20),
+                            color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             assoc.scope.toUpperCase(),
-                            style: TextStyle(
-                              color: scopeText,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              letterSpacing: 0.5,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 10,
                             ),
                           ),
                         ),
                         if (assoc.scope.toLowerCase() != 'global')
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                              ),
+                              color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               (assoc.areaName ?? assoc.country ?? 'Unknown').toUpperCase(),
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                                letterSpacing: 0.5,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 10,
                               ),
                             ),
                           ),
@@ -601,12 +605,8 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.colorScheme.secondary,
                                     foregroundColor: theme.colorScheme.onSecondary,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                    minimumSize: const Size.fromHeight(40),
+                                    shape: const StadiumBorder(),
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -619,12 +619,8 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: theme.colorScheme.primary,
                                   foregroundColor: theme.colorScheme.onPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                                  minimumSize: const Size.fromHeight(40),
+                                  shape: const StadiumBorder(),
                                 ),
                               ),
                             ],
@@ -643,12 +639,8 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: theme.colorScheme.secondary,
                                       foregroundColor: theme.colorScheme.onSecondary,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
+                                      minimumSize: const Size.fromHeight(40),
+                                      shape: const StadiumBorder(),
                                     ),
                                   ),
                                 ),
@@ -663,12 +655,8 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.colorScheme.primary,
                                     foregroundColor: theme.colorScheme.onPrimary,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                    minimumSize: const Size.fromHeight(40),
+                                    shape: const StadiumBorder(),
                                   ),
                                 ),
                               ),
@@ -687,11 +675,14 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
           ],
         ),
       ),
-    ),);
+    );
   }
 
   Widget _buildTabBar(ThemeData theme) {
     return TabBar(
+      controller: _tabController,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
       onTap: (index) {
         setState(() {
           _selectedTabIndex = index;
@@ -701,11 +692,57 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
       labelColor: theme.colorScheme.primary,
       unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
       labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-      tabs: const [
-        Tab(text: 'Competitions'),
-        Tab(text: 'Sports'),
-        Tab(text: 'Network'),
-        Tab(text: 'Team'),
+      tabs: [
+        Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.emoji_events, size: 16),
+              const SizedBox(width: 8),
+              const Text('Competitions'),
+            ],
+          ),
+        ),
+        Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.sports_score, size: 16),
+              const SizedBox(width: 8),
+              const Text('Sports and Formats'),
+            ],
+          ),
+        ),
+        Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.menu_book, size: 16),
+              const SizedBox(width: 8),
+              const Text('Rulebooks'),
+            ],
+          ),
+        ),
+        Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.hub, size: 16),
+              const SizedBox(width: 8),
+              const Text('Network'),
+            ],
+          ),
+        ),
+        Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.people, size: 16),
+              const SizedBox(width: 8),
+              const Text('Team'),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -717,8 +754,10 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
       case 1:
         return _buildSportsTabContent(theme);
       case 2:
-        return _buildNetworkTabContent(theme);
+        return _buildRulebooksTabContent(theme);
       case 3:
+        return _buildNetworkTabContent(theme);
+      case 4:
         return _buildTeamTabContent(theme);
       default:
         return const SizedBox.shrink();
@@ -726,18 +765,6 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
   }
 
   Widget _buildCompetitionsTabContent(ThemeData theme) {
-    final Map<String, List<Competition>> upcomingGroups = {};
-    for (final c in _upcomingCompetitions) {
-      final groupName = c.compGroupName ?? 'Independent Competitions';
-      upcomingGroups.putIfAbsent(groupName, () => []).add(c);
-    }
-
-    final Map<String, List<Competition>> completedGroups = {};
-    for (final c in _completedCompetitions) {
-      final groupName = c.compGroupName ?? 'Independent Competitions';
-      completedGroups.putIfAbsent(groupName, () => []).add(c);
-    }
-
     if (_upcomingCompetitions.isEmpty && _completedCompetitions.isEmpty) {
       return Center(
         child: Padding(
@@ -752,94 +779,114 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
       );
     }
 
+    final upcomingExpanded = !_collapsedSections.contains('comps/upcoming');
+    final completedExpanded = !_collapsedSections.contains('comps/completed');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_upcomingCompetitions.isNotEmpty) ...[
-          Text(
-            'UPCOMING COMPETITIONS',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.bold,
-            ),
+          _buildSectionHeader(
+            title: 'Upcoming Competitions',
+            countText: '${_upcomingCompetitions.length}',
+            isExpanded: upcomingExpanded,
+            onToggle: () => setState(() {
+              if (upcomingExpanded) {
+                _collapsedSections.add('comps/upcoming');
+              } else {
+                _collapsedSections.remove('comps/upcoming');
+              }
+            }),
           ),
-          const SizedBox(height: 12),
-          ...upcomingGroups.entries.map((entry) => _buildCompetitionGroupGrid(entry.key, entry.value, theme)),
+          const SizedBox(height: 8),
+          if (upcomingExpanded) ...[
+            ..._upcomingCompetitions.take(5).map((comp) {
+              return CompetitionCompactRow(
+                competition: comp,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      settings: RouteSettings(name: '/competitions/${comp.id}'),
+                      builder: (_) => CompetitionDetailPage(competition: comp),
+                    ),
+                  );
+                },
+              );
+            }).toList(),
+            if (_upcomingCompetitions.length > 5) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.arrow_forward, size: 16),
+                  label: const Text('Show More'),
+                  onPressed: () => _navigateToCompetitionsWithFilter(),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+          ],
         ],
         if (_completedCompetitions.isNotEmpty) ...[
-          if (_upcomingCompetitions.isNotEmpty) const SizedBox(height: 24),
-          Text(
-            'COMPLETED COMPETITIONS',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.bold,
-            ),
+          _buildSectionHeader(
+            title: 'Completed Competitions',
+            countText: '${_completedCompetitions.length}',
+            isExpanded: completedExpanded,
+            onToggle: () => setState(() {
+              if (completedExpanded) {
+                _collapsedSections.add('comps/completed');
+              } else {
+                _collapsedSections.remove('comps/completed');
+              }
+            }),
           ),
-          const SizedBox(height: 12),
-          ...completedGroups.entries.map((entry) => _buildCompetitionGroupGrid(entry.key, entry.value, theme)),
+          const SizedBox(height: 8),
+          if (completedExpanded) ...[
+            ..._completedCompetitions.take(5).map((comp) {
+              return CompetitionCompactRow(
+                competition: comp,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      settings: RouteSettings(name: '/competitions/${comp.id}'),
+                      builder: (_) => CompetitionDetailPage(competition: comp),
+                    ),
+                  );
+                },
+              );
+            }).toList(),
+            if (_completedCompetitions.length > 5) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.arrow_forward, size: 16),
+                  label: const Text('Show More'),
+                  onPressed: () => _navigateToCompetitionsWithFilter(),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+          ],
         ],
       ],
     );
   }
 
-  Widget _buildCompetitionGroupGrid(String groupName, List<Competition> list, ThemeData theme) {
-    final displayList = list.take(5).toList();
-    final hasMore = list.length > 5;
-    int crossAxisCount = 1;
-    final width = MediaQuery.of(context).size.width;
-    if (width >= 900) {
-      crossAxisCount = 3;
-    } else if (width >= 600) {
-      crossAxisCount = 2;
+  void _navigateToCompetitionsWithFilter() {
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    compProvider.clearFilters();
+    compProvider.selectAssociation(widget.associationId);
+    try {
+      context.go('/competitions');
+    } catch (_) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          settings: const RouteSettings(name: '/competitions'),
+          builder: (_) => const CompetitionLibraryPage(),
+        ),
+      );
     }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Text(
-            groupName,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            mainAxisExtent: 310,
-          ),
-          itemCount: displayList.length,
-          itemBuilder: (context, index) {
-            return CompetitionCard(competition: displayList[index]);
-          },
-        ),
-        if (hasMore) ...[
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    settings: const RouteSettings(name: '/competitions'),
-                    builder: (_) => const CompetitionLibraryPage(),
-                  ),
-                );
-              },
-              child: const Text('Show More'),
-            ),
-          ),
-        ],
-        const SizedBox(height: 16),
-      ],
-    );
   }
 
   List<String> getDisciplinesForFormat(String sport, String format) {
@@ -951,36 +998,174 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
     );
   }
 
-  Widget _buildRulebookCard(String sport, String url, ThemeData theme) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(top: 8, bottom: 16),
-      color: theme.colorScheme.surfaceContainerLow,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+  Widget _buildRulebooksTabContent(ThemeData theme) {
+    final assoc = _association!;
+    final compProvider = Provider.of<CompetitionProvider>(context);
+
+    // Group rulebooks by sport
+    final Map<String, List<Map<String, dynamic>>> sportRulebooks = {};
+
+    assoc.rulebooks.forEach((sport, url) {
+      if (url.isNotEmpty) {
+        sportRulebooks.putIfAbsent(sport, () => []).add({
+          'sport': sport,
+          'url': url,
+          'format': null,
+          'isApplied': false,
+          'ownerName': null,
+        });
+      }
+    });
+
+    final appliedRulebooks = assoc.appliedSharedResources['rulebooks'] as Map? ?? {};
+    appliedRulebooks.forEach((key, val) {
+      final parts = (key as String).split(':');
+      if (parts.length == 2) {
+        final sport = parts[0];
+        final fmt = parts[1];
+        final url = val is Map ? (val['rulebook_url'] as String? ?? '') : '';
+        final ownerId = val is Map ? (val['owning_association_id'] as String?) : null;
+
+        if (url.isNotEmpty) {
+          final ownerAssoc = compProvider.associations.where((a) => a.id == ownerId).firstOrNull;
+          sportRulebooks.putIfAbsent(sport, () => []).add({
+            'sport': sport,
+            'url': url,
+            'format': fmt,
+            'isApplied': true,
+            'ownerName': ownerAssoc?.name ?? 'Other',
+          });
+        }
+      }
+    });
+
+    if (sportRulebooks.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32.0),
+          child: Text(
+            'No rulebooks configured for this association.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
-      ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        leading: Icon(
-          Icons.book,
-          color: theme.colorScheme.primary,
-        ),
-        title: const Text('Rulebook'),
-        subtitle: Text(
-          url,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
-        ),
-        trailing: const Icon(Icons.open_in_new, size: 18),
-        onTap: () => _launchURL(url),
-      ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sportRulebooks.entries.map((entry) {
+        final sport = entry.key;
+        final list = entry.value;
+        final sectionKey = 'rulebooks/$sport';
+        final isExpanded = !_collapsedSections.contains(sectionKey);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(
+              title: sport.toUpperCase(),
+              countText: '${list.length}',
+              isExpanded: isExpanded,
+              onToggle: () => setState(() {
+                if (isExpanded) {
+                  _collapsedSections.add(sectionKey);
+                } else {
+                  _collapsedSections.remove(sectionKey);
+                }
+              }),
+            ),
+            const SizedBox(height: 8),
+            if (isExpanded) ...[
+              ...list.map((rulebook) {
+                final url = rulebook['url'] as String;
+                final format = rulebook['format'] as String?;
+                final isApplied = rulebook['isApplied'] as bool;
+                final ownerName = rulebook['ownerName'] as String?;
+
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    title: Text(
+                      url,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          if (format != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                format,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 10,
+                                ),
+                              ),
+                            )
+                          else
+                            ...((assoc.supportedFormats.where((f) => (sportToFormatsMapping[sport] ?? []).contains(f))).map((fmt) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  fmt,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              );
+                            })),
+                          if (isApplied)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Shared by ${ownerName ?? "Other"}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.open_in_new,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
+                    onTap: () => _launchURL(url),
+                  ),
+                );
+              }).toList(),
+              const SizedBox(height: 16),
+            ],
+          ],
+        );
+      }).toList(),
     );
   }
 
@@ -1021,81 +1206,76 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: assoc.supportedSports.map((sport) {
-        final rulebookUrl = assoc.rulebooks[sport];
         final formats = groupedFormats[sport] ?? [];
+        final isExpanded = !_collapsedSections.contains('sports/$sport');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              sport.toUpperCase(),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
+            _buildSectionHeader(
+              title: sport.toUpperCase(),
+              countText: _formatCountText(formats.length),
+              isExpanded: isExpanded,
+              onToggle: () => setState(() {
+                if (isExpanded) {
+                  _collapsedSections.add('sports/$sport');
+                } else {
+                  _collapsedSections.remove('sports/$sport');
+                }
+              }),
             ),
             const SizedBox(height: 8),
-            if (rulebookUrl != null && rulebookUrl.isNotEmpty)
-              _buildRulebookCard(sport, rulebookUrl, theme),
-            if (formats.isNotEmpty) ...[
-              Text(
-                'Formats & Disciplines',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
+            if (isExpanded && formats.isNotEmpty) ...[
               ...formats.map((format) {
                 final disciplines = getDisciplinesForFormat(sport, format);
-                return Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  color: theme.colorScheme.surfaceContainerLow,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
                     ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          format,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (disciplines.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: disciplines.map((discipline) {
-                              return Chip(
-                                label: Text(discipline),
-                                labelStyle: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.colorScheme.onSecondaryContainer,
-                                ),
-                                backgroundColor: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
-                                side: BorderSide.none,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                visualDensity: VisualDensity.compact,
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ],
+                  margin: const EdgeInsets.only(left: 16.0),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    title: Text(
+                      format,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    subtitle: disciplines.isNotEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 6.0),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: disciplines.map((discipline) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    discipline,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          )
+                        : null,
                   ),
                 );
               }),
+              const SizedBox(height: 16),
             ],
-            const SizedBox(height: 24),
           ],
         );
       }).toList(),
@@ -1103,48 +1283,82 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
   }
 
   Widget _buildNetworkAssociationRow(Association assoc, ThemeData theme, {double leftMargin = 0.0}) {
-    Color scopeBg;
-    Color scopeText;
-    switch (assoc.scope.toLowerCase()) {
-      case 'global':
-        scopeBg = const Color(0xFFFFB300).withValues(alpha: 0.15);
-        scopeText = const Color(0xFFFF8F00);
-        break;
-      case 'continental':
-      case 'area':
-        scopeBg = Colors.blue.withValues(alpha: 0.15);
-        scopeText = Colors.blue.shade700;
-        break;
-      case 'national':
-        scopeBg = Colors.green.withValues(alpha: 0.15);
-        scopeText = Colors.green.shade700;
-        break;
-      case 'local':
-      default:
-        scopeBg = Colors.purple.withValues(alpha: 0.15);
-        scopeText = Colors.purple.shade700;
-        break;
-    }
-
     final territory = assoc.scope.toLowerCase() != 'global'
         ? (assoc.areaName ?? assoc.country)
         : null;
     final showTerritory = territory != null && territory.isNotEmpty;
     final logoUrl = ImageUrlResolver.resolve(context, assoc.profilePictureUrl);
+    final initials = assoc.name.isNotEmpty ? assoc.name[0].toUpperCase() : 'A';
 
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.only(left: leftMargin, bottom: 8),
-      color: theme.colorScheme.surfaceContainerLow,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+            width: 1,
+          ),
         ),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+      margin: EdgeInsets.only(left: leftMargin),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundColor: theme.colorScheme.primaryContainer,
+          backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
+          child: logoUrl.isEmpty
+              ? Text(
+                  initials,
+                  style: TextStyle(
+                    color: theme.colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                )
+              : null,
+        ),
+        title: Text(
+          assoc.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6.0),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (showTerritory)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    territory.toUpperCase(),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  assoc.scope.toUpperCase(),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing: null,
         onTap: () {
           try {
             context.push('/associations/${assoc.id}');
@@ -1157,68 +1371,9 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
             );
           }
         },
-        child: Container(
-          height: 72,
-          alignment: Alignment.center,
-          child: ListTile(
-          leading: CircleAvatar(
-            radius: 18,
-            backgroundColor: theme.colorScheme.primaryContainer,
-            backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
-            child: logoUrl.isEmpty
-                ? Text(
-                    assoc.name.isNotEmpty ? assoc.name[0].toUpperCase() : 'A',
-                    style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
-                  )
-                : null,
-          ),
-          title: Text(assoc.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showTerritory) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Text(
-                    territory.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: scopeBg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  assoc.scope.toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scopeText,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildNetworkTabContent(ThemeData theme) {
     if (_parentAssociation == null && _subAssociations.isEmpty) {
@@ -1233,12 +1388,6 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
           ),
         ),
       );
-    }
-
-    final Map<String, List<Association>> groupedSubs = {};
-    for (final sub in _subAssociations) {
-      final sc = sub.scope.toLowerCase();
-      groupedSubs.putIfAbsent(sc, () => []).add(sub);
     }
 
     final parentExpanded = !_collapsedSections.contains('network/parent');
@@ -1280,40 +1429,10 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
             }),
           ),
           const SizedBox(height: 8),
-          if (subsExpanded)
-            ...groupedSubs.entries.map((entry) {
-              final scopeName = entry.key;
-              final list = entry.value;
-              final subSectionKey = 'network/subs/$scopeName';
-              final subSectionExpanded = !_collapsedSections.contains(subSectionKey);
-              final capitalizedScope = scopeName.isEmpty
-                  ? ''
-                  : '${scopeName[0].toUpperCase()}${scopeName.substring(1).toLowerCase()}';
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionHeader(
-                    title: capitalizedScope,
-                    countText: _assocCountText(list.length),
-                    isExpanded: subSectionExpanded,
-                    onToggle: () => setState(() {
-                      if (subSectionExpanded) {
-                        _collapsedSections.add(subSectionKey);
-                      } else {
-                        _collapsedSections.remove(subSectionKey);
-                      }
-                    }),
-                    paddingLeft: 16.0,
-                  ),
-                  const SizedBox(height: 8),
-                  if (subSectionExpanded) ...[
-                    ...list.map((sub) => _buildNetworkAssociationRow(sub, theme, leftMargin: 16.0)),
-                    const SizedBox(height: 8),
-                  ],
-                ],
-              );
-            }),
+          if (subsExpanded) ...[
+            ..._subAssociations.map((sub) => _buildNetworkAssociationRow(sub, theme, leftMargin: 16.0)),
+            const SizedBox(height: 8),
+          ],
         ],
       ],
     );
@@ -1397,19 +1516,71 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
                           .toUpperCase()
                     : 'M';
 
-                return Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  color: theme.colorScheme.surfaceContainerLow,
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                final hasCustomTitle = member.customTitle != null && member.customTitle!.isNotEmpty;
+
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
                     ),
                   ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                      backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                      child: avatarUrl.isEmpty
+                          ? Text(
+                              initials,
+                              style: TextStyle(
+                                color: theme.colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            )
+                          : null,
+                    ),
+                    title: Text(
+                      fullName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: (username.isNotEmpty || hasCustomTitle)
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 6.0),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                if (username.isNotEmpty)
+                                  Text(
+                                    username,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                if (hasCustomTitle)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      member.customTitle!.toUpperCase(),
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : null,
                     onTap: profile != null
                         ? () {
                             try {
@@ -1424,56 +1595,6 @@ class _AssociationDetailPageState extends State<AssociationDetailPage> {
                             }
                           }
                         : null,
-                    child: Container(
-                      height: 72,
-                      alignment: Alignment.center,
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                          child: avatarUrl.isEmpty
-                              ? Text(
-                                  initials,
-                                  style: TextStyle(
-                                    color: theme.colorScheme.onPrimaryContainer,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        title: Text(
-                          fullName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: username.isNotEmpty
-                            ? Text(
-                                username,
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                ),
-                              )
-                            : null,
-                        trailing: (member.customTitle != null && member.customTitle!.isNotEmpty)
-                            ? Chip(
-                                label: Text(member.customTitle!.toUpperCase()),
-                                labelStyle: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                backgroundColor: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-                                side: BorderSide.none,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              )
-                            : null,
-                      ),
-                    ),
                   ),
                 );
               }),

@@ -293,8 +293,8 @@ void main() {
       await tester.pump();
       await tester.pump(Duration.zero);
 
-      // Verify BottomNavigationBar is found
-      expect(find.byType(BottomNavigationBar), findsOneWidget);
+      // Verify NavigationBar is found
+      expect(find.byType(NavigationBar), findsOneWidget);
 
       // Open the navigation drawer and verify no "World Map" list tile exists
       final menuIcon = find.byIcon(Icons.menu);

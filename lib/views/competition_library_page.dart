@@ -1264,19 +1264,28 @@ class CompetitionFilterContent extends StatefulWidget {
 class _CompetitionFilterContentState extends State<CompetitionFilterContent> {
   late TextEditingController _startDateController;
   late TextEditingController _endDateController;
+  late TextEditingController _associationSearchController;
   late FocusNode _startFocusNode;
   late FocusNode _endFocusNode;
+  String _associationSearchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _startDateController = TextEditingController();
     _endDateController = TextEditingController();
+    _associationSearchController = TextEditingController();
     _startFocusNode = FocusNode();
     _endFocusNode = FocusNode();
 
     _syncDateControllers(widget.provider.selectedDateRange);
     widget.provider.addListener(_onProviderChanged);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.provider.associations.isEmpty) {
+        widget.provider.fetchAssociations();
+      }
+    });
   }
 
   @override
@@ -1284,6 +1293,7 @@ class _CompetitionFilterContentState extends State<CompetitionFilterContent> {
     widget.provider.removeListener(_onProviderChanged);
     _startDateController.dispose();
     _endDateController.dispose();
+    _associationSearchController.dispose();
     _startFocusNode.dispose();
     _endFocusNode.dispose();
     super.dispose();
@@ -1427,6 +1437,61 @@ class _CompetitionFilterContentState extends State<CompetitionFilterContent> {
             ],
           ),
         ),
+        if (provider.associations.isNotEmpty)
+          CollapsibleFilterSection(
+            title: 'Association',
+            isInitiallyExpanded: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: TextField(
+                    controller: _associationSearchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search association...',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                    onChanged: (val) {
+                      setState(() {
+                        _associationSearchQuery = val;
+                      });
+                    },
+                  ),
+                ),
+                ...provider.associations
+                    .where((assoc) => assoc.name
+                        .toLowerCase()
+                        .contains(_associationSearchQuery.toLowerCase()))
+                    .map((assoc) {
+                  final isChecked = provider.selectedAssociationId == assoc.id;
+                  final count = provider.allCompetitions.where((c) => c.associationId == assoc.id).length;
+                  return _buildFilterCheckboxRow(
+                    assoc.name,
+                    isChecked,
+                    count,
+                    (val) {
+                      if (isChecked) {
+                        provider.selectAssociation(null);
+                      } else {
+                        provider.selectAssociation(assoc.id);
+                      }
+                    },
+                    theme,
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
         () {
           final List<String> existingGroups = provider.allCompetitions
               .map((c) => c.compGroupName)
@@ -1675,6 +1740,31 @@ class _CompetitionFilterContentState extends State<CompetitionFilterContent> {
           label: Text('Search: "${provider.query}"'),
           onDeleted: () {
             provider.setQuery('');
+          },
+          deleteIconColor: theme.colorScheme.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: theme.colorScheme.primaryContainer.withValues(
+            alpha: 0.3,
+          ),
+          labelStyle: TextStyle(
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
+    if (provider.selectedAssociationId != null) {
+      final assoc = provider.associations
+          .where((a) => a.id == provider.selectedAssociationId)
+          .firstOrNull;
+      final labelText = assoc != null ? 'Association: ${assoc.name}' : 'Association';
+      chips.add(
+        RawChip(
+          label: Text(labelText),
+          onDeleted: () {
+            provider.selectAssociation(null);
           },
           deleteIconColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

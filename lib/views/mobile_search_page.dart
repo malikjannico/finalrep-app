@@ -629,40 +629,7 @@ class _MobileSearchPageState extends State<MobileSearchPage> {
                   itemCount: provider.searchedAssociations.length,
                   itemBuilder: (context, index) {
                     final assoc = provider.searchedAssociations[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          child: Text(
-                            assoc.name.isNotEmpty
-                                ? assoc.name[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          assoc.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          'Scope: ${assoc.scope.toUpperCase()} • ${assoc.supportedSports.join(", ")}',
-                        ),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              settings: RouteSettings(name: '/associations/${assoc.id}'),
-                              builder: (_) => AssociationDetailPage(
-                                associationId: assoc.id,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
+                    return AssociationCompactRow(association: assoc);
                   },
                 )
               : GridView.builder(

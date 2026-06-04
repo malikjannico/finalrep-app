@@ -889,19 +889,28 @@ void main() {
 
       // Verify the tab menu items are visible
       expect(find.text('Competitions'), findsOneWidget);
-      expect(find.text('Sports'), findsOneWidget);
+      expect(find.text('Sports and Formats'), findsOneWidget);
+      expect(find.text('Rulebooks'), findsOneWidget);
       expect(find.text('Network'), findsOneWidget);
       expect(find.text('Team'), findsOneWidget);
 
-      // Tapping on 'Sports' tab and pump
-      await tester.ensureVisible(find.text('Sports'));
-      await tester.tap(find.text('Sports'));
+      // Tapping on 'Sports and Formats' tab and pump
+      await tester.ensureVisible(find.text('Sports and Formats'));
+      await tester.tap(find.text('Sports and Formats'));
       await tester.pumpAndSettle();
 
-      // Assert sports information (rulebook, format) is displayed
+      // Assert sports information (format) is displayed
       expect(find.text('STREETLIFTING'), findsOneWidget);
-      expect(find.text('Rulebook'), findsOneWidget);
       expect(find.text('Modern'), findsOneWidget);
+
+      // Tapping on 'Rulebooks' tab and pump
+      await tester.ensureVisible(find.text('Rulebooks'));
+      await tester.tap(find.text('Rulebooks'));
+      await tester.pumpAndSettle();
+
+      // Assert rulebooks information is displayed
+      expect(find.text('STREETLIFTING'), findsOneWidget);
+      expect(find.text('https://example.com/rulebook.pdf'), findsOneWidget);
     });
 
     testWidgets('UserLibraryPage renders search result count, reordered ProfileCard chips, and compact sex chip', (tester) async {
@@ -1031,14 +1040,14 @@ void main() {
       expect(find.byType(AssociationCompactRow), findsOneWidget);
 
       // 2. Verify scope chip and territory chip exist
-      expect(find.text('NATIONAL'), findsOneWidget);
-      expect(find.text('GERMANY'), findsOneWidget);
+      expect(find.text('National'), findsOneWidget);
+      expect(find.text('Germany'), findsOneWidget);
 
       // 3. Verify text size is 10 for the chips
-      final nationalText = tester.widget<Text>(find.text('NATIONAL'));
+      final nationalText = tester.widget<Text>(find.text('National'));
       expect(nationalText.style?.fontSize, 10);
 
-      final germanyText = tester.widget<Text>(find.text('GERMANY'));
+      final germanyText = tester.widget<Text>(find.text('Germany'));
       expect(germanyText.style?.fontSize, 10);
     });
 
@@ -1506,7 +1515,7 @@ void main() {
       // First child is scope badge container
       final scopeContainer = column.children[0] as Container;
       final scopeText = (scopeContainer.child as Text).data;
-      expect(scopeText, 'NATIONAL');
+      expect(scopeText, 'National');
 
       // Second child is SizedBox(height: 4)
       expect(column.children[1], isA<SizedBox>());
@@ -1514,7 +1523,7 @@ void main() {
       // Third child is territory/location container
       final territoryContainer = column.children[2] as Container;
       final territoryText = (territoryContainer.child as Text).data;
-      expect(territoryText, 'GERMANY');
+      expect(territoryText, 'Germany');
     });
 
     testWidgets('AssociationCompactRow displays territory/location chip before scope chip', (tester) async {
@@ -1544,9 +1553,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify GERMANY is displayed before NATIONAL in the row
-      final germanyFinder = find.text('GERMANY');
-      final nationalFinder = find.text('NATIONAL');
+      // Verify Germany is displayed before National in the row
+      final germanyFinder = find.text('Germany');
+      final nationalFinder = find.text('National');
       expect(germanyFinder, findsOneWidget);
       expect(nationalFinder, findsOneWidget);
 
@@ -1691,6 +1700,7 @@ void main() {
 
       // Tap on Network tab
       expect(find.text('Network'), findsOneWidget);
+      await tester.ensureVisible(find.text('Network'));
       await tester.tap(find.text('Network'));
       await tester.pumpAndSettle();
 
@@ -1701,39 +1711,33 @@ void main() {
       // Verify no chevron right icon is present in the network tab content
       expect(find.byIcon(Icons.chevron_right), findsNothing);
 
-      // Verify no subtitle texts containing the raw scope value
+      // Verify subtitle texts containing the scope value exist
       final parentTileFinder = find.ancestor(of: find.text('Parent Detail Assoc'), matching: find.byType(ListTile));
       expect(parentTileFinder, findsOneWidget);
       final parentListTile = tester.widget<ListTile>(parentTileFinder);
-      expect(parentListTile.subtitle, isNull);
+      expect(parentListTile.subtitle, isNotNull);
 
       final subTileFinder = find.ancestor(of: find.text('Sub Detail Assoc'), matching: find.byType(ListTile));
       expect(subTileFinder, findsOneWidget);
       final subListTile = tester.widget<ListTile>(subTileFinder);
-      expect(subListTile.subtitle, isNull);
+      expect(subListTile.subtitle, isNotNull);
 
-      // Verify chips are present in the trailing Row
+      // Verify chips are present
       expect(find.text('GERMANY'), findsNWidgets(3));
       expect(find.text('NATIONAL'), findsNWidgets(2));
       expect(find.text('LOCAL'), findsOneWidget);
-      expect(find.text('Local'), findsOneWidget);
 
-      // Verify Card margin is EdgeInsets.only(bottom: 8) for parent association
-      final parentCardFinder = find.ancestor(of: find.text('Parent Detail Assoc'), matching: find.byType(Card));
-      expect(parentCardFinder, findsOneWidget);
-      final parentCard = tester.widget<Card>(parentCardFinder);
-      expect(parentCard.margin, const EdgeInsets.only(bottom: 8));
+      // Verify Container margin is left-only for parent association
+      final parentContainerFinder = find.ancestor(of: find.text('Parent Detail Assoc'), matching: find.byType(Container)).first;
+      expect(parentContainerFinder, findsOneWidget);
+      final parentContainer = tester.widget<Container>(parentContainerFinder);
+      expect(parentContainer.margin, const EdgeInsets.only(left: 0.0));
 
-      // Verify Sub-Association Card margin has left indentation of 16.0
-      final subCardFinder = find.ancestor(of: find.text('Sub Detail Assoc'), matching: find.byType(Card));
-      expect(subCardFinder, findsOneWidget);
-      final subCard = tester.widget<Card>(subCardFinder);
-      expect(subCard.margin, const EdgeInsets.only(left: 16.0, bottom: 8.0));
-
-      // Verify Card height is 72
-      final containerFinder = find.descendant(of: parentCardFinder, matching: find.byType(Container)).first;
-      final container = tester.widget<Container>(containerFinder);
-      expect(container.constraints?.maxHeight, 72.0);
+      // Verify Sub-Association Container margin has left indentation of 16.0
+      final subContainerFinder = find.ancestor(of: find.text('Sub Detail Assoc'), matching: find.byType(Container)).first;
+      expect(subContainerFinder, findsOneWidget);
+      final subContainer = tester.widget<Container>(subContainerFinder);
+      expect(subContainer.margin, const EdgeInsets.only(left: 16.0));
     });
 
     testWidgets('AssociationDetailPage Team tab renders headers, role chips, and uppercase initials avatar correctly', (tester) async {
@@ -1812,6 +1816,7 @@ void main() {
 
       // Go to Team tab
       expect(find.text('Team'), findsOneWidget);
+      await tester.ensureVisible(find.text('Team'));
       await tester.tap(find.text('Team'));
       await tester.pumpAndSettle();
 
@@ -1843,38 +1848,37 @@ void main() {
       expect(jdText.style?.fontWeight, FontWeight.bold);
       expect(jdText.style?.fontSize, 12);
 
-      // Check trailing is a Chip (pill shaped with no borders)
-      final ownerChipFinder = find.descendant(
-        of: find.ancestor(of: find.text('John Doe'), matching: find.byType(Card)),
-        matching: find.byType(Chip),
-      );
-      expect(ownerChipFinder, findsOneWidget);
-      final ownerChip = tester.widget<Chip>(ownerChipFinder);
-      expect(ownerChip.side, BorderSide.none);
-      expect(ownerChip.shape, isA<RoundedRectangleBorder>());
-      final ownerShape = ownerChip.shape as RoundedRectangleBorder;
-      expect(ownerShape.borderRadius, BorderRadius.circular(20));
-      expect((ownerChip.label as Text).data, 'FOUNDER');
+      // Check subtitle custom title is inside a Container (pill shaped)
+      final founderTextFinder = find.text('FOUNDER');
+      expect(founderTextFinder, findsOneWidget);
+      final founderContainerFinder = find.ancestor(
+        of: founderTextFinder,
+        matching: find.byType(Container),
+      ).first;
+      final founderContainer = tester.widget<Container>(founderContainerFinder);
+      final founderDec = founderContainer.decoration as BoxDecoration;
+      expect(founderDec.borderRadius, BorderRadius.circular(8));
 
-      final editorChipFinder = find.descendant(
-        of: find.ancestor(of: find.text('Jane Smith'), matching: find.byType(Card)),
-        matching: find.byType(Chip),
-      );
-      expect(editorChipFinder, findsOneWidget);
-      final editorChip = tester.widget<Chip>(editorChipFinder);
-      expect((editorChip.label as Text).data, 'HEAD REFEREE');
+      final refereeTextFinder = find.text('HEAD REFEREE');
+      expect(refereeTextFinder, findsOneWidget);
+      final refereeContainerFinder = find.ancestor(
+        of: refereeTextFinder,
+        matching: find.byType(Container),
+      ).first;
+      final refereeContainer = tester.widget<Container>(refereeContainerFinder);
+      final refereeDec = refereeContainer.decoration as BoxDecoration;
+      expect(refereeDec.borderRadius, BorderRadius.circular(8));
 
-      // Verify member3 (Other User) with no custom title does NOT render a Chip
-      final otherCardFinder = find.ancestor(of: find.text('Other User'), matching: find.byType(Card));
-      expect(otherCardFinder, findsOneWidget);
-      final otherChipFinder = find.descendant(of: otherCardFinder, matching: find.byType(Chip));
-      expect(otherChipFinder, findsNothing);
+      // Verify member3 (Other User) with no custom title does NOT render a custom title
+      final otherContainerFinder = find.ancestor(of: find.text('Other User'), matching: find.byType(Container)).first;
+      expect(otherContainerFinder, findsOneWidget);
+      expect(find.text('OTHER USER'), findsNothing);
 
-      // Verify TabBar is not scrollable and fills width
+      // Verify TabBar is scrollable
       final tabBarFinder = find.byType(TabBar);
       expect(tabBarFinder, findsOneWidget);
       final tabBar = tester.widget<TabBar>(tabBarFinder);
-      expect(tabBar.isScrollable, false);
+      expect(tabBar.isScrollable, true);
 
       // Verify tapping the user card navigates to ProfilePage
       await tester.tap(find.text('John Doe'));

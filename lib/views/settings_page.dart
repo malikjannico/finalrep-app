@@ -127,20 +127,22 @@ class _SettingsPageState extends State<SettingsPage> {
                               if (profile.sex != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
+                                    horizontal: 8,
+                                    vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.secondaryContainer,
-                                    borderRadius: BorderRadius.circular(20),
+                                    color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    profile.sex!,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme
-                                          .colorScheme
-                                          .onSecondaryContainer,
-                                      fontWeight: FontWeight.bold,
+                                    profile.sex == 'prefer not to say'
+                                        ? 'Prefer not to say'
+                                        : (profile.sex!.isEmpty
+                                            ? ''
+                                            : profile.sex![0].toUpperCase() +
+                                                profile.sex!.substring(1)),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontSize: 10,
                                     ),
                                   ),
                                 ),
@@ -150,27 +152,27 @@ class _SettingsPageState extends State<SettingsPage> {
                               if (profile.country != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
+                                    horizontal: 8,
+                                    vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.tertiaryContainer,
-                                    borderRadius: BorderRadius.circular(20),
+                                    color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.location_on, size: 12),
+                                      Icon(
+                                        Icons.location_on_outlined,
+                                        size: 10,
+                                        color: theme.colorScheme.onSecondaryContainer,
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         profile.country!,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onTertiaryContainer,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          fontSize: 10,
+                                        ),
                                       ),
                                     ],
                                   ),

@@ -155,13 +155,6 @@ class _ProfileCardState extends State<ProfileCard> {
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.surface,
                                 shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ],
                               ),
                               child: CircleAvatar(
                                 radius: 28,
@@ -189,13 +182,11 @@ class _ProfileCardState extends State<ProfileCard> {
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
-                                  vertical: 4,
+                                  vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.tertiaryContainer.withValues(
-                                    alpha: 0.7,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -203,15 +194,13 @@ class _ProfileCardState extends State<ProfileCard> {
                                     Icon(
                                       Icons.location_on_outlined,
                                       size: 10,
-                                      color: theme.colorScheme.onTertiaryContainer,
+                                      color: theme.colorScheme.onSecondaryContainer,
                                     ),
-                                    const SizedBox(width: 2),
+                                    const SizedBox(width: 4),
                                     Text(
                                       widget.profile.country!,
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: theme.colorScheme.onTertiaryContainer,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 9,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        fontSize: 10,
                                       ),
                                     ),
                                   ],
@@ -224,11 +213,11 @@ class _ProfileCardState extends State<ProfileCard> {
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
-                                  vertical: 4,
+                                  vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.secondaryContainer,
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   widget.profile.sex == 'prefer not to say'
@@ -237,10 +226,8 @@ class _ProfileCardState extends State<ProfileCard> {
                                           ? ''
                                           : widget.profile.sex![0].toUpperCase() +
                                               widget.profile.sex!.substring(1)),
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSecondaryContainer,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 9,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 10,
                                   ),
                                 ),
                               ),
