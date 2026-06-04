@@ -287,6 +287,36 @@ class CompetitionRepository {
     }
   }
 
+  Future<Competition?> updateCompetition(Competition competition) async {
+    if (_useMockFallback && _client != null) {
+      try {
+        final response = await _client.from('competitions').update(competition.toJson()).eq('id', competition.id).select().single();
+        final updated = Competition.fromJson(response as Map<String, dynamic>);
+        _syncCompetitionToMock(updated);
+        return updated;
+      } catch (_) {
+        _syncCompetitionToMock(competition);
+        return competition;
+      }
+    }
+    try {
+      final response = await _api.put('/competitions/${competition.id}', body: competition.toJson());
+      if (response.statusCode == 200) {
+        final updated = Competition.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        _syncCompetitionToMock(updated);
+        return updated;
+      }
+      throw Exception('Failed to update competition: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      if (!_useMockFallback) {
+        rethrow;
+      }
+      debugPrint('Error updating competition: $e');
+      _syncCompetitionToMock(competition);
+      return competition;
+    }
+  }
+
   Future<List<StreetliftingAttempt>> getAttempts(String competitionId) async {
     if (_useMockFallback && _client != null) {
       try {

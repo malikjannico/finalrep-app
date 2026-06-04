@@ -2635,8 +2635,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                           icon: const Icon(Icons.add, size: 18),
                           label: const Text('Add Group'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
+                            backgroundColor: const Color(0xFFE94E1B),
+                            foregroundColor: Colors.white,
                           ),
                         ),
                       ],
@@ -2674,8 +2674,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                           icon: const Icon(Icons.add, size: 18),
                           label: const Text('Add Group'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
+                            backgroundColor: const Color(0xFFE94E1B),
+                            foregroundColor: Colors.white,
                           ),
                         ),
                       ],
@@ -2756,36 +2756,43 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                         children: entries.map((entry) {
                           final idx = entry.key;
                           final group = entry.value;
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              left: isMobile ? 0.0 : 24.0,
-                              top: 4.0,
-                              bottom: 4.0,
-                            ),
-                            child: Card(
-                              margin: EdgeInsets.zero,
-                              elevation: 0,
-                              color: theme.colorScheme.surfaceContainerHigh.withOpacity(0.5),
-                              child: ListTile(
-                                title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text('Limit: ${group.limit ?? "Unlimited"}'),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
-                                      onPressed: () => _showAthleteGroupModal(editIndex: idx),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                                      onPressed: () {
-                                        setState(() {
-                                          _athleteGroups.removeAt(idx);
-                                        });
-                                      },
-                                    ),
-                                  ],
+                          return Container(
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                                  width: 1,
                                 ),
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 6.0),
+                                child: Text(
+                                  'Limit: ${group.limit ?? "Unlimited"}',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                                    onPressed: () => _showAthleteGroupModal(editIndex: idx),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                                    onPressed: () {
+                                      setState(() {
+                                        _athleteGroups.removeAt(idx);
+                                      });
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                           );
@@ -3033,7 +3040,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                     children: [
                       Text('Preview Reference Example:', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text(_getGeneratedPaymentDesc(), style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Colors.blue)),
+                      Text(_getGeneratedPaymentDesc(), style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Color(0xFFE94E1B))),
                     ],
                   ),
                 ),
@@ -3052,12 +3059,16 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                     : null,
               ),
             const SizedBox(height: 24),
-            Text('Payment Period', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            _buildDateTimePickerTile('Payment Period Start', _paymentStartDate ?? DateTime.now(), (val) => setState(() => _paymentStartDate = val)),
-            const SizedBox(height: 12),
-            _buildDateTimePickerTile(
-                'Payment Period End', _paymentEndDate ?? DateTime.now().add(const Duration(days: 7)), (val) => setState(() => _paymentEndDate = val)),
+            _buildDateRangeTile(
+              title: 'Payment Period',
+              start: _paymentStartDate ?? DateTime.now(),
+              end: _paymentEndDate ?? DateTime.now().add(const Duration(days: 7)),
+              onSelected: (start, end) => setState(() {
+                _paymentStartDate = start;
+                _paymentEndDate = end;
+              }),
+              theme: theme,
+            ),
           ],
         ],
       ),
@@ -3102,8 +3113,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Add Position'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.onPrimary,
+                      backgroundColor: const Color(0xFFE94E1B),
+                      foregroundColor: Colors.white,
                     ),
                   ),
               ],
@@ -3128,13 +3139,27 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                 itemBuilder: (context, idx) {
                   final key = _maxVolunteersPerPosition.keys.elementAt(idx);
                   final limit = _maxVolunteersPerPosition[key]!;
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    elevation: 0,
-                    color: theme.colorScheme.surfaceContainerHigh.withOpacity(0.5),
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                    ),
                     child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       title: Text(key, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('Volunteer Limit: ${limit == 0 ? "Unlimited" : limit}'),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 6.0),
+                        child: Text(
+                          'Volunteer Limit: ${limit == 0 ? "Unlimited" : limit}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -3179,8 +3204,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Disclaimer'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  backgroundColor: const Color(0xFFE94E1B),
+                  foregroundColor: Colors.white,
                 ),
               ),
             ],
@@ -3203,13 +3228,29 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
               itemCount: _disclaimers.length,
               itemBuilder: (context, idx) {
                 final d = _disclaimers[idx];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  elevation: 0,
-                  color: theme.colorScheme.surfaceContainerHigh.withOpacity(0.5),
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     title: Text(d['text'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
-                    subtitle: d['url'] != null && d['url']!.isNotEmpty ? Text('Link: ${d['url']}') : null,
+                    subtitle: d['url'] != null && d['url']!.isNotEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 6.0),
+                            child: Text(
+                              'Link: ${d['url']}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        : null,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -3244,8 +3285,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Field'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  backgroundColor: const Color(0xFFE94E1B),
+                  foregroundColor: Colors.white,
                 ),
               ),
             ],
@@ -3268,15 +3309,27 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
               itemCount: _customAthleteFields.length,
               itemBuilder: (context, idx) {
                 final f = _customAthleteFields[idx];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  elevation: 0,
-                  color: theme.colorScheme.surfaceContainerHigh.withOpacity(0.5),
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     title: Text(f['name']),
-                    subtitle: Text(
-                      'Type: ${f['type'] == 'text' ? 'Text Input' : (f['type'] == 'boolean' ? 'Checkbox' : (f['type'] == 'dropdown' ? 'Dropdown' : f['type']))}'
-                      '${f['options'] != null ? " (${(f['options'] as List).join(', ')})" : ""}',
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: Text(
+                        'Type: ${f['type'] == 'text' ? 'Text Input' : (f['type'] == 'boolean' ? 'Checkbox' : (f['type'] == 'dropdown' ? 'Dropdown' : f['type']))}'
+                        '${f['options'] != null ? " (${(f['options'] as List).join(', ')})" : ""}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -3312,8 +3365,8 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Field'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  backgroundColor: const Color(0xFFE94E1B),
+                  foregroundColor: Colors.white,
                 ),
               ),
             ],
@@ -3336,15 +3389,27 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
               itemCount: _customVolunteerFields.length,
               itemBuilder: (context, idx) {
                 final f = _customVolunteerFields[idx];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  elevation: 0,
-                  color: theme.colorScheme.surfaceContainerHigh.withOpacity(0.5),
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     title: Text(f['name']),
-                    subtitle: Text(
-                      'Type: ${f['type'] == 'text' ? 'Text Input' : (f['type'] == 'boolean' ? 'Checkbox' : (f['type'] == 'dropdown' ? 'Dropdown' : f['type']))}'
-                      '${f['options'] != null ? " (${(f['options'] as List).join(', ')})" : ""}',
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: Text(
+                        'Type: ${f['type'] == 'text' ? 'Text Input' : (f['type'] == 'boolean' ? 'Checkbox' : (f['type'] == 'dropdown' ? 'Dropdown' : f['type']))}'
+                        '${f['options'] != null ? " (${(f['options'] as List).join(', ')})" : ""}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,

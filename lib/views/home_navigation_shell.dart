@@ -348,7 +348,17 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
     String path = '/';
     if (_currentTabCollection == 'Management') {
       if (_currentTabIndex == 0) {
-        path = '/management/competitions';
+        final uri = Uri.parse(widget.initialPath ?? '');
+        final segments = uri.pathSegments;
+        final managementCompId = (widget.initialPath?.startsWith('/management/competitions/') == true && segments.length >= 3)
+            ? segments[2]
+            : null;
+        final initialCompTab = (widget.initialPath?.startsWith('/management/competitions/') == true && segments.length >= 4)
+            ? segments[3]
+            : null;
+        path = managementCompId != null
+            ? (initialCompTab != null ? '/management/competitions/$managementCompId/$initialCompTab' : '/management/competitions/$managementCompId')
+            : '/management/competitions';
       } else if (_currentTabIndex == 1) {
         final uri = Uri.parse(widget.initialPath ?? '');
         final segments = uri.pathSegments;
@@ -866,10 +876,21 @@ class _HomeNavigationShellState extends State<HomeNavigationShell> {
       final initialTab = (widget.initialPath?.startsWith('/management/associations/') == true && segments.length >= 4)
           ? segments[3]
           : null;
+      final managementCompId = (widget.initialPath?.startsWith('/management/competitions/') == true && segments.length >= 3)
+          ? segments[2]
+          : null;
+      final initialCompTab = (widget.initialPath?.startsWith('/management/competitions/') == true && segments.length >= 4)
+          ? segments[3]
+          : null;
       return IndexedStack(
         index: _currentTabIndex.clamp(0, 1),
         children: [
-          const CompetitionManagementPage(isInline: true),
+          CompetitionManagementPage(
+            key: ValueKey('comp-manage-$managementCompId'),
+            isInline: true,
+            competitionId: managementCompId,
+            initialTab: initialCompTab,
+          ),
           AssociationManagementPage(
             key: ValueKey('assoc-manage-$managementAssocId'),
             isInline: true,

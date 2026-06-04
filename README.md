@@ -68,12 +68,19 @@ FinalRep is a responsive, cross-platform sport competition management and search
   - **Add Rulebook Dialog / Sport Configuration Dialog**: Repositioned the Rulebook URL input field to render directly *under* the format selection list. Mapped formats list items to use a borderless checklist layout matching `ShareResourceMultiDialog` with clean borderless discipline chips. Renamed configuration mode title to "Add Sport and Format".
   - **Share Resources Modals Specifics**: Target associations specific lists are formatted with container-based territory and scope chips matching the standard supporting info chip design. Gender choice labels inside selection dropdowns and subtitles are sentence capitalized (e.g. "Men", "Women", "Mixed"). The "Shared" status chip inside `ShareResourceMultiDialog` is updated to a container style matching the standard background and text style, keeping the share icon next to the "Shared" text. The "UNSHARE" button in `ShareResourceMultiDialog` is conditionally rendered only when at least one selected item is already shared.
 - **Material 3 Button Redesign**: The MANAGE ASSOCIATION and SHARE ASSOCIATION buttons utilize standard Google Material 3 designs: a fully rounded stadium shape (`StadiumBorder`), a standard height of `40dp`, and colors matching theme definitions (primary/onPrimary and secondary/onSecondary).
-
-
-
+- **Association Creation Step 4 Refinements**:
+  - **Apply Parent Sport & Rulebooks**: Inherits rulebooks and formats from a parent association. The button is placed immediately before (to the left of) the "Add Sport" button in desktop viewports.
+  - **Collapsible Hierarchical Layout**: Organizes formats and rulebooks into two separate lists with collapsible headers per sport, mirroring `/management/associations/:id/sportandformats` and `/management/associations/:id/rulebooks`.
+  - **Applied Shared Badges**: Displays `"Shared by [Association Name]"` inline on applied format rows.
+  - **Applied Shared Rulebook Grouping**: Displays unique URL rows with nested formats as supporting chips.
+  - **Applied Resource Removal**: Disables "Edit/Delete" actions on applied parent rulebooks/formats. Integrates an orange `link_off` button to unlink/remove them.
 
 ### 🏆 Competition Setup & Streetlifting Rules Engine
 - **Step-by-step Stepper**: Setup names, geocoded addresses, flexible date pickers, registration modes (FCFS vs approval), rich-text description edits, disclaimers, and volunteer shifting plans.
+- **Combined Payment Period Range selector (Step 10)**: Merges separate date/time picker fields into a single "Payment Period" range selection tile styled via `_buildDateRangeTile` (matching dates & deadlines step). The monospace preview reference text is styled in the brand's orange color (`Color(0xFFE94E1B)`).
+- **Orange Theme Buttons & Cardless Borders (Steps 8, 11, 12)**: Replaced card containers with bottom-bordered flat list rows, removed raw chips inside list tiles, and styled all "Add" action buttons in brand orange (`Color(0xFFE94E1B)`).
+- **Competition Management Dashboard (`/management/competitions/:id`)**: Renders a 4-tab details layout (Metadata, Athlete Groups, Volunteer Setup, Disclaimer & Custom Fields) matching the style of the Association Management page.
+- **Tab-Parameterized Sub-routes & URL Synchronizations**: Registers `/management/competitions/:id/:tab` deep-linking sub-routes, syncing active tabs and navigation stacks dynamically while avoiding layout overflow constraints.
 - **Backend Nominatim Proxy**: Replaced all direct Nominatim client lookups (CORS blocked on web) with a secure GET `/location/search` endpoint on the Dart Frog backend. Implements recursive comma-segmented address sanitization retries to dynamically ignore prefixed venue names (like `"WYSH.Fitness"`) if initial lookups yield empty results.
 - **Location Name Field Removal**: Eliminated the redundant "Location Name" field from both competition creation and management panels, using the verified geolocated address as the single source of truth.
 - **Ranking Type dropdown**: Cleaned up the competition creation page dropdown labels to list `"Open"`, `"By Gender"`, and `"By Athlete Group"` with mapped UI selection bindings.

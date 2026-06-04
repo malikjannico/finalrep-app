@@ -103,6 +103,27 @@ class DbHelper {
     return cleanRowMap(result.first.toColumnMap());
   }
 
+  static Future<Map<String, dynamic>> updateCompetition(Map<String, dynamic> json) async {
+    final conn = await DbConnection.connection;
+    final id = json['id'] as String;
+    final updates = json.keys.where((k) => k != 'id').map((k) => '$k = @$k').join(', ');
+
+    final params = <String, dynamic>{};
+    for (final entry in json.entries) {
+      var val = entry.value;
+      if (val is String && (entry.key.endsWith('_date') || entry.key.endsWith('_start') || entry.key.endsWith('_end') || entry.key == 'created_at' || entry.key == 'updated_at')) {
+        val = DateTime.parse(val);
+      } else if (val is Map || val is List) {
+        val = jsonEncode(val);
+      }
+      params[entry.key] = val;
+    }
+
+    final sql = 'UPDATE public.competitions SET $updates WHERE id = @id RETURNING *';
+    final result = await conn.execute(Sql.named(sql), parameters: params);
+    return cleanRowMap(result.first.toColumnMap());
+  }
+
   // === Profiles CRUD ===
 
   static Future<Map<String, dynamic>?> getProfileById(String id) async {

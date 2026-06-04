@@ -650,21 +650,21 @@ void main() {
         of: find.byKey(const ValueKey('sport_card_Streetlifting')),
         matching: find.byIcon(Icons.edit_outlined),
       );
-      expect(editButtonFinder, findsOneWidget);
+      expect(editButtonFinder, findsNWidgets(2));
 
       final deleteButtonFinder = find.descendant(
         of: find.byKey(const ValueKey('sport_card_Streetlifting')),
         matching: find.byIcon(Icons.delete_outline),
       );
-      expect(deleteButtonFinder, findsOneWidget);
+      expect(deleteButtonFinder, findsNWidgets(2));
 
       // Retrieve context and theme to verify icon colors match design tokens
       final BuildContext context = tester.element(find.byType(AssociationCreationPage));
       final theme = Theme.of(context);
-      final editIconWidget = tester.widget<Icon>(editButtonFinder);
+      final editIconWidget = tester.widget<Icon>(editButtonFinder.first);
       expect(editIconWidget.color, theme.colorScheme.primary);
 
-      final deleteIconWidget = tester.widget<Icon>(deleteButtonFinder);
+      final deleteIconWidget = tester.widget<Icon>(deleteButtonFinder.first);
       expect(deleteIconWidget.color, theme.colorScheme.error);
 
       // Verify disciplines of selected formats are grouped by format (headings exist inside card)
@@ -686,7 +686,7 @@ void main() {
       expect(find.text('Muscle Up'), findsAtLeast(1));
 
       // Verify editing is triggered via the edit button (opens modal with grouped disciplines)
-      await tester.tap(editButtonFinder);
+      await tester.tap(editButtonFinder.first);
       await tester.pumpAndSettle();
 
       expect(find.text('Edit Sport Configuration'), findsOneWidget);
@@ -766,7 +766,7 @@ void main() {
           name: 'Parent Fed',
           scope: 'global',
           supportedSports: ['Streetlifting'],
-          supportedFormats: ['Modern'],
+          supportedFormats: ['Modern', 'Classic'],
           rulebooks: {'Streetlifting': 'https://example.com/parent_rules.pdf'},
           socialChannels: {},
           ownerId: 'user-admin',
@@ -817,7 +817,7 @@ void main() {
       await tester.tap(nextButtonFinder);
       await tester.pumpAndSettle();
 
-      final applyParentBtn = find.text('Apply Sports & Rulebook of Parent Fed');
+      final applyParentBtn = find.text('Apply Parent Sport & Rulebooks');
       expect(applyParentBtn, findsOneWidget);
 
       expect(find.byKey(const ValueKey('sport_card_Streetlifting')), findsNothing);
@@ -827,6 +827,8 @@ void main() {
 
       expect(find.byKey(const ValueKey('sport_card_Streetlifting')), findsOneWidget);
       expect(find.descendant(of: find.byKey(const ValueKey('sport_card_Streetlifting')), matching: find.text('Modern')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const ValueKey('sport_card_Streetlifting')), matching: find.text('Classic')), findsOneWidget);
+      expect(find.text('Shared by Parent Fed'), findsNWidgets(3));
       expect(find.text('https://example.com/parent_rules.pdf'), findsOneWidget);
     });
 

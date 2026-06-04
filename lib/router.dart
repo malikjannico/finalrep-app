@@ -18,6 +18,7 @@ import 'views/sports_config_page.dart';
 import 'views/formats_config_page.dart';
 import 'views/disciplines_config_page.dart';
 import 'views/association_management_page.dart';
+import 'views/competition_management_page.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -222,6 +223,20 @@ final GoRouter goRouter = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/management/competitions/:id',
+      redirect: (context, state) {
+        final id = state.pathParameters['id']!;
+        return '/management/competitions/$id/metadata';
+      },
+    ),
+    GoRoute(
+      path: '/management/competitions/:id/:tab',
+      pageBuilder: (context, state) {
+        final tab = state.pathParameters['tab'] ?? 'metadata';
+        return _buildCompetitionManagementTab(context, state, tab);
+      },
+    ),
+    GoRoute(
       path: '/management/associations',
       pageBuilder: (context, state) => const NoTransitionPage(
         child: HomeNavigationShell(
@@ -356,6 +371,22 @@ Page<dynamic> _buildAssociationManagementTab(BuildContext context, GoRouterState
   } else {
     return MaterialPage(
       child: AssociationManagementPage(associationId: id, initialTab: tab),
+    );
+  }
+}
+
+Page<dynamic> _buildCompetitionManagementTab(BuildContext context, GoRouterState state, String tab) {
+  final id = state.pathParameters['id']!;
+  final isDesktop = MediaQuery.of(context).size.width >= 900;
+  if (isDesktop) {
+    return NoTransitionPage(
+      child: HomeNavigationShell(
+        initialPath: '/management/competitions/$id/$tab',
+      ),
+    );
+  } else {
+    return MaterialPage(
+      child: CompetitionManagementPage(competitionId: id, initialTab: tab),
     );
   }
 }

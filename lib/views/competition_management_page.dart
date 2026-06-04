@@ -1,19 +1,34 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/competition_provider.dart';
 import '../providers/auth_provider.dart';
+import '../models/competition.dart';
+import '../models/association.dart';
+import '../models/athlete_group.dart';
 import '../widgets/filter_widgets.dart';
 import 'competition_detail_page.dart';
 import 'competition_creation_page.dart';
 import 'competition_judging_page.dart';
 import 'competition_library_page.dart';
+import 'association_creation_page.dart';
+import 'association/widgets/hoverable_breadcrumb.dart';
+import 'association/widgets/collapsible_section.dart';
+import '../utils/uuid_helper.dart';
+import '../widgets/verified_location_badge.dart';
 
 class CompetitionManagementPage extends StatefulWidget {
+  final String? competitionId;
+  final String? initialTab;
   final bool isInline;
 
   const CompetitionManagementPage({
     super.key,
+    this.competitionId,
+    this.initialTab,
     this.isInline = false,
   });
 
@@ -21,19 +36,442 @@ class CompetitionManagementPage extends StatefulWidget {
   State<CompetitionManagementPage> createState() => _CompetitionManagementPageState();
 }
 
-class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
+class _CompetitionManagementPageState extends State<CompetitionManagementPage>
+    with SingleTickerProviderStateMixin {
   String _selectedCompetitionStatus = 'upcoming';
+
+  // Detail View State
+  Competition? _competition;
+  bool _isLoading = false;
+  late TabController _tabController;
+  int _currentIndex = 0;
+  int _activeIndexedStackIndex = 0;
+  final Set<int> _activatedIndices = {};
+  int? _lastActiveTabIndex;
+
+  // Metadata Form Controllers
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _startDateController;
+  late TextEditingController _endDateController;
+  late TextEditingController _regStartController;
+  late TextEditingController _regEndController;
+  late TextEditingController _locationController;
+  late TextEditingController _cityController;
+  late TextEditingController _zipController;
+  late TextEditingController _countryController;
+  late TextEditingController _websiteController;
+  late TextEditingController _ticketShopController;
+  late TextEditingController _feeAmountController;
+  late TextEditingController _bankDetailsController;
+  late TextEditingController _paymentDescController;
+  late TextEditingController _paymentStartController;
+  late TextEditingController _paymentEndController;
+  late TextEditingController _maxAthletesController;
+
+  // Volunteer Controllers
+  late TextEditingController _maxVolunteersController;
+
+  // Form State Values
+  final _metadataFormKey = GlobalKey<FormState>();
+  bool _isEditingMetadata = false;
+  bool _requiresFees = false;
+  bool _volunteerNeeds = false;
+  bool _enableWaitlist = false;
+  String _registrationMode = 'fcfs';
+  String _sportSubtype = 'Modern';
+  String _feeCurrency = 'EUR';
+  bool _bannerSafeZoneGuide = false;
+
+  // Location suggestions and verification
+  bool _isLocationVerified = true;
+  bool _isVerifyingLocation = false;
+  String _activeLocationField = '';
+  List<String> _locationSuggestions = [];
+
+  // Lists for local edits
+  List<Map<String, dynamic>> _compAthleteGroups = [];
+  Map<String, int> _maxVolunteersPerPosition = {};
+  List<Map<String, String>> _disclaimers = [];
+  List<Map<String, dynamic>> _customAthleteFields = [];
+  List<Map<String, dynamic>> _customVolunteerFields = [];
+
+  // Mock suggestions dictionary
+  final Map<String, List<String>> _mockSuggestions = {
+    'country': ['Germany', 'Austria', 'Switzerland', 'France', 'United States', 'United Kingdom', 'Canada', 'Spain', 'Italy'],
+    'city': ['Hamburg', 'Berlin', 'Munich', 'Frankfurt', 'Vienna', 'Paris', 'London', 'New York', 'Tokyo'],
+    'zip': ['22529', '10115', '80331', '60311', '1010', '75001', 'SW1A 1AA'],
+    'address': ['Marienplatz 1', 'Rütersbarg 50', 'Alexanderplatz 1', 'Brandenburger Tor', 'Stephansplatz 1', 'Champs-Élysées 10', 'Broadway 100'],
+  };
+
+  int _getTabIndexFromTabName(String? name) {
+    switch (name) {
+      case 'metadata':
+        return 0;
+      case 'athletegroups':
+        return 1;
+      case 'volunteer':
+        return 2;
+      case 'disclaimers':
+        return 3;
+      default:
+        return 0;
+    }
+  }
+
+  String _getTabNameFromIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'metadata';
+      case 1:
+        return 'athletegroups';
+      case 2:
+        return 'volunteer';
+      case 3:
+        return 'disclaimers';
+      default:
+        return 'metadata';
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    // Fetch competitions on startup
+    _titleController = TextEditingController();
+    _descriptionController = TextEditingController();
+    _startDateController = TextEditingController();
+    _endDateController = TextEditingController();
+    _regStartController = TextEditingController();
+    _regEndController = TextEditingController();
+    _locationController = TextEditingController();
+    _cityController = TextEditingController();
+    _zipController = TextEditingController();
+    _countryController = TextEditingController();
+    _websiteController = TextEditingController();
+    _ticketShopController = TextEditingController();
+    _feeAmountController = TextEditingController();
+    _bankDetailsController = TextEditingController();
+    _paymentDescController = TextEditingController();
+    _paymentStartController = TextEditingController();
+    _paymentEndController = TextEditingController();
+    _maxAthletesController = TextEditingController();
+    _maxVolunteersController = TextEditingController();
+
+    if (widget.competitionId != null) {
+      final initialIndex = _getTabIndexFromTabName(widget.initialTab);
+      _currentIndex = initialIndex;
+      _activeIndexedStackIndex = initialIndex;
+      _activatedIndices.add(initialIndex);
+      _lastActiveTabIndex = initialIndex;
+      _tabController = TabController(length: 4, vsync: this, initialIndex: initialIndex);
+      _tabController.addListener(_onTabChanged);
+      _isLoading = true;
+    } else {
+      _tabController = TabController(length: 1, vsync: this);
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        Provider.of<CompetitionProvider>(context, listen: false)
-            .fetchCompetitions(status: _selectedCompetitionStatus);
+        if (widget.competitionId != null) {
+          _loadCompetitionData();
+        } else {
+          Provider.of<CompetitionProvider>(context, listen: false)
+              .fetchCompetitions(status: _selectedCompetitionStatus);
+        }
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(CompetitionManagementPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.competitionId != null && widget.initialTab != oldWidget.initialTab && widget.initialTab != null) {
+      final newIndex = _getTabIndexFromTabName(widget.initialTab);
+      if (_tabController.index != newIndex) {
+        _tabController.index = newIndex;
+      }
+      if (_currentIndex != newIndex) {
+        setState(() {
+          _currentIndex = newIndex;
+          _activeIndexedStackIndex = newIndex;
+          _activatedIndices.add(newIndex);
+          _lastActiveTabIndex = newIndex;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.competitionId != null) {
+      _tabController.removeListener(_onTabChanged);
+    }
+    _tabController.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _startDateController.dispose();
+    _endDateController.dispose();
+    _regStartController.dispose();
+    _regEndController.dispose();
+    _locationController.dispose();
+    _cityController.dispose();
+    _zipController.dispose();
+    _countryController.dispose();
+    _websiteController.dispose();
+    _ticketShopController.dispose();
+    _feeAmountController.dispose();
+    _bankDetailsController.dispose();
+    _paymentDescController.dispose();
+    _paymentStartController.dispose();
+    _paymentEndController.dispose();
+    _maxAthletesController.dispose();
+    _maxVolunteersController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging && _tabController.index != _currentIndex) {
+      final tabName = _getTabNameFromIndex(_tabController.index);
+      final id = widget.competitionId;
+      setState(() {
+        _currentIndex = _tabController.index;
+        _activeIndexedStackIndex = _tabController.index;
+        _activatedIndices.add(_tabController.index);
+        _lastActiveTabIndex = _tabController.index;
+      });
+      if (id != null) {
+        final newPath = '/management/competitions/$id/$tabName';
+        try {
+          if (GoRouterState.of(context).matchedLocation != newPath) {
+            context.go(newPath);
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  Future<void> _loadCompetitionData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    try {
+      final comp = await compProvider.getCompetitionById(widget.competitionId!);
+      if (comp != null && mounted) {
+        setState(() {
+          _competition = comp;
+          _populateMetadataControllers(comp);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _populateMetadataControllers(Competition comp) {
+    _titleController.text = comp.title;
+    _descriptionController.text = comp.description ?? '';
+    _startDateController.text = DateFormat('yyyy-MM-dd HH:mm').format(comp.startDate);
+    _endDateController.text = DateFormat('yyyy-MM-dd HH:mm').format(comp.endDate);
+    _regStartController.text = DateFormat('yyyy-MM-dd HH:mm').format(comp.registrationStart);
+    _regEndController.text = DateFormat('yyyy-MM-dd HH:mm').format(comp.registrationEnd);
+    _websiteController.text = comp.websiteUrl ?? '';
+    _ticketShopController.text = comp.ticketShopUrl ?? '';
+    _feeAmountController.text = comp.feeAmount?.toString() ?? '';
+    _bankDetailsController.text = comp.bankDetails ?? '';
+    _paymentDescController.text = comp.paymentDescription ?? '';
+    _paymentStartController.text = comp.paymentStart != null
+        ? DateFormat('yyyy-MM-dd HH:mm').format(comp.paymentStart!)
+        : '';
+    _paymentEndController.text = comp.paymentEnd != null
+        ? DateFormat('yyyy-MM-dd HH:mm').format(comp.paymentEnd!)
+        : '';
+    _maxAthletesController.text = comp.maxAthletes?.toString() ?? '';
+    _maxVolunteersController.text = comp.maxVolunteers?.toString() ?? '';
+
+    _locationController.text = comp.location;
+    _cityController.text = comp.city ?? '';
+    _countryController.text = comp.country ?? '';
+    _zipController.text = '';
+
+    _requiresFees = comp.requiresFees;
+    _volunteerNeeds = comp.volunteerNeeds;
+    _enableWaitlist = comp.enableWaitlist;
+    _registrationMode = comp.registrationMode;
+    _sportSubtype = comp.sportSubtype;
+    _feeCurrency = comp.feeCurrency ?? 'EUR';
+    _bannerSafeZoneGuide = comp.bannerSafeZoneGuide;
+
+    _compAthleteGroups = comp.maxAthletesPerGroup != null
+        ? List<Map<String, dynamic>>.from(comp.maxAthletesPerGroup!)
+        : [];
+    _maxVolunteersPerPosition = comp.maxVolunteersPerPosition != null
+        ? Map<String, int>.from(comp.maxVolunteersPerPosition!)
+        : {};
+
+    _disclaimers = [];
+    if (comp.disclaimerText != null && comp.disclaimerText!.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(comp.disclaimerText!);
+        if (decoded is List) {
+          _disclaimers = decoded.map((e) => Map<String, String>.from(e as Map)).toList();
+        }
+      } catch (_) {}
+    }
+
+    _customAthleteFields = comp.customAthleteFields != null
+        ? List<Map<String, dynamic>>.from(comp.customAthleteFields!)
+        : [];
+    _customVolunteerFields = comp.customVolunteerFields != null
+        ? List<Map<String, dynamic>>.from(comp.customVolunteerFields!)
+        : [];
+  }
+
+  Future<void> _saveMetadata() async {
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    if (_competition == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final updatedComp = _competition!.copyWith(
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+      startDate: DateTime.tryParse(_startDateController.text) ?? _competition!.startDate,
+      endDate: DateTime.tryParse(_endDateController.text) ?? _competition!.endDate,
+      registrationStart: DateTime.tryParse(_regStartController.text) ?? _competition!.registrationStart,
+      registrationEnd: DateTime.tryParse(_regEndController.text) ?? _competition!.registrationEnd,
+      location: _locationController.text.trim(),
+      city: _cityController.text.trim().isEmpty ? null : _cityController.text.trim(),
+      country: _countryController.text.trim().isEmpty ? null : _countryController.text.trim(),
+      websiteUrl: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+      ticketShopUrl: _ticketShopController.text.trim().isEmpty ? null : _ticketShopController.text.trim(),
+      requiresFees: _requiresFees,
+      feeAmount: _requiresFees ? double.tryParse(_feeAmountController.text) : null,
+      feeCurrency: _requiresFees ? _feeCurrency : null,
+      bankDetails: _requiresFees && _bankDetailsController.text.trim().isNotEmpty ? _bankDetailsController.text.trim() : null,
+      paymentDescription: _requiresFees && _paymentDescController.text.trim().isNotEmpty ? _paymentDescController.text.trim() : null,
+      paymentStart: _requiresFees && _paymentStartController.text.isNotEmpty ? DateTime.tryParse(_paymentStartController.text) : null,
+      paymentEnd: _requiresFees && _paymentEndController.text.isNotEmpty ? DateTime.tryParse(_paymentEndController.text) : null,
+      registrationMode: _registrationMode,
+      enableWaitlist: _enableWaitlist,
+      maxAthletes: int.tryParse(_maxAthletesController.text),
+      sportSubtype: _sportSubtype,
+      bannerSafeZoneGuide: _bannerSafeZoneGuide,
+      updatedAt: DateTime.now(),
+    );
+
+    final result = await compProvider.updateCompetition(updatedComp);
+    if (result != null && mounted) {
+      setState(() {
+        _competition = result;
+        _populateMetadataControllers(result);
+        _isEditingMetadata = false;
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Competition metadata updated successfully!'), backgroundColor: Colors.green),
+      );
+    } else if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update competition metadata.'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _startSearchTimer(String query, String field) {
+    if (query.length < 2) {
+      setState(() {
+        _locationSuggestions = [];
+      });
+      return;
+    }
+    setState(() {
+      _activeLocationField = field;
+      _isVerifyingLocation = true;
+    });
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _isVerifyingLocation = false;
+        final list = _mockSuggestions[field] ?? [];
+        _locationSuggestions = list.where((item) => item.toLowerCase().contains(query.toLowerCase())).toList();
+      });
+    });
+  }
+
+  void _verifyLocation() {
+    setState(() {
+      _isVerifyingLocation = true;
+    });
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
+      setState(() {
+        _isVerifyingLocation = false;
+        _isLocationVerified = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location geocoding verified!'), backgroundColor: Colors.green),
+      );
+    });
+  }
+
+  Widget _buildSuggestionsList(TextEditingController controller) {
+    final theme = Theme.of(context);
+    return Listener(
+      onPointerDown: (_) => FocusScope.of(context).unfocus(),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 150),
+        margin: const EdgeInsets.only(top: 4),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        child: ListView.builder(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          itemCount: _locationSuggestions.length,
+          itemBuilder: (context, idx) {
+            final suggestion = _locationSuggestions[idx];
+            return Material(
+              color: Colors.transparent,
+              child: ListTile(
+                dense: true,
+                title: Text(
+                  suggestion,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                ),
+                onTap: () {
+                  setState(() {
+                    controller.text = suggestion;
+                    _locationSuggestions = [];
+                    _isLocationVerified = false;
+                  });
+                },
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -55,6 +493,21 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
         appBar: AppBar(title: const Text('Competition Management')),
         body: loginPrompt,
       );
+    }
+
+    if (widget.competitionId != null) {
+      if (_isLoading) {
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (_competition == null) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Manage Competition')),
+          body: const Center(child: Text('Error loading competition details.')),
+        );
+      }
+      return _buildCompetitionDetailView(context, _competition!, theme);
     }
 
     final manageableComps = provider.competitions.where((comp) {
@@ -166,14 +619,13 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Left Sidebar Filter
           Container(
             width: 300,
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               border: Border(
                 right: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  color: theme.colorScheme.outlineVariant.withOpacity(0.5),
                   width: 1,
                 ),
               ),
@@ -193,7 +645,7 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
                 ),
                 Divider(
                   height: 1,
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  color: theme.colorScheme.outlineVariant.withOpacity(0.3),
                 ),
                 Expanded(
                   child: SingleChildScrollView(
@@ -206,7 +658,6 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
               ],
             ),
           ),
-          // Results Panel
           Expanded(
             child: Column(
               children: [
@@ -218,7 +669,6 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
         ],
       );
     } else {
-      // Mobile / Tablet layout
       return Column(
         children: [
           _buildResultsHeader(context, provider, theme, false, manageableComps.length),
@@ -338,12 +788,10 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
                 ),
               ],
             ),
-
           ],
         ),
       );
     } else {
-      // Mobile header
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -384,7 +832,6 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
                         if (!widget.isInline) {
                           Scaffold.of(context).openEndDrawer();
                         } else {
-                          // If inline (inside home navigation shell), open the shell's endDrawer
                           final ScaffoldState? shellScaffold = Scaffold.maybeOf(context);
                           if (shellScaffold != null && shellScaffold.hasEndDrawer) {
                             shellScaffold.openEndDrawer();
@@ -428,7 +875,6 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
                         ),
                       ],
                     ),
-
                   ],
                 ),
               ],
@@ -488,7 +934,7 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
                 width: 1,
               ),
             ),
@@ -501,7 +947,7 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
               decoration: BoxDecoration(
                 border: Border(
                   right: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
                     width: 1,
                   ),
                 ),
@@ -521,7 +967,7 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
                   Text(
                     DateFormat('yyyy').format(comp.startDate),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
                       fontSize: 10,
                     ),
                   ),
@@ -585,6 +1031,13 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Manage',
+                  onPressed: () {
+                    context.go('/management/competitions/${comp.id}/metadata');
+                  },
+                ),
+                IconButton(
                   icon: const Icon(Icons.visibility_outlined),
                   tooltip: 'View Details',
                   onPressed: () {
@@ -621,7 +1074,6 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
     bool isTablet,
   ) {
     final int crossAxisCount = isDesktop ? 3 : (isTablet ? 2 : 1);
-    final double childAspectRatio = isDesktop ? 0.95 : 1.1;
 
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -629,7 +1081,7 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: childAspectRatio,
+        mainAxisExtent: 320,
       ),
       itemCount: competitions.length,
       itemBuilder: (context, index) {
@@ -641,7 +1093,7 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              color: theme.colorScheme.outlineVariant.withOpacity(0.3),
             ),
           ),
           child: Padding(
@@ -725,6 +1177,13 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     TextButton.icon(
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: const Text('MANAGE'),
+                      onPressed: () {
+                        context.go('/management/competitions/${comp.id}/metadata');
+                      },
+                    ),
+                    TextButton.icon(
                       icon: const Icon(Icons.visibility_outlined, size: 16),
                       label: const Text('VIEW'),
                       onPressed: () {
@@ -741,7 +1200,7 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
                         foregroundColor: Colors.white,
                       ),
                       icon: const Icon(Icons.settings_outlined, size: 16),
-                      label: const Text('MANAGE'),
+                      label: const Text('ATTEMPTS'),
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -755,6 +1214,1612 @@ class _CompetitionManagementPageState extends State<CompetitionManagementPage> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  // --- DETAIL VIEW LAYOUTS ---
+
+  Widget _buildCompetitionLogoAvatar(BuildContext context, Competition comp, double size) {
+    final theme = Theme.of(context);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primary,
+            theme.colorScheme.secondary,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        comp.title.isNotEmpty ? comp.title[0].toUpperCase() : 'C',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: size * 0.45,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompetitionDetailView(BuildContext context, Competition comp, ThemeData theme) {
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+    if (isDesktop) {
+      return _buildDesktopDetailView(context, comp, theme);
+    } else {
+      return _buildMobileDetailView(context, comp, theme);
+    }
+  }
+
+  Widget _buildDesktopDetailView(BuildContext context, Competition comp, ThemeData theme) {
+    final navItems = [
+      {'label': 'Metadata', 'icon': Icons.settings},
+      {'label': 'Athlete Groups', 'icon': Icons.fitness_center},
+      {'label': 'Volunteer Setup', 'icon': Icons.people},
+      {'label': 'Disclaimer & Custom Fields', 'icon': Icons.menu_book},
+    ];
+
+    return Scaffold(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    HoverableBreadcrumb(
+                      label: 'My Competitions',
+                      onTap: () => context.go('/management/competitions'),
+                    ),
+                    Text(
+                      '  /  ',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      comp.title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _buildCompetitionLogoAvatar(context, comp, 40),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        comp.title,
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Sidebar split view
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 250,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: ListView(
+                    children: [
+                      const SizedBox(height: 16),
+                      ...List.generate(navItems.length, (idx) {
+                        final item = navItems[idx];
+                        final isSelected = _currentIndex == idx;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                          child: InkWell(
+                            onTap: () {
+                              if (idx == _currentIndex) return;
+                              final tabName = _getTabNameFromIndex(idx);
+                              setState(() {
+                                _currentIndex = idx;
+                                _activeIndexedStackIndex = idx;
+                                _activatedIndices.add(idx);
+                                _lastActiveTabIndex = idx;
+                              });
+                              context.go('/management/competitions/${comp.id}/$tabName');
+                            },
+                            borderRadius: BorderRadius.circular(28),
+                            child: Container(
+                              height: 56,
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              decoration: BoxDecoration(
+                                color: isSelected ? theme.colorScheme.secondaryContainer : Colors.transparent,
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    item['icon'] as IconData,
+                                    color: isSelected ? theme.colorScheme.onSecondaryContainer : theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      item['label'] as String,
+                                      style: theme.textTheme.labelLarge?.copyWith(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        color: isSelected ? theme.colorScheme.onSecondaryContainer : theme.colorScheme.onSurface,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: IndexedStack(
+                    index: _activeIndexedStackIndex,
+                    children: [
+                      _activatedIndices.contains(0) ? _buildMetadataTab(theme) : const SizedBox.shrink(),
+                      _activatedIndices.contains(1) ? _buildAthleteGroupsTab(theme) : const SizedBox.shrink(),
+                      _activatedIndices.contains(2) ? _buildVolunteerTab(theme) : const SizedBox.shrink(),
+                      _activatedIndices.contains(3) ? _buildDisclaimersTab(theme) : const SizedBox.shrink(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileDetailView(BuildContext context, Competition comp, ThemeData theme) {
+    final navItems = [
+      {'label': 'Metadata', 'icon': Icons.settings},
+      {'label': 'Athlete Groups', 'icon': Icons.fitness_center},
+      {'label': 'Volunteer Setup', 'icon': Icons.people},
+      {'label': 'Disclaimer & Custom Fields', 'icon': Icons.menu_book},
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/management/competitions');
+            }
+          },
+        ),
+        title: Text(
+          comp.title,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: navItems.map((item) {
+                return Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(item['icon'] as IconData, size: 16),
+                      const SizedBox(width: 8),
+                      Text(item['label'] as String),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            Expanded(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  _activatedIndices.contains(0) ? _buildMetadataTab(theme) : const SizedBox.shrink(),
+                  _activatedIndices.contains(1) ? _buildAthleteGroupsTab(theme) : const SizedBox.shrink(),
+                  _activatedIndices.contains(2) ? _buildVolunteerTab(theme) : const SizedBox.shrink(),
+                  _activatedIndices.contains(3) ? _buildDisclaimersTab(theme) : const SizedBox.shrink(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- DETAIL TABS ---
+
+  Widget _buildMetadataTab(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Form(
+        key: _metadataFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Competition Metadata',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (!_isEditingMetadata)
+                  ElevatedButton.icon(
+                    onPressed: () => setState(() => _isEditingMetadata = true),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('EDIT'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94E1B),
+                      foregroundColor: Colors.white,
+                    ),
+                  )
+                else
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _isEditingMetadata = false;
+                            _populateMetadataControllers(_competition!);
+                          });
+                        },
+                        child: const Text('CANCEL'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _saveMetadata,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94E1B),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('SAVE'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // General Info Card
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'General Information',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _titleController,
+                      enabled: _isEditingMetadata,
+                      decoration: const InputDecoration(labelText: 'Title *', prefixIcon: Icon(Icons.title)),
+                      validator: (val) => val == null || val.trim().isEmpty ? 'Title is required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descriptionController,
+                      enabled: _isEditingMetadata,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.description_outlined)),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _sportSubtype,
+                            decoration: const InputDecoration(labelText: 'Sport Subtype', prefixIcon: Icon(Icons.sports)),
+                            items: const [
+                              DropdownMenuItem(value: 'Modern', child: Text('Modern')),
+                              DropdownMenuItem(value: 'Classic', child: Text('Classic')),
+                            ],
+                            onChanged: _isEditingMetadata
+                                ? (val) {
+                                    if (val != null) {
+                                      setState(() {
+                                        _sportSubtype = val;
+                                      });
+                                    }
+                                  }
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Date / Registration Card
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Schedule & Registration',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _startDateController,
+                      enabled: _isEditingMetadata,
+                      decoration: const InputDecoration(labelText: 'Start Date (YYYY-MM-DD HH:MM) *', prefixIcon: Icon(Icons.calendar_today)),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _endDateController,
+                      enabled: _isEditingMetadata,
+                      decoration: const InputDecoration(labelText: 'End Date (YYYY-MM-DD HH:MM) *', prefixIcon: Icon(Icons.calendar_today)),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _regStartController,
+                      enabled: _isEditingMetadata,
+                      decoration: const InputDecoration(labelText: 'Registration Start (YYYY-MM-DD HH:MM) *', prefixIcon: Icon(Icons.how_to_reg)),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _regEndController,
+                      enabled: _isEditingMetadata,
+                      decoration: const InputDecoration(labelText: 'Registration End (YYYY-MM-DD HH:MM) *', prefixIcon: Icon(Icons.how_to_reg)),
+                    ),
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: _registrationMode,
+                      decoration: const InputDecoration(labelText: 'Registration Mode', prefixIcon: Icon(Icons.app_registration)),
+                      items: const [
+                        DropdownMenuItem(value: 'fcfs', child: Text('First Come, First Served')),
+                        DropdownMenuItem(value: 'approval', child: Text('Approval Required')),
+                      ],
+                      onChanged: _isEditingMetadata
+                          ? (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _registrationMode = val;
+                                });
+                              }
+                            }
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text('Enable Waitlist'),
+                      value: _enableWaitlist,
+                      onChanged: _isEditingMetadata ? (val) => setState(() => _enableWaitlist = val) : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _maxAthletesController,
+                      enabled: _isEditingMetadata,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Max Athlete Limit', prefixIcon: Icon(Icons.person_pin_outlined)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Location Card
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Location',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                        ),
+                        const SizedBox(width: 8),
+                        VerifiedLocationBadge(
+                          isVerified: _isLocationVerified,
+                          isVerifying: _isVerifyingLocation,
+                          enabled: _isEditingMetadata,
+                          onVerify: _verifyLocation,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _locationController,
+                      enabled: _isEditingMetadata,
+                      decoration: const InputDecoration(labelText: 'Location / Address *', prefixIcon: Icon(Icons.location_on)),
+                      onChanged: (val) => _startSearchTimer(val, 'address'),
+                    ),
+                    if (_isEditingMetadata && _activeLocationField == 'address' && _locationSuggestions.isNotEmpty)
+                      _buildSuggestionsList(_locationController),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _cityController,
+                            enabled: _isEditingMetadata,
+                            decoration: const InputDecoration(labelText: 'City *', prefixIcon: Icon(Icons.location_city)),
+                            onChanged: (val) => _startSearchTimer(val, 'city'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _countryController,
+                            enabled: _isEditingMetadata,
+                            decoration: const InputDecoration(labelText: 'Country *', prefixIcon: Icon(Icons.public)),
+                            onChanged: (val) => _startSearchTimer(val, 'country'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_isEditingMetadata && _activeLocationField == 'city' && _locationSuggestions.isNotEmpty)
+                      _buildSuggestionsList(_cityController),
+                    if (_isEditingMetadata && _activeLocationField == 'country' && _locationSuggestions.isNotEmpty)
+                      _buildSuggestionsList(_countryController),
+
+                  ],
+                ),
+              ),
+            ),
+
+            // Fees Card
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fees & Payments',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text('Requires Entry Fees'),
+                      value: _requiresFees,
+                      onChanged: _isEditingMetadata ? (val) => setState(() => _requiresFees = val) : null,
+                    ),
+                    if (_requiresFees) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _feeAmountController,
+                              enabled: _isEditingMetadata,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(labelText: 'Fee Amount', prefixIcon: Icon(Icons.attach_money)),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _feeCurrency,
+                              decoration: const InputDecoration(labelText: 'Currency'),
+                              items: const [
+                                DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
+                                DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
+                                DropdownMenuItem(value: 'GBP', child: Text('GBP (£)')),
+                              ],
+                              onChanged: _isEditingMetadata
+                                  ? (val) {
+                                      if (val != null) {
+                                        setState(() {
+                                          _feeCurrency = val;
+                                        });
+                                      }
+                                    }
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _bankDetailsController,
+                        enabled: _isEditingMetadata,
+                        decoration: const InputDecoration(labelText: 'Bank Account Details', prefixIcon: Icon(Icons.account_balance)),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _paymentDescController,
+                        enabled: _isEditingMetadata,
+                        decoration: const InputDecoration(labelText: 'Payment Reference description', prefixIcon: Icon(Icons.payment)),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _paymentStartController,
+                              enabled: _isEditingMetadata,
+                              decoration: const InputDecoration(labelText: 'Payment Start (YYYY-MM-DD)', prefixIcon: Icon(Icons.date_range)),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _paymentEndController,
+                              enabled: _isEditingMetadata,
+                              decoration: const InputDecoration(labelText: 'Payment Deadline (YYYY-MM-DD)', prefixIcon: Icon(Icons.date_range)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            // Links Card
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'External Links',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _websiteController,
+                      enabled: _isEditingMetadata,
+                      decoration: const InputDecoration(labelText: 'Website URL', prefixIcon: Icon(Icons.language)),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _ticketShopController,
+                      enabled: _isEditingMetadata,
+                      decoration: const InputDecoration(labelText: 'Ticket Shop URL', prefixIcon: Icon(Icons.local_activity)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Safe Zone Toggles Card
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Page Display Guidelines',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text('Show Banner Safe-Zone Guide Overlay'),
+                      value: _bannerSafeZoneGuide,
+                      onChanged: _isEditingMetadata ? (val) => setState(() => _bannerSafeZoneGuide = val) : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAthleteGroupsTab(ThemeData theme) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    final Map<String, List<MapEntry<int, Map<String, dynamic>>>> grouped = {};
+    for (int i = 0; i < _compAthleteGroups.length; i++) {
+      final group = _compAthleteGroups[i];
+      final genderKey = (group['gender'] ?? 'men').toString().toLowerCase().trim();
+      grouped.putIfAbsent(genderKey, () => []).add(MapEntry(i, group));
+    }
+
+    const preferredOrder = ['men', 'women', 'open'];
+    final sortedGenders = grouped.keys.toList()
+      ..sort((a, b) {
+        final idxA = preferredOrder.indexOf(a);
+        final idxB = preferredOrder.indexOf(b);
+        if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+        if (idxA != -1) return -1;
+        if (idxB != -1) return 1;
+        return a.compareTo(b);
+      });
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Athlete Groups', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (_competition?.associationId != null)
+                    OutlinedButton.icon(
+                      onPressed: _applyParentGroups,
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      label: const Text('Apply Parent Groups'),
+                    ),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAthleteGroupDialog(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Group'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94E1B),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          if (_compAthleteGroups.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  'No athlete groups defined yet.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: sortedGenders.map((genderKey) {
+                final entries = grouped[genderKey]!;
+                final displayGender = genderKey == 'women'
+                    ? 'Women'
+                    : (genderKey.isEmpty ? '' : genderKey[0].toUpperCase() + genderKey.substring(1));
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: CollapsibleSection(
+                    initiallyExpanded: true,
+                    title: Row(
+                      children: [
+                        Text(
+                          displayGender,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            '${entries.length}',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSecondaryContainer,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    children: entries.map((entry) {
+                      final idx = entry.key;
+                      final group = entry.value;
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          title: Text(group['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 6.0),
+                            child: Text(
+                              'Limit: ${group['limit'] ?? "Unlimited"}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                                onPressed: () => _showAthleteGroupDialog(editIndex: idx),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                                onPressed: () async {
+                                  setState(() {
+                                    _compAthleteGroups.removeAt(idx);
+                                  });
+                                  final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                                  final updatedComp = _competition!.copyWith(maxAthletesPerGroup: _compAthleteGroups);
+                                  await compProvider.updateCompetition(updatedComp);
+                                  _loadCompetitionData();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _applyParentGroups() async {
+    if (_competition?.associationId == null) return;
+    setState(() {
+      _isLoading = true;
+    });
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    try {
+      final List<AthleteGroup> parentGroups = await compProvider.getAthleteGroups(_competition!.associationId!);
+      if (parentGroups.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No parent athlete groups found.')),
+          );
+        }
+      } else {
+        setState(() {
+          for (var pg in parentGroups) {
+            final exists = _compAthleteGroups.any((g) => g['name'] == pg.name && g['gender'] == pg.gender);
+            if (!exists) {
+              _compAthleteGroups.add({
+                'name': pg.name,
+                'gender': pg.gender,
+                'limit': null,
+              });
+            }
+          }
+        });
+        final updatedComp = _competition!.copyWith(maxAthletesPerGroup: _compAthleteGroups);
+        await compProvider.updateCompetition(updatedComp);
+        _loadCompetitionData();
+      }
+    } catch (_) {}
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Widget _buildVolunteerTab(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Volunteer Setup', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            title: const Text('Enable Volunteer Needs'),
+            value: _volunteerNeeds,
+            onChanged: (val) async {
+              setState(() {
+                _volunteerNeeds = val;
+              });
+              final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+              final updatedComp = _competition!.copyWith(volunteerNeeds: val);
+              await compProvider.updateCompetition(updatedComp);
+              _loadCompetitionData();
+            },
+          ),
+          if (_volunteerNeeds) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _maxVolunteersController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Total Volunteer Limit', prefixIcon: Icon(Icons.groups)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE94E1B),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                    final updatedComp = _competition!.copyWith(maxVolunteers: int.tryParse(_maxVolunteersController.text));
+                    await compProvider.updateCompetition(updatedComp);
+                    _loadCompetitionData();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Volunteer limit updated!')),
+                    );
+                  },
+                  child: const Text('Save Limit'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Volunteer Positions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                ElevatedButton.icon(
+                  onPressed: () => _showVolunteerPositionDialog(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Position'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE94E1B),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_maxVolunteersPerPosition.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'No volunteer positions defined.',
+                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _maxVolunteersPerPosition.length,
+                itemBuilder: (context, idx) {
+                  final key = _maxVolunteersPerPosition.keys.elementAt(idx);
+                  final limit = _maxVolunteersPerPosition[key]!;
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      title: Text(key, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 6.0),
+                        child: Text(
+                          'Volunteer Limit: ${limit == 0 ? "Unlimited" : limit}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                            onPressed: () => _showVolunteerPositionDialog(editKey: key),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                            onPressed: () async {
+                              setState(() {
+                                _maxVolunteersPerPosition.remove(key);
+                              });
+                              final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                              final updatedComp = _competition!.copyWith(
+                                maxVolunteersPerPosition: _maxVolunteersPerPosition,
+                                volunteerPositions: _maxVolunteersPerPosition.keys.toList(),
+                              );
+                              await compProvider.updateCompetition(updatedComp);
+                              _loadCompetitionData();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisclaimersTab(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Legal Disclaimers', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              ElevatedButton.icon(
+                onPressed: () => _showDisclaimerDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Disclaimer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE94E1B),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_disclaimers.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Text('No disclaimers added.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _disclaimers.length,
+              itemBuilder: (context, idx) {
+                final d = _disclaimers[idx];
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    title: Text(d['text'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
+                    subtitle: d['url'] != null && d['url']!.isNotEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 6.0),
+                            child: Text(
+                              'Link: ${d['url']}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                          onPressed: () => _showDisclaimerDialog(editIndex: idx),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                          onPressed: () async {
+                            setState(() {
+                              _disclaimers.removeAt(idx);
+                            });
+                            final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                            final updatedComp = _competition!.copyWith(
+                              disclaimerText: _disclaimers.isEmpty ? null : jsonEncode(_disclaimers),
+                            );
+                            await compProvider.updateCompetition(updatedComp);
+                            _loadCompetitionData();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          const Divider(height: 48),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Custom Athlete Fields', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              ElevatedButton.icon(
+                onPressed: () => _showCustomFieldDialog(true),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Field'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE94E1B),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_customAthleteFields.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Text('No custom athlete fields.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _customAthleteFields.length,
+              itemBuilder: (context, idx) {
+                final f = _customAthleteFields[idx];
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    title: Text(f['name']),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: Text(
+                        'Type: ${f['type'] == 'text' ? 'Text Input' : (f['type'] == 'boolean' ? 'Checkbox' : (f['type'] == 'dropdown' ? 'Dropdown' : f['type']))}'
+                        '${f['options'] != null ? " (${(f['options'] as List).join(', ')})" : ""}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                          onPressed: () => _showCustomFieldDialog(true, editIndex: idx),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                          onPressed: () async {
+                            setState(() {
+                              _customAthleteFields.removeAt(idx);
+                            });
+                            final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                            final updatedComp = _competition!.copyWith(customAthleteFields: _customAthleteFields);
+                            await compProvider.updateCompetition(updatedComp);
+                            _loadCompetitionData();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          const Divider(height: 48),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Custom Volunteer Fields', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              ElevatedButton.icon(
+                onPressed: () => _showCustomFieldDialog(false),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Field'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE94E1B),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_customVolunteerFields.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Text('No custom volunteer fields.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _customVolunteerFields.length,
+              itemBuilder: (context, idx) {
+                final f = _customVolunteerFields[idx];
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    title: Text(f['name']),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: Text(
+                        'Type: ${f['type'] == 'text' ? 'Text Input' : (f['type'] == 'boolean' ? 'Checkbox' : (f['type'] == 'dropdown' ? 'Dropdown' : f['type']))}'
+                        '${f['options'] != null ? " (${(f['options'] as List).join(', ')})" : ""}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                          onPressed: () => _showCustomFieldDialog(false, editIndex: idx),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                          onPressed: () async {
+                            setState(() {
+                              _customVolunteerFields.removeAt(idx);
+                            });
+                            final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                            final updatedComp = _competition!.copyWith(customVolunteerFields: _customVolunteerFields);
+                            await compProvider.updateCompetition(updatedComp);
+                            _loadCompetitionData();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // --- DIALOGS ---
+
+  void _showAthleteGroupDialog({int? editIndex}) {
+    final isEdit = editIndex != null;
+    final nameController = TextEditingController(text: isEdit ? _compAthleteGroups[editIndex!]['name'] : '');
+    final limitController = TextEditingController(text: isEdit ? (_compAthleteGroups[editIndex!]['limit']?.toString() ?? '') : '');
+    String gender = isEdit ? _compAthleteGroups[editIndex!]['gender'] ?? 'men' : 'men';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              title: Text(isEdit ? 'Edit Athlete Group' : 'Add Athlete Group'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Group Name', hintText: 'e.g. -74kg'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: gender,
+                      decoration: const InputDecoration(labelText: 'Gender'),
+                      items: const [
+                        DropdownMenuItem(value: 'men', child: Text('Men')),
+                        DropdownMenuItem(value: 'women', child: Text('Women')),
+                        DropdownMenuItem(value: 'open', child: Text('Open')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() {
+                            gender = val;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: limitController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Athlete Limit (optional)', hintText: 'e.g. 15'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE94E1B),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) return;
+                    final limit = int.tryParse(limitController.text.trim());
+
+                    final Map<String, dynamic> groupMap = {
+                      'name': name,
+                      'gender': gender,
+                      if (limit != null) 'limit': limit,
+                    };
+
+                    setState(() {
+                      if (isEdit) {
+                        _compAthleteGroups[editIndex!] = groupMap;
+                      } else {
+                        _compAthleteGroups.add(groupMap);
+                      }
+                    });
+
+                    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                    final updatedComp = _competition!.copyWith(maxAthletesPerGroup: _compAthleteGroups);
+                    await compProvider.updateCompetition(updatedComp);
+                    _loadCompetitionData();
+
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showVolunteerPositionDialog({String? editKey}) {
+    final isEdit = editKey != null;
+    final nameController = TextEditingController(text: isEdit ? editKey : '');
+    final limitController = TextEditingController(text: isEdit ? (_maxVolunteersPerPosition[editKey]?.toString() ?? '') : '');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isEdit ? 'Edit Volunteer Position' : 'Add Volunteer Position'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                enabled: !isEdit,
+                decoration: const InputDecoration(labelText: 'Position Name', hintText: 'e.g. Spotter/Loader'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: limitController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Volunteer Limit (optional)', hintText: 'e.g. 5'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE94E1B),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+                final limit = int.tryParse(limitController.text.trim()) ?? 0;
+
+                setState(() {
+                  _maxVolunteersPerPosition[name] = limit;
+                });
+
+                final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                final updatedComp = _competition!.copyWith(
+                  maxVolunteersPerPosition: _maxVolunteersPerPosition,
+                  volunteerPositions: _maxVolunteersPerPosition.keys.toList(),
+                );
+                await compProvider.updateCompetition(updatedComp);
+                _loadCompetitionData();
+
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDisclaimerDialog({int? editIndex}) {
+    final isEdit = editIndex != null;
+    final textController = TextEditingController(text: isEdit ? _disclaimers[editIndex!]['text'] : '');
+    final urlController = TextEditingController(text: isEdit ? (_disclaimers[editIndex!]['url'] ?? '') : '');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isEdit ? 'Edit Disclaimer' : 'Add Disclaimer'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: textController,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Disclaimer Text', hintText: 'e.g. I agree to the terms...'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: urlController,
+                decoration: const InputDecoration(labelText: 'Disclaimer Link URL (optional)', hintText: 'e.g. https://...'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE94E1B),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final text = textController.text.trim();
+                if (text.isEmpty) return;
+                final url = urlController.text.trim();
+
+                final Map<String, String> disc = {
+                  'text': text,
+                  if (url.isNotEmpty) 'url': url,
+                };
+
+                setState(() {
+                  if (isEdit) {
+                    _disclaimers[editIndex!] = disc;
+                  } else {
+                    _disclaimers.add(disc);
+                  }
+                });
+
+                final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                final updatedComp = _competition!.copyWith(
+                  disclaimerText: _disclaimers.isEmpty ? null : jsonEncode(_disclaimers),
+                );
+                await compProvider.updateCompetition(updatedComp);
+                _loadCompetitionData();
+
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showCustomFieldDialog(bool isAthlete, {int? editIndex}) {
+    final isEdit = editIndex != null;
+    final fieldsList = isAthlete ? _customAthleteFields : _customVolunteerFields;
+    final nameController = TextEditingController(text: isEdit ? fieldsList[editIndex!]['name'] : '');
+    String type = isEdit ? fieldsList[editIndex!]['type'] ?? 'text' : 'text';
+    final optionsController = TextEditingController(
+      text: isEdit && fieldsList[editIndex!]['options'] != null
+          ? (fieldsList[editIndex!]['options'] as List).join(', ')
+          : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              title: Text(isEdit ? 'Edit Custom Field' : 'Add Custom Field'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Field Label/Name', hintText: 'e.g. T-Shirt Size'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: type,
+                      decoration: const InputDecoration(labelText: 'Field Type'),
+                      items: const [
+                        DropdownMenuItem(value: 'text', child: Text('Text Input')),
+                        DropdownMenuItem(value: 'boolean', child: Text('Checkbox')),
+                        DropdownMenuItem(value: 'dropdown', child: Text('Dropdown / Select')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() {
+                            type = val;
+                          });
+                        }
+                      },
+                    ),
+                    if (type == 'dropdown') ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: optionsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Dropdown Options (comma-separated)',
+                          hintText: 'e.g. S, M, L, XL',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE94E1B),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) return;
+
+                    final Map<String, dynamic> fMap = {
+                      'name': name,
+                      'type': type,
+                      if (type == 'dropdown' && optionsController.text.trim().isNotEmpty)
+                        'options': optionsController.text.split(',').map((e) => e.trim()).toList(),
+                    };
+
+                    setState(() {
+                      if (isEdit) {
+                        fieldsList[editIndex!] = fMap;
+                      } else {
+                        fieldsList.add(fMap);
+                      }
+                    });
+
+                    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+                    final updatedComp = isAthlete
+                        ? _competition!.copyWith(customAthleteFields: _customAthleteFields)
+                        : _competition!.copyWith(customVolunteerFields: _customVolunteerFields);
+
+                    await compProvider.updateCompetition(updatedComp);
+                    _loadCompetitionData();
+
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

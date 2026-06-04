@@ -1019,6 +1019,29 @@ class CompetitionProvider extends ChangeNotifier {
     }
   }
 
+  Future<Competition?> updateCompetition(Competition competition) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final updated = await _repository.updateCompetition(competition);
+      if (updated != null) {
+        final idx = _allCompetitions.indexWhere((c) => c.id == updated.id);
+        if (idx != -1) {
+          _allCompetitions[idx] = updated;
+        }
+        _applyFilters();
+      }
+      return updated;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> triggerPaymentDeadlineNotification({
     required String userId,
     required Competition competition,

@@ -15,6 +15,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../repositories/profile_repository.dart';
 import '../widgets/verified_location_badge.dart';
 import 'association/dialogs/sport_config_dialog.dart';
+import 'association/widgets/flat_list_item.dart';
 
 class AssociationCreationPage extends StatefulWidget {
   const AssociationCreationPage({super.key});
@@ -58,6 +59,12 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   List<String> _activeFormats = [];
   final TextEditingController _activeRulebookController = TextEditingController();
   final Map<String, List<String>> _selectedSportsFormats = {};
+  final Map<String, dynamic> _appliedSharedResources = {
+    'rulebooks': {},
+    'competition_groups': [],
+    'athlete_groups': [],
+  };
+  final Set<String> _userCollapsedKeys = {};
 
   // Upload state variables
   bool _isUploadingLogo = false;
@@ -405,6 +412,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
     final sportConfig = provider.sportConfig;
 
     setState(() {
+      final Map<String, dynamic> applied = Map<String, dynamic>.from(_appliedSharedResources['rulebooks'] as Map? ?? {});
       for (final sport in parent.supportedSports) {
         List<String> formatsToApply = [];
         if (sportConfig != null) {
@@ -432,13 +440,14 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
           }
         }
         
-        _selectedSportsFormats[sport] = formatsToApply;
-        
-        final rulebookUrl = parent.rulebooks[sport] ?? '';
-        final oldController = _rulebookControllers[sport];
-        _rulebookControllers[sport] = TextEditingController(text: rulebookUrl);
-        oldController?.dispose();
+        for (final fmt in formatsToApply) {
+          applied['$sport:$fmt'] = {
+            'rulebook_url': parent.rulebooks[sport] ?? '',
+            'owning_association_id': parent.id,
+          };
+        }
       }
+      _appliedSharedResources['rulebooks'] = applied;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -447,6 +456,22 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
         backgroundColor: Colors.green,
       ),
     );
+  }
+
+  void _removeAppliedRulebook(String sport, String format) {
+    setState(() {
+      final key = '$sport:$format';
+      final applied = Map<String, dynamic>.from(_appliedSharedResources['rulebooks'] as Map? ?? {});
+      applied.remove(key);
+      _appliedSharedResources['rulebooks'] = applied;
+    });
+  }
+
+  void _deleteRulebook(String sport) {
+    setState(() {
+      final controller = _rulebookControllers.remove(sport);
+      controller?.dispose();
+    });
   }
 
   // Real-time location verification using OpenStreetMap Nominatim
@@ -610,6 +635,22 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       }
     });
 
+    // Merge applied sports & formats
+    final appliedRulebooks = _appliedSharedResources['rulebooks'] as Map? ?? {};
+    appliedRulebooks.forEach((key, val) {
+      final parts = key.toString().split(':');
+      if (parts.length == 2) {
+        final sport = parts[0];
+        final fmt = parts[1];
+        if (!supportedSports.contains(sport)) {
+          supportedSports.add(sport);
+        }
+        if (!supportedFormats.contains(fmt)) {
+          supportedFormats.add(fmt);
+        }
+      }
+    });
+
     // Collect social channels
     final Map<String, String> social = {};
     _socialControllers.forEach((key, controller) {
@@ -636,6 +677,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
       profilePictureUrl: _profilePictureUrlController.text.trim().isEmpty ? null : _profilePictureUrlController.text.trim(),
       bannerUrl: _bannerUrlController.text.trim().isEmpty ? null : _bannerUrlController.text.trim(),
       parentAssociationId: _selectedParentAssociationId,
+      appliedSharedResources: _appliedSharedResources,
     );
 
     try {
@@ -1414,15 +1456,45 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
     );
   }
 
-  Widget _buildStep4SportsRules(ThemeData theme) {
-    final provider = Provider.of<CompetitionProvider>(context);
+  List<FlatListItem> _buildSportsAndFormatsFlatList(ThemeData theme) {
+    final List<FlatListItem> items = [];
+    final provider = Provider.of<CompetitionProvider>(context, listen: false);
     final sportConfig = provider.sportConfig;
-    final isMobile = MediaQuery.of(context).size.width < 600;
 
-    // Collect all disciplines for configured sports and formats grouped
-    final Map<String, List<String>> disciplinesBySportAndFormat = {};
-    _selectedSportsFormats.forEach((sport, formatsList) {
-      for (var fmt in formatsList) {
+    final Map<String, Set<String>> sportFormats = {};
+    final Map<String, bool> formatIsAppliedShared = {};
+    final Map<String, String> formatOwnerName = {};
+
+    _selectedSportsFormats.forEach((sport, fmts) {
+      for (var fmt in fmts) {
+        sportFormats.putIfAbsent(sport, () => {}).add(fmt);
+        formatIsAppliedShared['$sport:$fmt'] = false;
+      }
+    });
+
+    final appliedRulebooks = _appliedSharedResources['rulebooks'] as Map? ?? {};
+    appliedRulebooks.forEach((key, val) {
+      final parts = (key as String).split(':');
+      if (parts.length == 2) {
+        final sport = parts[0];
+        final fmt = parts[1];
+        sportFormats.putIfAbsent(sport, () => {}).add(fmt);
+        formatIsAppliedShared[key] = true;
+        if (val is Map) {
+          final ownerId = val['owning_association_id'] as String?;
+          final ownerAssoc = provider.associations.cast<Association?>().firstWhere(
+            (a) => a?.id == ownerId,
+            orElse: () => null,
+          );
+          formatOwnerName[key] = ownerAssoc?.name ?? 'Other';
+        }
+      }
+    });
+
+    final Map<String, List<FlatSportFormatItem>> grouped = {};
+
+    sportFormats.forEach((sport, fmts) {
+      for (var fmt in fmts) {
         final linked = sportConfig?.links
                 .where((link) => link.sportName == sport && link.formatName == fmt)
                 .map((link) => link.disciplineName)
@@ -1435,11 +1507,112 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                     ? ['Pull-up', 'Dip']
                     : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
                 : <String>[]);
-        if (discs.isNotEmpty) {
-          disciplinesBySportAndFormat['$sport - $fmt'] = discs;
+
+        final isShared = formatIsAppliedShared['$sport:$fmt'] ?? false;
+        final ownerName = formatOwnerName['$sport:$fmt'];
+
+        grouped.putIfAbsent(sport, () => []).add(FlatSportFormatItem(
+          sport: sport,
+          format: fmt,
+          disciplines: discs,
+          isAppliedShared: isShared,
+          owningAssociationName: ownerName,
+        ));
+      }
+    });
+
+    final sortedSports = grouped.keys.toList()..sort();
+    for (var sport in sortedSports) {
+      final list = grouped[sport]!;
+      final sportKey = 'sf/sport/$sport';
+
+      items.add(FlatHeaderItem(
+        key: sportKey,
+        title: sport,
+        level: 0,
+        countText: '${list.length}',
+      ));
+
+      if (!_userCollapsedKeys.contains(sportKey)) {
+        items.addAll(list);
+      }
+    }
+
+    return items;
+  }
+
+  List<FlatListItem> _buildRulebooksFlatList(ThemeData theme) {
+    final List<FlatListItem> items = [];
+    final provider = Provider.of<CompetitionProvider>(context, listen: false);
+    final Map<String, List<FlatRulebookItem>> grouped = {};
+
+    _rulebookControllers.forEach((sport, controller) {
+      final url = controller.text.trim();
+      if (url.isNotEmpty) {
+        final appliedRulebooks = _appliedSharedResources['rulebooks'] as Map? ?? {};
+        final hasAppliedShared = appliedRulebooks.keys.any((k) => (k as String).startsWith('$sport:'));
+
+        grouped.putIfAbsent(sport, () => []).add(FlatRulebookItem(
+          sport: sport,
+          rulebookUrl: url,
+          isAppliedShared: false,
+          hasAppliedShared: hasAppliedShared,
+        ));
+      }
+    });
+
+    final appliedRulebooks = _appliedSharedResources['rulebooks'] as Map? ?? {};
+    appliedRulebooks.forEach((key, val) {
+      final parts = (key as String).split(':');
+      if (parts.length == 2) {
+        final sport = parts[0];
+        final fmt = parts[1];
+        final url = val is Map ? (val['rulebook_url'] as String? ?? '') : '';
+        final ownerId = val is Map ? (val['owning_association_id'] as String?) : null;
+
+        if (url.isNotEmpty) {
+          final ownerAssoc = provider.associations.cast<Association?>().firstWhere(
+            (a) => a?.id == ownerId,
+            orElse: () => null,
+          );
+          final ownerName = ownerAssoc?.name ?? 'Other';
+
+          grouped.putIfAbsent(sport, () => []).add(FlatRulebookItem(
+            sport: sport,
+            format: fmt,
+            rulebookUrl: url,
+            isAppliedShared: true,
+            owningAssociationName: ownerName,
+            owningAssociationId: ownerId,
+          ));
         }
       }
     });
+
+    final sortedSports = grouped.keys.toList()..sort();
+    for (var sport in sortedSports) {
+      final list = grouped[sport]!;
+      final sportKey = 'rb/sport/$sport';
+
+      items.add(FlatHeaderItem(
+        key: sportKey,
+        title: sport,
+        level: 0,
+        countText: '${list.length}',
+      ));
+
+      if (!_userCollapsedKeys.contains(sportKey)) {
+        items.addAll(list);
+      }
+    }
+
+    return items;
+  }
+
+  Widget _buildStep4SportsRules(ThemeData theme) {
+    final sfItems = _buildSportsAndFormatsFlatList(theme);
+    final rbItems = _buildRulebooksFlatList(theme);
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Form(
       key: _formKey4,
@@ -1452,6 +1625,19 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                   children: [
                     Text('Sports & Rulebooks', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
+                    if (_selectedParentAssociationId != null) ...[
+                      OutlinedButton.icon(
+                        key: const Key('apply_parent_sports_rules_btn'),
+                        onPressed: _applyParentAssociationSportsAndRulebooks,
+                        icon: const Icon(Icons.download_rounded, size: 18),
+                        label: const Text(
+                          'Apply Parent Sport & Rulebooks',
+                          style: TextStyle(fontSize: 13),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     ElevatedButton.icon(
                       onPressed: () => _showSportConfigurationModal(),
                       icon: const Icon(Icons.add),
@@ -1468,200 +1654,507 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Sports & Rulebooks', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                    ElevatedButton.icon(
-                      onPressed: () => _showSportConfigurationModal(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Sport'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE94E1B),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
+                            if (_selectedParentAssociationId != null)
+                              OutlinedButton.icon(
+                                key: const Key('apply_parent_sports_rules_btn'),
+                                onPressed: _applyParentAssociationSportsAndRulebooks,
+                                icon: const Icon(Icons.download_rounded, size: 18),
+                                label: const Text(
+                                  'Apply Parent Sport & Rulebooks',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ElevatedButton.icon(
+                              onPressed: () => _showSportConfigurationModal(),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Add Sport'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE94E1B),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
-          if (_selectedParentAssociationId != null) ...[
-            const SizedBox(height: 12),
-            Builder(
-              builder: (context) {
-                final parentName = _eligibleAssociations.isEmpty
-                    ? 'Parent'
-                    : _eligibleAssociations.firstWhere(
-                        (a) => a.id == _selectedParentAssociationId,
-                        orElse: () => _eligibleAssociations.first,
-                      ).name;
-                return SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _applyParentAssociationSportsAndRulebooks,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFE94E1B),
-                      side: const BorderSide(color: Color(0xFFE94E1B), width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.copy_all),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            'Apply Sports & Rulebook of $parentName',
-                            style: const TextStyle(fontSize: 13),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-            ),
-          ],
-          const SizedBox(height: 20),
-          if (_selectedSportsFormats.isNotEmpty) ...[
-            Text('Configured Sports & Formats:', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _selectedSportsFormats.length,
-              itemBuilder: (context, idx) {
-                final sport = _selectedSportsFormats.keys.elementAt(idx);
-                final fmts = _selectedSportsFormats[sport]!;
-                final rulebookUrl = _rulebookControllers[sport]?.text.trim() ?? '';
-                
-                return Card(
-                  key: ValueKey('sport_card_$sport'),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              sport,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
-                                  onPressed: () => _showSportConfigurationModal(editSportType: sport),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedSportsFormats.remove(sport);
-                                      final controller = _rulebookControllers.remove(sport);
-                                      controller?.dispose();
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Formats',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Column(
-                          children: fmts.map((fmt) {
-                            final key = '$sport - $fmt';
-                            final discs = disciplinesBySportAndFormat[key] ?? <String>[];
-                            return Card(
-                              elevation: 0,
-                              margin: const EdgeInsets.only(bottom: 8),
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              color: theme.colorScheme.surfaceContainerLow.withOpacity(0.5),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      fmt,
-                                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                                    ),
-                                    if (discs.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: discs.map((d) => Chip(
-                                          label: Text(d, style: const TextStyle(fontSize: 10)),
-                                          backgroundColor: theme.colorScheme.primaryContainer.withOpacity(0.25),
-                                          visualDensity: VisualDensity.compact,
-                                        )).toList(),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 8),
-                        const Divider(),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Rulebooks',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (rulebookUrl.isNotEmpty)
-                          Text(
-                            rulebookUrl,
-                            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
-                          )
-                        else
-                          Text(
-                            'No rulebook set.',
-                            style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ] else ...[
+          const SizedBox(height: 24),
+          
+          // 1. Sports and Formats
+          Text(
+            'Sports and Formats',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          if (_selectedSportsFormats.isEmpty && (_appliedSharedResources['rulebooks'] as Map? ?? {}).isEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32.0),
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: Text(
                   'No sports configured. Click "Add Sport" above to add one.',
                   style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
-            ),
-          ],
+            )
+          else
+            ...(() {
+              final provider = Provider.of<CompetitionProvider>(context, listen: false);
+              final sportConfig = provider.sportConfig;
+              final sportsWithConfig = {..._selectedSportsFormats.keys, ...(_appliedSharedResources['rulebooks'] as Map? ?? {}).keys.map((k) => (k as String).split(':')[0])}.toList()..sort();
+              
+              return sportsWithConfig.map((sport) {
+                final fmts = _selectedSportsFormats[sport] ?? [];
+                
+                final appliedRulebooks = _appliedSharedResources['rulebooks'] as Map? ?? {};
+                final appliedFmts = <String>[];
+                appliedRulebooks.forEach((key, val) {
+                  final parts = (key as String).split(':');
+                  if (parts.length == 2 && parts[0] == sport) {
+                    appliedFmts.add(parts[1]);
+                  }
+                });
+
+                final allFmts = {...fmts, ...appliedFmts}.toList()..sort();
+                if (allFmts.isEmpty) return const SizedBox.shrink();
+
+                final isExpanded = !_userCollapsedKeys.contains('sf/sport/$sport');
+                
+                final hasLocal = fmts.isNotEmpty;
+                final allApplied = appliedFmts.isNotEmpty && fmts.isEmpty;
+
+                return Column(
+                  key: ValueKey('sport_card_$sport'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            if (_userCollapsedKeys.contains('sf/sport/$sport')) {
+                              _userCollapsedKeys.remove('sf/sport/$sport');
+                            } else {
+                              _userCollapsedKeys.add('sf/sport/$sport');
+                            }
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  sport,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  '${allFmts.length}',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSecondaryContainer,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (isExpanded)
+                      ...allFmts.map((fmt) {
+                        final isShared = appliedFmts.contains(fmt);
+                        final linked = sportConfig?.links
+                                .where((link) => link.sportName == sport && link.formatName == fmt)
+                                .map((link) => link.disciplineName)
+                                .toList() ??
+                            [];
+                        final discs = linked.isNotEmpty
+                            ? linked
+                            : (sport == 'Streetlifting'
+                                ? (fmt == 'Classic'
+                                    ? ['Pull-up', 'Dip']
+                                    : ['Squat', 'Pull-up', 'Dip', 'Deadlift'])
+                                : <String>[]);
+
+                        String ownerName = 'Parent Fed';
+                        if (isShared) {
+                          final key = '$sport:$fmt';
+                          final val = appliedRulebooks[key];
+                          final owningId = val is Map ? val['owning_association_id'] as String? : null;
+                          final ownerAssoc = provider.associations.cast<Association?>().firstWhere(
+                            (a) => a?.id == owningId,
+                            orElse: () => null,
+                          );
+                          ownerName = ownerAssoc?.name ?? 'Parent Fed';
+                        }
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            title: Text(fmt, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: (discs.isNotEmpty || isShared)
+                                ? Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          ...discs.map((d) => Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              d,
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          )),
+                                          if (isShared)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                'Shared by $ownerName',
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  fontSize: 10,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            trailing: isShared
+                                ? IconButton(
+                                    icon: const Icon(Icons.link_off, color: Colors.orange),
+                                    tooltip: 'Remove Applied Sport',
+                                    onPressed: () {
+                                      _removeAppliedRulebook(sport, fmt);
+                                    },
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                                        tooltip: 'Edit Sport Formats',
+                                        onPressed: () => _showSportConfigurationModal(editSportType: sport),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                                        tooltip: 'Remove Sport Format',
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedSportsFormats[sport]?.remove(fmt);
+                                            if (_selectedSportsFormats[sport]?.isEmpty ?? true) {
+                                              _selectedSportsFormats.remove(sport);
+                                              final controller = _rulebookControllers.remove(sport);
+                                              controller?.dispose();
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        );
+                      }),
+                  ],
+                );
+              });
+            })(),
+
+          const SizedBox(height: 32),
+          
+          // 2. Rulebooks
+          Text(
+            'Rulebooks',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          if (_rulebookControllers.values.every((c) => c.text.trim().isEmpty) && (_appliedSharedResources['rulebooks'] as Map? ?? {}).isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: Text(
+                  'No rulebooks configured.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+            )
+          else
+            ...(() {
+              final provider = Provider.of<CompetitionProvider>(context, listen: false);
+              final sportsWithRules = {..._rulebookControllers.keys, ...(_appliedSharedResources['rulebooks'] as Map? ?? {}).keys.map((k) => (k as String).split(':')[0])}.toList()..sort();
+              
+              return sportsWithRules.map((sport) {
+                final controller = _rulebookControllers[sport];
+                final localUrl = controller?.text.trim() ?? '';
+                
+                final appliedRulebooks = _appliedSharedResources['rulebooks'] as Map? ?? {};
+                final appliedGroups = <String, _GroupedAppliedRulebook>{};
+                appliedRulebooks.forEach((key, val) {
+                  final parts = (key as String).split(':');
+                  if (parts.length == 2 && parts[0] == sport) {
+                    final fmt = parts[1];
+                    final url = val is Map ? (val['rulebook_url'] as String? ?? '') : '';
+                    if (url.isNotEmpty) {
+                      final owningId = val is Map ? val['owning_association_id'] as String? : null;
+                      final ownerAssoc = provider.associations.cast<Association?>().firstWhere(
+                        (a) => a?.id == owningId,
+                        orElse: () => null,
+                      );
+                      final ownerName = ownerAssoc?.name ?? 'Other';
+                      
+                      appliedGroups.putIfAbsent(
+                        url,
+                        () => _GroupedAppliedRulebook(
+                          url: url,
+                          owner: ownerName,
+                          formats: [],
+                        ),
+                      ).formats.add(fmt);
+                    }
+                  }
+                });
+
+                final hasRulebooks = localUrl.isNotEmpty || appliedGroups.isNotEmpty;
+                if (!hasRulebooks) return const SizedBox.shrink();
+
+                final isExpanded = !_userCollapsedKeys.contains('rb/sport/$sport');
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            if (_userCollapsedKeys.contains('rb/sport/$sport')) {
+                              _userCollapsedKeys.remove('rb/sport/$sport');
+                            } else {
+                              _userCollapsedKeys.add('rb/sport/$sport');
+                            }
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  sport,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (isExpanded) ...[
+                      if (localUrl.isNotEmpty)
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            title: Text(
+                              localUrl,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 6.0),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  ...(_selectedSportsFormats[sport] ?? []).map((fmt) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        fmt,
+                                        style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                                  tooltip: 'Update Rulebook',
+                                  onPressed: () => _showSportConfigurationModal(editSportType: sport),
+                                ),
+                                if (appliedGroups.isEmpty)
+                                  IconButton(
+                                    icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                                    tooltip: 'Remove Rulebook',
+                                    onPressed: () {
+                                      setState(() {
+                                        final controller = _rulebookControllers.remove(sport);
+                                        controller?.dispose();
+                                      });
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ...appliedGroups.values.map((group) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            title: Text(
+                              group.url,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 6.0),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  ...group.formats.map((fmt) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        fmt,
+                                        style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                      ),
+                                    );
+                                  }),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.secondaryContainer.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'Shared by ${group.owner}',
+                                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.link_off, color: Colors.orange),
+                              tooltip: 'Remove Applied Rulebook',
+                              onPressed: () {
+                                setState(() {
+                                  final applied = Map<String, dynamic>.from(_appliedSharedResources['rulebooks'] as Map? ?? {});
+                                  for (var fmt in group.formats) {
+                                    applied.remove('$sport:$fmt');
+                                  }
+                                  _appliedSharedResources['rulebooks'] = applied;
+                                });
+                              },
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                );
+              });
+            })(),
         ],
       ),
     );
@@ -1681,7 +2174,7 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
         selectedSportsFormats: _selectedSportsFormats,
         rulebookControllers: _rulebookControllers,
         activeSportType: _activeSportType,
-        appliedSharedResources: const <String, dynamic>{},
+        appliedSharedResources: _appliedSharedResources,
       ),
     ).then((result) {
       if (result != null && mounted) {
@@ -1858,3 +2351,14 @@ class _AssociationCreationPageState extends State<AssociationCreationPage> {
   }
 }
 
+class _GroupedAppliedRulebook {
+  final String url;
+  final String owner;
+  final List<String> formats;
+
+  _GroupedAppliedRulebook({
+    required this.url,
+    required this.owner,
+    required this.formats,
+  });
+}
