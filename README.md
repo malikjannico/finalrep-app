@@ -98,6 +98,13 @@ FinalRep is a responsive, cross-platform sport competition management and search
 - **Date-Time Range & System Format Picker Loops**: Couples DateRange and Time select pickers into a unified, stateful flow supporting backward navigation at each state and dynamically formatting output values based on system locale time preferences (12-hour AM/PM vs 24-hour).
 - **Right-Aligned Screen Scrollbar Layout**: Repositions the main SingleChildScrollView outside centered width containers on the competition wizard page, moving the scrollbar directly to the right border of the viewport.
 - **Collapsible Athlete Groups & Cleanups**: Step 7 (Athlete Groups) organizes division lists under collapsible sections grouped by gender with nested left indentation, and removes redundant gender subtitles from athlete group cards.
+- **Competition Details Page UI Refinements (`/competitions/:id`)**:
+  - Combined start and end date/times into a single "Date & Time" quick info card.
+  - Rendered "Sport & Format" in a bordered box matching the Location box design.
+  - Displays real, configuration-based discipline abbreviations without mock abbreviations or fallbacks.
+  - Positioned "Created By" and "Hosted By" profile info cards side-by-side inside an `IntrinsicHeight` row to maintain matching height and layout.
+  - Omitted the top App Bar, back buttons, and competition title in desktop viewports (syncing with `AssociationDetailPage`).
+  - Aligned status and group badges design and spacing to mirror the competition grid cards.
 
 ### 🔍 Navigation & Global Search
 - **Navigator 2.0 & Declarative Routing**: Replaced traditional imperative navigation (Navigator 1.0) with declarative routing using the `go_router` package. This supports native browser back/forward flows, deep linking, and synchronized URL state management.
@@ -134,6 +141,7 @@ FinalRep is a responsive, cross-platform sport competition management and search
 - **Athlete Auto-scroll**: Incorporates an Autocomplete query search for athletes that automatically scrolls the viewport to target the selected athlete's row/card.
 - **System Notifications**: Organizers and athletes receive live alerts for payment deadlines, registration approvals, schedule releases, and flight listings.
 - **Database Notification Security**: Avoids database foreign key `user_id` constraint violations on the `notifications` table by conditionally resolving the notification target to `assoc.ownerId` in production. Wraps all notification writes in `try-catch` blocks to protect the main user transaction against database notification write issues.
+- **Rankings Page Data Safety Guard**: Removed all client-side mock/fallback results data list objects, default hardcoded meet name values, and fallback meet names from the rankings explorer page, ensuring that only real results retrieved from the database are displayed.
 
 ---
 

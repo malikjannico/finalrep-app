@@ -21,6 +21,7 @@ class Competition {
   final List<String>? athleteGroupIds;
   final String? rulebookUrl;
   final String rankingType; // 'open', 'gender', 'athlete_group'
+  final String? creatorId;
 
   final DateTime registrationStart;
   final DateTime registrationEnd;
@@ -73,6 +74,7 @@ class Competition {
     this.competitionGroupId,
     this.athleteGroupIds,
     this.rulebookUrl,
+    this.creatorId,
     DateTime? registrationStart,
     DateTime? registrationEnd,
     this.requiresFees = false,
@@ -132,6 +134,7 @@ class Competition {
           ? List<String>.from(json['athlete_group_ids'] as List)
           : null,
       rulebookUrl: json['rulebook_url'] as String?,
+      creatorId: json['creator_id'] as String?,
       registrationStart: json['registration_start'] != null
           ? DateTime.parse(json['registration_start'] as String).toLocal()
           : null,
@@ -220,6 +223,7 @@ class Competition {
         'competition_group_id': competitionGroupId,
       if (athleteGroupIds != null) 'athlete_group_ids': athleteGroupIds,
       if (rulebookUrl != null) 'rulebook_url': rulebookUrl,
+      if (creatorId != null) 'creator_id': creatorId,
       'registration_start': registrationStart.toUtc().toIso8601String(),
       'registration_end': registrationEnd.toUtc().toIso8601String(),
       'requires_fees': requiresFees,
@@ -280,6 +284,7 @@ class Competition {
     String? competitionGroupId,
     List<String>? athleteGroupIds,
     String? rulebookUrl,
+    String? creatorId,
     DateTime? registrationStart,
     DateTime? registrationEnd,
     bool? requiresFees,
@@ -332,6 +337,7 @@ class Competition {
       competitionGroupId: competitionGroupId ?? this.competitionGroupId,
       athleteGroupIds: athleteGroupIds ?? this.athleteGroupIds,
       rulebookUrl: rulebookUrl ?? this.rulebookUrl,
+      creatorId: creatorId ?? this.creatorId,
       registrationStart: registrationStart ?? this.registrationStart,
       registrationEnd: registrationEnd ?? this.registrationEnd,
       requiresFees: requiresFees ?? this.requiresFees,

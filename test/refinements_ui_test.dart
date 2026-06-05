@@ -168,6 +168,24 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
+      compRepo.fakeMeetResults = [
+        {
+          'id': 'meet-res-1',
+          'profile': {'id': 'profile-1', 'username': 'johndoe', 'full_name': 'John Doe', 'sex': 'male', 'country': 'Germany'},
+          'competition_class': 'Male -83kg (Modern)',
+          'total_score': 420.0,
+          'rank': 1,
+          'best_lifts': {
+            'Muscle Up': 20.0,
+            'Pull Up': 50.0,
+            'Dip': 80.0,
+            'Squat': 180.0,
+          },
+          'subtype': 'Modern',
+          'competition': {'id': 'comp-1', 'name': 'Hamburg Meet', 'sport': 'Streetlifting'},
+        }
+      ];
+
       await tester.pumpWidget(
         MultiProvider(
           providers: [

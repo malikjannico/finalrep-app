@@ -126,13 +126,13 @@ void main() {
     );
 
     // Verify Title and Location are rendered
-    expect(find.text('Test Championship'), findsOneWidget);
+    expect(find.text('Test Championship'), findsNWidgets(2));
     expect(find.text('New York, USA'), findsOneWidget);
 
     // Verify Volunteer button exists
     expect(find.text('Apply as Volunteer'), findsOneWidget);
 
-    // Verify Share button exists in the SliverAppBar actions
+    // Verify Share button exists
     expect(find.byIcon(Icons.share), findsOneWidget);
   });
 

@@ -76,6 +76,7 @@ class DbConnection {
       {'table': 'athlete_groups', 'column': 'sharing_config', 'type': 'JSONB NOT NULL DEFAULT \'{"mode": "private", "targets": []}\'::jsonb'},
       {'table': 'competitions', 'column': 'latitude', 'type': 'DOUBLE PRECISION'},
       {'table': 'competitions', 'column': 'longitude', 'type': 'DOUBLE PRECISION'},
+      {'table': 'competitions', 'column': 'creator_id', 'type': 'UUID REFERENCES public.profiles(id)'},
     ];
 
     for (final col in migrationColumns) {
@@ -98,6 +99,15 @@ class DbConnection {
       } catch (e) {
         print('DB MIGRATION WARNING: Failed to add column public.${col['table']}.${col['column']}: $e');
       }
+    }
+
+    try {
+      await _connection!.execute(
+        Sql.named("UPDATE public.competitions SET creator_id = '86b58940-9115-4588-8215-1718931518b0' WHERE creator_id IS NULL"),
+      );
+      print('DB MIGRATION: Populated creator_id for existing competitions.');
+    } catch (e) {
+      print('DB MIGRATION WARNING: Failed to populate creator_id: $e');
     }
 
     try {

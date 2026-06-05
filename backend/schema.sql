@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS public.competitions (
     schedule_published BOOLEAN NOT NULL DEFAULT false,
     ranking_type TEXT NOT NULL DEFAULT 'open',
     latitude DOUBLE PRECISION,
-    longitude DOUBLE PRECISION
+    longitude DOUBLE PRECISION,
+    creator_id UUID REFERENCES public.profiles(id)
 );
 
 -- 3. Associations Table

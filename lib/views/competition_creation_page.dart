@@ -1492,6 +1492,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     });
 
     final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     // Location field
     final addressText = _locationController.text.trim();
@@ -1526,6 +1527,7 @@ class _CompetitionCreationPageState extends State<CompetitionCreationPage> {
     final comp = Competition(
       id: UuidHelper.generateUuidV4(),
       associationId: _selectedAssociationId,
+      creatorId: authProvider.currentUserProfile?.id,
       compGroupName: _selectedCompGroupName,
       rankingType: _rankingType,
       rulebookUrl: _rulebookUrlController.text.trim().isEmpty ? null : _rulebookUrlController.text.trim(),

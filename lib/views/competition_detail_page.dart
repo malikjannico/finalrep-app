@@ -7,10 +7,11 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../models/competition.dart';
 import '../models/association.dart';
+import '../models/profile.dart';
+import '../models/admin_config.dart';
 import '../utils/image_url_resolver.dart';
 import '../providers/auth_provider.dart';
 import '../providers/competition_provider.dart';
-import 'association/widgets/hoverable_breadcrumb.dart';
 
 class CompetitionDetailPage extends StatefulWidget {
   final Competition? competition;
@@ -36,22 +37,84 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
   int _registeredVolunteerCount = 0;
   bool _isLoadingCounts = false;
 
+  Profile? _creatorProfile;
+  bool _isLoadingCreator = false;
+
+  final ScrollController _scrollController = ScrollController();
+  bool _showAppBarTitle = false;
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     if (widget.competition != null) {
       _competition = widget.competition;
       _loadSpotsCounts();
+      _loadCreatorAndAssociation();
       if (_competition!.status == 'completed') {
         _loadMeetResults();
       }
     } else if (widget.competitionId != null) {
       _loadCompetition().then((_) {
         _loadSpotsCounts();
+        _loadCreatorAndAssociation();
         if (_competition != null && _competition!.status == 'completed') {
           _loadMeetResults();
         }
       });
+    }
+  }
+
+  void _onScroll() {
+    if (!mounted) return;
+    final showTitle = _scrollController.hasClients && _scrollController.offset >= 250;
+    if (showTitle != _showAppBarTitle) {
+      setState(() {
+        _showAppBarTitle = showTitle;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCreatorAndAssociation() async {
+    if (_competition == null) return;
+    final compProvider = Provider.of<CompetitionProvider>(context, listen: false);
+
+    if (_competition!.associationId != null) {
+      try {
+        if (compProvider.associations.isEmpty) {
+          await compProvider.fetchAssociations();
+        }
+      } catch (e) {
+        debugPrint('Error fetching associations: $e');
+      }
+    }
+
+    if (_competition!.creatorId != null) {
+      setState(() {
+        _isLoadingCreator = true;
+      });
+      try {
+        final profile = await compProvider.profileRepository.getProfile(_competition!.creatorId!);
+        if (mounted) {
+          setState(() {
+            _creatorProfile = profile;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error fetching creator profile: $e');
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoadingCreator = false;
+          });
+        }
+      }
     }
   }
 
@@ -74,8 +137,8 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _registeredAthleteCount = 15;
-          _registeredVolunteerCount = 5;
+          _registeredAthleteCount = 0;
+          _registeredVolunteerCount = 0;
         });
       }
       debugPrint('Error loading spot counts: $e');
@@ -87,7 +150,6 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
       }
     }
   }
-
 
   Future<void> _loadMeetResults() async {
     if (_competition == null) return;
@@ -147,75 +209,82 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
     }
   }
 
-  Widget _buildDesktopSubheader(BuildContext context, Competition competition, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Breadcrumbs
-          Row(
-            children: [
-              HoverableBreadcrumb(
-                label: 'My Competitions',
-                onTap: () => context.go('/competitions'),
-              ),
-              Text(
-                '  /  ',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Text(
-                competition.title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          // Share Action Button
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Share',
-            onPressed: () {
-              const String appDomain = String.fromEnvironment(
-                'APP_DOMAIN',
-                defaultValue: 'app.final-rep.com',
-              );
-              final String url = kIsWeb
-                  ? '${Uri.base.origin}/competitions/${competition.id}'
-                  : 'https://$appDomain/competitions/${competition.id}';
-              Clipboard.setData(ClipboardData(text: url));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Link copied to clipboard: $url'),
-                  backgroundColor: theme.colorScheme.primary,
-                ),
-              );
-            },
-          ),
-        ],
+  void _shareCompetition() {
+    if (_competition == null) return;
+    const String appDomain = String.fromEnvironment(
+      'APP_DOMAIN',
+      defaultValue: 'app.final-rep.com',
+    );
+    final String url = kIsWeb
+        ? '${Uri.base.origin}/competitions/${_competition!.id}'
+        : 'https://$appDomain/competitions/${_competition!.id}';
+    Clipboard.setData(ClipboardData(text: url));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Link copied to clipboard: $url'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
     );
+  }
+
+  String formatCompetitionLocation(String location, String? city, String? country) {
+    final parts = location.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    if (parts.length < 3) return location;
+
+    final name = parts[0];
+    final displayCountry = country ?? parts.last;
+    final displayCity = city ?? (parts.length >= 3 ? parts[parts.length - 3] : '');
+
+    String street = '';
+    String houseNumber = '';
+
+    for (int i = 1; i < parts.length; i++) {
+      final part = parts[i];
+      if (part == displayCity || part == displayCountry || RegExp(r'^\d{5}$').hasMatch(part)) {
+        continue;
+      }
+      if (RegExp(r'^\d+[a-zA-Z]?$').hasMatch(part)) {
+        houseNumber = part;
+      } else if (street.isEmpty && i < 4) {
+        street = part;
+      }
+    }
+
+    if (houseNumber.isEmpty) {
+      for (int i = 1; i < parts.length; i++) {
+        final part = parts[i];
+        if (part == displayCity || part == displayCountry || RegExp(r'^\d{5}$').hasMatch(part)) continue;
+        if (RegExp(r'\d').hasMatch(part)) {
+          houseNumber = part;
+          break;
+        }
+      }
+    }
+
+    if (street.isEmpty && parts.length > 1) {
+      for (int i = 1; i < parts.length; i++) {
+        final part = parts[i];
+        if (part != houseNumber && part != displayCity && part != displayCountry && !RegExp(r'^\d{5}$').hasMatch(part)) {
+          street = part;
+          break;
+        }
+      }
+    }
+
+    if (street.isNotEmpty && houseNumber.isNotEmpty) {
+      return '$name, $street $houseNumber, $displayCity, $displayCountry';
+    } else if (street.isNotEmpty) {
+      return '$name, $street, $displayCity, $displayCountry';
+    } else {
+      return '$name, $displayCity, $displayCountry';
+    }
   }
 
   Widget _buildStatusBadge(BuildContext context, ThemeData theme, String status) {
     String text = status.toUpperCase();
     Color bg = theme.colorScheme.surfaceContainerHighest;
     Color textCol = theme.colorScheme.onSurfaceVariant;
-    final normalized = status.toLowerCase();
-    final isDark = theme.brightness == Brightness.dark;
+    final normalized = status.toLowerCase().replaceAll('_', ' ');
 
     if (normalized == 'draft') {
       text = 'DRAFT';
@@ -223,203 +292,47 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
       textCol = theme.colorScheme.onSurfaceVariant;
     } else if (normalized == 'published') {
       text = 'PUBLISHED';
-      bg = theme.colorScheme.secondaryContainer;
+      bg = theme.colorScheme.secondaryContainer.withValues(alpha: 0.5);
       textCol = theme.colorScheme.onSecondaryContainer;
-    } else if (normalized == 'registration started' || normalized == 'registration open' || normalized == 'registration_started' || normalized == 'registration_open') {
+    } else if (normalized == 'registration started' || normalized == 'registration open') {
       text = 'REGISTRATION OPEN';
-      bg = isDark ? const Color(0xFF1B5E20).withValues(alpha: 0.3) : const Color(0xFFE8F5E9);
-      textCol = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
-    } else if (normalized == 'registration closed' || normalized == 'registration completed' || normalized == 'registration_closed') {
+      bg = theme.colorScheme.primaryContainer;
+      textCol = theme.colorScheme.onPrimaryContainer;
+    } else if (normalized == 'registration closed' || normalized == 'registration completed') {
       text = 'REGISTRATION CLOSED';
       bg = theme.colorScheme.surfaceContainerHighest;
       textCol = theme.colorScheme.onSurfaceVariant;
-    } else if (normalized == 'payment started' || normalized == 'payment open' || normalized == 'payment_started' || normalized == 'payment_open') {
+    } else if (normalized == 'payment started' || normalized == 'payment open') {
       text = 'PAYMENT OPEN';
-      bg = isDark ? const Color(0xFF1B5E20).withValues(alpha: 0.3) : const Color(0xFFE8F5E9);
-      textCol = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
-    } else if (normalized == 'payment completed' || normalized == 'payment_completed') {
+      bg = theme.colorScheme.secondaryContainer;
+      textCol = theme.colorScheme.onSecondaryContainer;
+    } else if (normalized == 'payment completed') {
       text = 'PAYMENT COMPLETED';
       bg = theme.colorScheme.surfaceContainerHighest;
       textCol = theme.colorScheme.onSurfaceVariant;
-    } else if (normalized == 'competition started' || normalized == 'ongoing' || normalized == 'competition_started') {
+    } else if (normalized == 'competition started' || normalized == 'ongoing') {
       text = 'ONGOING';
-      bg = isDark ? const Color(0xFF1B5E20).withValues(alpha: 0.3) : const Color(0xFFE8F5E9);
-      textCol = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
-    } else if (normalized == 'competition completed' || normalized == 'completed' || normalized == 'competition_completed') {
+      bg = theme.colorScheme.tertiaryContainer;
+      textCol = theme.colorScheme.onTertiaryContainer;
+    } else if (normalized == 'competition completed' || normalized == 'completed') {
       text = 'COMPLETED';
       bg = theme.colorScheme.surfaceContainerHighest;
       textCol = theme.colorScheme.onSurfaceVariant;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         text,
-        style: theme.textTheme.labelMedium?.copyWith(
+        style: theme.textTheme.labelSmall?.copyWith(
           color: textCol,
           fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAssociationLinkCard(BuildContext context, ThemeData theme, Association? association) {
-    if (association == null) {
-      return Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        color: theme.colorScheme.surfaceContainerLow,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: theme.colorScheme.primaryContainer,
-                child: Icon(Icons.person, color: theme.colorScheme.onPrimaryContainer),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Individual Creator',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Host / Organizer',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final logoUrl = ImageUrlResolver.resolve(context, association.profilePictureUrl);
-    final initials = association.name.isNotEmpty ? association.name[0].toUpperCase() : 'A';
-
-    Color scopeBg;
-    Color scopeText;
-    switch (association.scope.toLowerCase()) {
-      case 'global':
-        scopeBg = const Color(0xFFFFB300).withValues(alpha: 0.15);
-        scopeText = const Color(0xFFFF8F00);
-        break;
-      case 'continental':
-      case 'area':
-        scopeBg = Colors.blue.withValues(alpha: 0.15);
-        scopeText = Colors.blue.shade700;
-        break;
-      case 'national':
-        scopeBg = Colors.green.withValues(alpha: 0.15);
-        scopeText = Colors.green.shade700;
-        break;
-      case 'local':
-      default:
-        scopeBg = Colors.purple.withValues(alpha: 0.15);
-        scopeText = Colors.purple.shade700;
-        break;
-    }
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      color: theme.colorScheme.surfaceContainerLow,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          context.push('/associations/${association.id}');
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: theme.colorScheme.primaryContainer,
-                backgroundImage: logoUrl.isNotEmpty ? NetworkImage(logoUrl) : null,
-                child: logoUrl.isEmpty
-                    ? Text(
-                        initials,
-                        style: TextStyle(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            association.name,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: scopeBg,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            association.scope.toUpperCase(),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: scopeText,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 8,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Hosting Association',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
-            ],
-          ),
+          fontSize: 9,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -472,7 +385,6 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                // Athletes Progress
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -516,7 +428,6 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
                 ),
                 if (competition.volunteerNeeds) ...[
                   const Divider(height: 24),
-                  // Volunteers Progress
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -656,7 +567,6 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
   Widget _buildTimelinePeriods(ThemeData theme, Competition competition) {
     final now = DateTime.now();
 
-    // Registration Status
     String regStatus = 'UPCOMING';
     Color regColor = Colors.orange;
     Color regBg = Colors.orange.withValues(alpha: 0.1);
@@ -670,7 +580,6 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
       regBg = Colors.red.withValues(alpha: 0.1);
     }
 
-    // Payment Status
     String payStatus = 'UPCOMING';
     Color payColor = Colors.orange;
     Color payBg = Colors.orange.withValues(alpha: 0.1);
@@ -687,7 +596,6 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
       }
     }
 
-    // Competition Status
     String compStatus = 'UPCOMING';
     Color compColor = Colors.orange;
     Color compBg = Colors.orange.withValues(alpha: 0.1);
@@ -722,7 +630,6 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
             padding: const EdgeInsets.all(16.0),
             child: Stack(
               children: [
-                // Timeline Connector Line
                 Positioned(
                   left: 5,
                   top: 12,
@@ -775,50 +682,117 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
     );
   }
 
+  Widget _buildBanner(ThemeData theme, Competition competition) {
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final isMobile = !isDesktop;
+    final hideAppBar = isDesktop;
+    return Center(
+      child: Container(
+        constraints: BoxConstraints(maxWidth: isMobile ? double.infinity : 600),
+        margin: isMobile
+            ? EdgeInsets.zero
+            : EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: hideAppBar
+                    ? 16.0
+                    : (16.0 + MediaQuery.of(context).padding.top + kToolbarHeight),
+              ),
+        child: AspectRatio(
+          aspectRatio: 3.0,
+          child: ClipRRect(
+            borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(16),
+            child: _buildHeroImage(context, theme),
+          ),
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildDetailSections(
     BuildContext context,
     Competition competition,
     ThemeData theme,
     Association? association,
-    String dateStr,
-    String timeStr,
   ) {
+    final sport = competition.sportType;
+    final formatName = competition.sportSubtype;
+    final compProvider = Provider.of<CompetitionProvider>(context);
+    List<String> abbrList = [];
+    if (compProvider.sportConfig != null) {
+      final links = compProvider.sportConfig!.links.where((l) =>
+        l.sportName.toLowerCase() == sport.toLowerCase() &&
+        l.formatName.toLowerCase() == formatName.toLowerCase()
+      ).toList();
+      final disciplines = compProvider.sportConfig!.disciplines;
+      for (final link in links) {
+        final d = disciplines.firstWhere(
+          (dep) => dep.name.toLowerCase() == link.disciplineName.toLowerCase(),
+          orElse: () => DisciplineDefinition(name: link.disciplineName),
+        );
+        if (d.abbreviation != null && d.abbreviation!.isNotEmpty) {
+          abbrList.add(d.abbreviation!);
+        }
+      }
+    }
+    final fromDateStr = DateFormat('MMM dd, yyyy - HH:mm').format(competition.startDate);
+    final toDateStr = DateFormat('MMM dd, yyyy - HH:mm').format(competition.endDate);
+
     return [
-      // Title and Status
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      const SizedBox(height: 16),
+      Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Expanded(
-            child: Text(
-              competition.title,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-                color: theme.colorScheme.onSurface,
-                letterSpacing: -0.5,
+          _buildStatusBadge(context, theme, competition.status),
+          if (competition.isPartOfGroup)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                competition.compGroupName!.toUpperCase(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          _buildStatusBadge(context, theme, competition.status),
         ],
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 12),
 
-      // Quick info cards
+      Text(
+        competition.title,
+        style: theme.textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: theme.colorScheme.onSurface,
+        ),
+      ),
+      const SizedBox(height: 16),
+
+      Row(
+        children: [
+          _buildQuickInfoCard(
+            context,
+            icon: Icons.fitness_center_outlined,
+            title: 'Sport & Format',
+            subtitle: '$sport, $formatName${abbrList.isNotEmpty ? ' (${abbrList.join(', ')})' : ''}',
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+
       Row(
         children: [
           _buildQuickInfoCard(
             context,
             icon: Icons.calendar_month_outlined,
-            title: 'Date',
-            subtitle: dateStr,
-          ),
-          const SizedBox(width: 12),
-          _buildQuickInfoCard(
-            context,
-            icon: Icons.access_time,
-            title: 'Time',
-            subtitle: timeStr,
+            title: 'Date & Time',
+            subtitle: '$fromDateStr - $toDateStr',
           ),
         ],
       ),
@@ -829,17 +803,95 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
             context,
             icon: Icons.location_on_outlined,
             title: 'Location',
-            subtitle: competition.location,
+            subtitle: formatCompetitionLocation(competition.location, competition.city, competition.country),
           ),
         ],
       ),
       const SizedBox(height: 24),
 
-      // Hosting Association Card
-      _buildAssociationLinkCard(context, theme, association),
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildProfileInfoCard(
+              context,
+              title: 'Created By',
+              name: _creatorProfile?.fullName ?? 'Loading Creator...',
+              subtitle: _creatorProfile?.username != null ? '@${_creatorProfile!.username}' : null,
+              avatar: CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.colorScheme.primaryContainer,
+                backgroundImage: (_creatorProfile?.profilePictureUrl != null &&
+                        _creatorProfile!.profilePictureUrl!.isNotEmpty)
+                    ? NetworkImage(ImageUrlResolver.resolve(context, _creatorProfile!.profilePictureUrl))
+                    : null,
+                child: (_creatorProfile?.profilePictureUrl == null ||
+                        _creatorProfile!.profilePictureUrl!.isEmpty)
+                    ? Text(
+                        _creatorProfile?.fullName.isNotEmpty == true
+                            ? _creatorProfile!.fullName[0].toUpperCase()
+                            : 'U',
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 8,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+            if (association != null) ...[
+              const SizedBox(width: 12),
+              _buildProfileInfoCard(
+                context,
+                title: 'Hosted By',
+                name: association.name,
+                subtitle: '${association.scope.substring(0, 1).toUpperCase()}${association.scope.substring(1).toLowerCase()} Association',
+                avatar: CircleAvatar(
+                  radius: 12,
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  backgroundImage: (association.profilePictureUrl != null &&
+                          association.profilePictureUrl!.isNotEmpty)
+                      ? NetworkImage(ImageUrlResolver.resolve(context, association.profilePictureUrl))
+                      : null,
+                  child: (association.profilePictureUrl == null ||
+                          association.profilePictureUrl!.isEmpty)
+                      ? Text(
+                          association.name.isNotEmpty == true
+                              ? association.name[0].toUpperCase()
+                              : 'A',
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimaryContainer,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 8,
+                          ),
+                        )
+                      : null,
+                ),
+                onTap: () {
+                  context.push('/associations/${association.id}');
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
       const SizedBox(height: 24),
 
-      // Description
+      ElevatedButton.icon(
+        key: const Key('share_competition_button'),
+        onPressed: _shareCompetition,
+        icon: const Icon(Icons.share, size: 18),
+        label: const Text('SHARE COMPETITION'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+          minimumSize: const Size.fromHeight(40),
+          shape: const StadiumBorder(),
+        ),
+      ),
+      const SizedBox(height: 24),
+
       Text(
         'About this Competition',
         style: theme.textTheme.titleMedium?.copyWith(
@@ -857,68 +909,12 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
       ),
       const SizedBox(height: 24),
 
-      // Disciplines & Format Section
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest
-              .withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(
-              alpha: 0.5,
-            ),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.fitness_center,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Streetlifting ${competition.sportSubtype} Format',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Streetlifting is a young urban strength sport where athletes get 3 attempts to score a One-Rep-Max (1RM) on the lifts. The highest weights are summed for the final total.',
-              style: TextStyle(fontSize: 12, height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Included Lifts:',
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...competition.disciplines.map(
-              (d) => _buildDisciplineRow(theme, d),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 24),
-
-      // Timeline & Periods Section
       _buildTimelinePeriods(theme, competition),
       const SizedBox(height: 24),
 
-      // Spots Progress Section
       _buildSpotsProgress(theme, competition),
       const SizedBox(height: 32),
 
-      // CTA Buttons (Actions placeholder)
       (() {
         final authProvider = Provider.of<AuthProvider>(context);
         final compProvider = Provider.of<CompetitionProvider>(context);
@@ -1155,11 +1151,7 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
 
     final theme = Theme.of(context);
     final isDesktop = MediaQuery.of(context).size.width >= 900;
-
-    final dateFormat = DateFormat('EEEE, MMMM dd, yyyy');
-    final dateStr = dateFormat.format(competition.startDate);
-    final timeStr =
-        "${DateFormat('HH:mm').format(competition.startDate)} - ${DateFormat('HH:mm').format(competition.endDate)}";
+    final isMobile = !isDesktop;
 
     Association? association;
     if (competition.associationId != null) {
@@ -1171,256 +1163,78 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
       }
     }
 
-    final desktopBody = Column(
-      children: [
-        _buildDesktopSubheader(context, competition, theme),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Center(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 800),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Desktop Hero Banner
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: AspectRatio(
-                        aspectRatio: 2.5,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            _buildHeroImage(context, theme),
-                            // Bottom gradient overlay
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.4),
-                                    Colors.transparent,
-                                    Colors.black.withValues(alpha: 0.7),
-                                  ],
-                                  stops: const [0.0, 0.4, 1.0],
-                                ),
-                              ),
-                            ),
-                            // Floating badges on bottom of image
-                            Positioned(
-                              bottom: 16,
-                              left: 20,
-                              right: 20,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: competition.isModern
-                                          ? theme.colorScheme.primaryContainer
-                                          : theme.colorScheme.tertiaryContainer,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      competition.sportSubtype.toUpperCase(),
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: competition.isModern
-                                            ? theme.colorScheme.onPrimaryContainer
-                                            : theme.colorScheme.onTertiaryContainer,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.1,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.secondaryContainer
-                                          .withValues(alpha: 0.8),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      competition.isPartOfGroup
-                                          ? competition.compGroupName!.toUpperCase()
-                                          : 'INDIVIDUAL MEET',
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: theme.colorScheme.onSecondaryContainer,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ..._buildDetailSections(context, competition, theme, association, dateStr, timeStr),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    final mobileBody = CustomScrollView(
-      slivers: [
-        // Hero Top App Bar
-        SliverAppBar(
-          expandedHeight: 280.0,
-          pinned: true,
-          automaticallyImplyLeading: true,
-          leading: IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          actions: [
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.share, color: Colors.white, size: 20),
-              ),
-              onPressed: () {
-                const String appDomain = String.fromEnvironment(
-                  'APP_DOMAIN',
-                  defaultValue: 'app.final-rep.com',
-                );
-                final String url = kIsWeb
-                    ? '${Uri.base.origin}/competitions/${competition.id}'
-                    : 'https://$appDomain/competitions/${competition.id}';
-                Clipboard.setData(ClipboardData(text: url));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Link copied to clipboard: $url'),
-                    backgroundColor: theme.colorScheme.primary,
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 8),
-          ],
-          flexibleSpace: FlexibleSpaceBar(
-            background: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildHeroImage(context, theme),
-                // Bottom gradient overlay
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.4),
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
-                      ],
-                      stops: const [0.0, 0.4, 1.0],
-                    ),
-                  ),
-                ),
-                // Floating badges on bottom of image
-                Positioned(
-                  bottom: 16,
-                  left: 20,
-                  right: 20,
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: competition.isModern
-                              ? theme.colorScheme.primaryContainer
-                              : theme.colorScheme.tertiaryContainer,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          competition.sportSubtype.toUpperCase(),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: competition.isModern
-                                ? theme.colorScheme.onPrimaryContainer
-                                : theme.colorScheme.onTertiaryContainer,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.1,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.secondaryContainer
-                              .withValues(alpha: 0.8),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          competition.isPartOfGroup
-                              ? competition.compGroupName!.toUpperCase()
-                              : 'INDIVIDUAL MEET',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSecondaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // Main body content
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: _buildDetailSections(context, competition, theme, association, dateStr, timeStr),
-            ),
-          ),
-        ),
-      ],
-    );
+    final hideAppBar = isDesktop;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      extendBodyBehindAppBar: !isDesktop,
-      body: isDesktop ? desktopBody : mobileBody,
+      extendBodyBehindAppBar: !hideAppBar,
+      appBar: hideAppBar
+          ? null
+          : AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: _showAppBarTitle
+                  ? theme.colorScheme.surface
+                  : Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: _showAppBarTitle
+                        ? Colors.transparent
+                        : Colors.black.withValues(alpha: 0.4),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_back,
+                    color: _showAppBarTitle
+                        ? theme.colorScheme.onSurface
+                        : Colors.white,
+                    size: 20,
+                  ),
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: AnimatedOpacity(
+                opacity: _showAppBarTitle ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  competition.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildBanner(theme, competition),
+            Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 600),
+                padding: EdgeInsets.only(
+                  left: isMobile ? 16.0 : 24.0,
+                  right: isMobile ? 16.0 : 24.0,
+                  bottom: 24.0,
+                  top: isMobile ? 16.0 : 0.0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _buildDetailSections(
+                    context,
+                    competition,
+                    theme,
+                    association,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1677,6 +1491,86 @@ class _CompetitionDetailPageState extends State<CompetitionDetailPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileInfoCard(
+    BuildContext context, {
+    required String title,
+    required String name,
+    String? subtitle,
+    Widget? avatar,
+    VoidCallback? onTap,
+  }) {
+    final theme = Theme.of(context);
+    final cardContent = Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (avatar != null) ...[
+            avatar,
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.6,
+                    ),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  name,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                      fontSize: 9,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Expanded(
+      child: onTap != null
+          ? InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: cardContent,
+            )
+          : cardContent,
     );
   }
 

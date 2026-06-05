@@ -563,37 +563,6 @@ class _RankingsPageState extends State<RankingsPage> {
     }
   }
 
-  List<Map<String, dynamic>> get _fallbackData => [
-    {
-      'id': 'fallback-1',
-      'profile': {'full_name': 'John Doe', 'sex': 'male'},
-      'competition_class': 'Male -83kg (Modern)',
-      'total_score': 420.0,
-      'rank': 1,
-      'best_lifts': {
-        'Muscle Up': 20.0,
-        'Pull Up': 50.0,
-        'Dip': 80.0,
-        'Squat': 180.0,
-      },
-      'subtype': 'Modern',
-    },
-    {
-      'id': 'fallback-2',
-      'profile': {'full_name': 'Jane Smith', 'sex': 'female'},
-      'competition_class': 'Female -63kg (Classic)',
-      'total_score': 390.0,
-      'rank': 2,
-      'best_lifts': {
-        'Muscle Up': 15.0,
-        'Pull Up': 45.0,
-        'Dip': 75.0,
-        'Squat': 165.0,
-      },
-      'subtype': 'Classic',
-    },
-  ];
-
   String _formatWeight(double weight) {
     if (weight == weight.toInt()) {
       return '${weight.toInt()}';
@@ -604,7 +573,7 @@ class _RankingsPageState extends State<RankingsPage> {
   @override
   Widget build(BuildContext context) {
     // Determine source list (genuine or fallback)
-    final sourceList = _results.isNotEmpty ? _results : _fallbackData;
+    final sourceList = _results;
 
     // Map source list elements to a standard display structure
     final parsedList = sourceList.map((item) {

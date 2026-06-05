@@ -73,39 +73,6 @@ class _RankingsPageState extends State<RankingsPage> {
     }
   }
 
-  List<Map<String, dynamic>> get _fallbackData => [
-    {
-      'id': 'fallback-1',
-      'profile': {'id': 'fallback-profile-1', 'username': 'johndoe', 'full_name': 'John Doe', 'sex': 'male'},
-      'competition_class': 'Male -83kg (Modern)',
-      'total_score': 420.0,
-      'rank': 1,
-      'best_lifts': {
-        'Muscle Up': 20.0,
-        'Pull Up': 50.0,
-        'Dip': 80.0,
-        'Squat': 180.0,
-      },
-      'subtype': 'Modern',
-      'competition': {'id': 'fallback-comp-1', 'name': 'Alpha Championship', 'sport': 'Streetlifting'},
-    },
-    {
-      'id': 'fallback-2',
-      'profile': {'id': 'fallback-profile-2', 'username': 'janesmith', 'full_name': 'Jane Smith', 'sex': 'female'},
-      'competition_class': 'Female -63kg (Classic)',
-      'total_score': 390.0,
-      'rank': 2,
-      'best_lifts': {
-        'Muscle Up': 15.0,
-        'Pull Up': 45.0,
-        'Dip': 75.0,
-        'Squat': 165.0,
-      },
-      'subtype': 'Classic',
-      'competition': {'id': 'fallback-comp-2', 'name': 'Beta Championship', 'sport': 'Streetlifting'},
-    },
-  ];
-
   String _formatWeight(double weight) {
     if (weight == weight.toInt()) {
       return '${weight.toInt()}';
@@ -118,11 +85,7 @@ class _RankingsPageState extends State<RankingsPage> {
     final theme = Theme.of(context);
     final compProvider = Provider.of<CompetitionProvider>(context);
 
-    // Hide fallback data when 0 competitions exist in the system
-    final bool hasNoDataInSystem = compProvider.allCompetitions.isEmpty;
-    final sourceList = _results.isNotEmpty
-        ? _results
-        : (hasNoDataInSystem ? <Map<String, dynamic>>[] : _fallbackData);
+    final sourceList = _results;
 
     final parsedList = sourceList.map((item) {
       final profile = item['profile'] as Map? ?? {};
@@ -134,7 +97,7 @@ class _RankingsPageState extends State<RankingsPage> {
       final country = profile['country'] as String? ?? '';
 
       final competition = item['competition'] as Map? ?? {};
-      final competitionName = competition['name'] as String? ?? 'German Nationals';
+      final competitionName = competition['name'] as String? ?? '';
       final competitionId = competition['id'] as String? ?? item['competition_id'] as String? ?? '';
       final sport = item['sport'] as String? ?? competition['sport'] as String? ?? 'Streetlifting';
 
